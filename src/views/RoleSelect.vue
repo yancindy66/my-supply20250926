@@ -14,6 +14,7 @@ const roles = [
   { key: 'inventory', label: '存货人' },
   { key: 'warehouse', label: '仓储机构' },
   { key: 'financial', label: '金融机构' },
+  { key: 'guarantee', label: '担保机构' },
   { key: 'operation', label: '运营单位' }
 ];
 function selectRole(roleKey: string) {

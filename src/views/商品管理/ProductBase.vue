@@ -625,12 +625,31 @@ function regenerateShortCode(){
 
 watch(()=>[form.species, form.color_grade, form.fiber_length, form.micronaire], regenerateShortCode, { deep:false });
 
+function mapApiProductToRow(p:any){
+  if (!p) return p;
+  return {
+    id: p.id,
+    product_id: p.product_id,
+    product_name: p.name,
+    commodity_type: p.category,
+    custom_premium: p.premium_discount,
+    production_year: p.production_year,
+    packaging_image: (p.packaging_image && p.packaging_image !== 'NULL') ? p.packaging_image : '',
+    current_price: p.price,
+    package_spec: p.package_spec || ''
+  };
+}
+
 async function load() {
-  const sortProp = sortState.prop || 'id';
-  const sortOrder = sortState.order || 'desc';
-  const { data } = await axios.get('/api/products', { params: { page: page.value, pageSize: pageSize.value, keyword: keyword.value, status: statusFilter.value, brandCode: brandCodeFilter.value, sortProp, sortOrder } });
-  rows.value = data?.data?.list || []; total.value = data?.data?.total || 0;
-  // 若当前筛选导致空数据，则自动清空筛选并重载，避免“看不到记录”的困扰
+  const sort = (sortState.prop === 'id' ? 'id' : 'created_at');
+  const order = (sortState.order || 'desc');
+  const enabledParam = statusFilter.value === '' ? undefined : (statusFilter.value === '上架' ? 1 : 0);
+  const { data } = await axios.get('/api/products', { params: { page: page.value, page_size: pageSize.value, keyword: keyword.value, enabled: enabledParam, sort, order } });
+
+  const items = data?.items || data?.data?.items || [];
+  rows.value = items.map(mapApiProductToRow);
+  total.value = data?.total ?? data?.data?.total ?? 0;
+
   if ((rows.value.length === 0) && (statusFilter.value || brandCodeFilter.value || keyword.value || sortState.prop)){
     const hadFilter = !!(statusFilter.value || brandCodeFilter.value || keyword.value || sortState.prop);
     statusFilter.value = '';
@@ -638,9 +657,10 @@ async function load() {
     keyword.value = '';
     sortState.prop = undefined; sortState.order = undefined;
     if (hadFilter) {
-      const { data: d2 } = await axios.get('/api/products', { params: { page: 1, pageSize: pageSize.value, sortProp: 'id', sortOrder: 'desc' } });
-      rows.value = d2?.data?.list || [];
-      total.value = d2?.data?.total || 0;
+      const { data: d2 } = await axios.get('/api/products', { params: { page: 1, page_size: pageSize.value, sort: 'created_at', order: 'desc' } });
+      const items2 = d2?.items || d2?.data?.items || [];
+      rows.value = items2.map(mapApiProductToRow);
+      total.value = d2?.total ?? d2?.data?.total ?? 0;
     }
   }
 }

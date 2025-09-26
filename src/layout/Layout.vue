@@ -34,22 +34,36 @@ const hoverMenu = ref<number|null>(null);
 const openMenuIdx = ref<number|null>(null);
 const role = localStorage.getItem('role') || 'operation';
 const allMenus = [
-  { title: '会员管理', icon: '👥', link: '/member', open: true, children: [
+  // 汇总看板仅平台运营可见
+  { title: '汇总看板', icon: '📊', link: '/dashboard', roles: ['operation'], children: [ { title: '首页', link: '/dashboard' } ] },
+  { title: '会员管理', icon: '👥', link: '/member', roles: ['inventory','operation'], open: true, children: [
     { title: '存货人管理', link: '/member/inventory-owner' },
     { title: '金融机构', link: '/member/financial/list' },
     { title: '担保机构', link: '/member/guarantee/list' },
     { title: '质检机构', link: '/member/quality/list' },
     { title: '监管仓库', link: '/member/warehouse/list' }
   ] },
-  { title: '仪表盘', icon: '📊', link: '/dashboard', children: [
-    { title: '首页', link: '/dashboard' }
-  ] },
-  { title: '商品管理', icon: '📦', link: '/inventory', children: [
+  { title: '商品管理', icon: '📦', link: '/inventory', roles: ['inventory','operation'], children: [
     { title: '商品列表', link: '/inventory' }
   ] },
   { title: '仓库管理', icon: '🏬', link: '/operation/warehouse/list', roles: ['operation'], children: [
     { title: '仓库列表', link: '/operation/warehouse/list' }
   ] },
+  // 业务模块（按角色显示）
+  { title: '入库管理', link: '/biz/inbound', roles: ['inventory','warehouse','operation'] },
+  { title: '出库管理', link: '/biz/outbound', roles: ['inventory','warehouse','operation'] },
+  { title: '仓单管理', link: '/biz/warrant', roles: ['inventory','warehouse','operation'] },
+  { title: '移库管理', link: '/biz/relocate', roles: ['inventory','warehouse','operation'] },
+  { title: '融资管理', link: '/biz/finance', roles: ['inventory','financial','guarantee','operation'] },
+  { title: '仓单过户', link: '/biz/transfer', roles: ['inventory','warehouse','operation'] },
+  { title: '仓单续期', link: '/biz/renew', roles: ['inventory','warehouse','operation'] },
+  { title: '仓单交易', link: '/biz/trade', roles: ['inventory','operation'] },
+  { title: '费用管理', link: '/biz/fee', roles: ['inventory','operation'] },
+  { title: '公告管理', link: '/biz/notice', roles: ['inventory','warehouse','financial','guarantee','operation'] },
+  { title: '日志管理', link: '/biz/log', roles: ['warehouse','operation'] },
+  { title: '司法协助', link: '/biz/judicial', roles: ['operation'] },
+  { title: '资料管理', link: '/biz/document', roles: ['inventory','warehouse','financial','guarantee','operation'] },
+  { title: '短信管理', link: '/biz/sms', roles: ['inventory','warehouse','financial','guarantee','operation'] },
   { title: '用户权限管理', icon: '🔑', link: '/role-select', children: [
     { title: '权限配置', link: '/role-select' }
   ] }

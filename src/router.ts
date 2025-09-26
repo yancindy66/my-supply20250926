@@ -14,7 +14,7 @@ const routes = [
       // 旧入口：/member 作为分组路由（默认重定向在子路由内处理）
       { path: 'dashboard', component: () => import('./views/Dashboard.vue') },
       // 商品管理
-      { path: 'inventory', component: () => import('./views/商品管理/ProductBase.vue') },
+      { path: 'inventory', component: () => import('./views/商品管理/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
       // 机构/成员模块（恢复旧页面）
       {
         path: 'member/financial',
