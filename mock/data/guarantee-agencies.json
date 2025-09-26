@@ -1,0 +1,98 @@
+[
+  {
+    "id": 2,
+    "name": "华信再担保有限公司",
+    "creditCode": "91310000GZ000002",
+    "license_no": "GZ20240002",
+    "type": "再担保公司",
+    "registeredCapital": "80000",
+    "contact": "王璐",
+    "contactPhone": "021-66000012",
+    "regAddress": "上海浦东新区1号",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 3,
+    "name": "齐鲁融资担保有限公司",
+    "creditCode": "91370000GZ000003",
+    "license_no": "GZ20240003",
+    "type": "融资性担保公司",
+    "registeredCapital": "30000",
+    "contact": "赵磊",
+    "contactPhone": "0531-66000013",
+    "regAddress": "济南市历下区1号",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 4,
+    "name": "渝信融资担保有限公司",
+    "creditCode": "91500000GZ000004",
+    "license_no": "GZ20240004",
+    "type": "融资性担保公司",
+    "registeredCapital": "20000",
+    "contact": "周蓉",
+    "contactPhone": "023-66000014",
+    "regAddress": "重庆江北区1号",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 5,
+    "name": "苏宁再担保有限公司",
+    "creditCode": "91320000GZ000005",
+    "license_no": "GZ20240005",
+    "type": "再担保公司",
+    "registeredCapital": "90000",
+    "contact": "陈晨",
+    "contactPhone": "025-66000015",
+    "regAddress": "南京鼓楼区1号",
+    "coop_status": "已暂停"
+  },
+  {
+    "id": 6,
+    "name": "天府融资担保有限公司",
+    "creditCode": "91510000GZ000006",
+    "license_no": "GZ20240006",
+    "type": "融资性担保公司",
+    "registeredCapital": "35000",
+    "contact": "刘畅",
+    "contactPhone": "028-66000016",
+    "regAddress": "成都高新区1号",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 7,
+    "name": "鹏城融资担保有限公司",
+    "creditCode": "91440300GZ000007",
+    "license_no": "GZ20240007",
+    "type": "融资性担保公司",
+    "registeredCapital": "45000",
+    "contact": "林杰",
+    "contactPhone": "0755-66000017",
+    "regAddress": "深圳福田区1号",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 8,
+    "name": "西湖政策性担保机构",
+    "creditCode": "91330000GZ000008",
+    "license_no": "GZ20240008",
+    "type": "政策性担保机构",
+    "registeredCapital": "120000",
+    "contact": "黄静",
+    "contactPhone": "0571-66000018",
+    "regAddress": "杭州西湖区1号",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 9,
+    "name": "齐齐哈尔融资担保有限公司",
+    "creditCode": "91230000GZ000009",
+    "license_no": "GZ20240009",
+    "type": "融资性担保公司",
+    "registeredCapital": "15000",
+    "contact": "高远",
+    "contactPhone": "0452-66000019",
+    "regAddress": "齐齐哈尔建华区1号",
+    "coop_status": "已终止"
+  }
+]
