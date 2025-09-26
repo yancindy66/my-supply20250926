@@ -1,11 +1,13 @@
 // ...existing code...
 import { createRouter, createWebHistory } from 'vue-router';
 import Login from './views/Login.vue';
+import RoleSelect from './views/RoleSelect.vue';
 import Welcome from './views/Welcome.vue';
 
 const routes = [
   { path: '/', redirect: '/role-select' },
   { path: '/login', component: Login },
+  { path: '/role-select', component: RoleSelect },
   { path: '/welcome', component: Welcome },
   {
     path: '/',
@@ -99,7 +101,6 @@ const routes = [
         meta: { roles: ['operation'] }
       },
       // 其他现有页面（仅保留存在的文件）
-      { path: 'role-select', component: () => import('./views/RoleSelect.vue') }
     ]
   }
 ];
