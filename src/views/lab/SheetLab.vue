@@ -22,7 +22,7 @@
       <div class="halo"></div>
       <div v-show="!ready" class="loading">
         <div>正在加载编辑器…（若较慢，点击尝试备用源）</div>
-        <button class="btn outline small" @click="reloadEditor">切换备用源</button>
+        <button class="btn outline small" @click.stop="reloadEditor">切换备用源</button>
       </div>
       <div id="luckysheet" class="luckysheet" v-show="ready"></div>
       <div v-if="msg" class="toast">{{ msg }}</div>
@@ -66,29 +66,39 @@ function ensureLuckysheet(): Promise<void>{
   return new Promise((resolve,reject)=>{
     if(hasLuckysheet || (window as any).luckysheet){ hasLuckysheet=true; return resolve(); }
     const sources = [
+      // 本地静态资源优先（需要将 luckysheet /dist 放到 public/vendor/luckysheet 下）
+      '/vendor/luckysheet',
       'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13',
       'https://unpkg.com/luckysheet@2.1.13',
       'https://fastly.jsdelivr.net/npm/luckysheet@2.1.13'
     ];
     const base = sources[cdnIdx % sources.length];
+    // 清理旧标签
+    document.querySelectorAll('[data-ls="1"]').forEach(el=> el.parentElement?.removeChild(el));
     const css = document.createElement('link');
     css.rel = 'stylesheet';
     css.href = base + '/dist/plugins/css/pluginsCss.css';
+    css.setAttribute('data-ls','1');
     document.head.appendChild(css);
     const css2 = document.createElement('link');
     css2.rel = 'stylesheet';
     css2.href = base + '/dist/plugins/plugins.css';
+    css2.setAttribute('data-ls','1');
     document.head.appendChild(css2);
     const css3 = document.createElement('link');
     css3.rel = 'stylesheet';
     css3.href = base + '/dist/css/luckysheet.css';
+    css3.setAttribute('data-ls','1');
     document.head.appendChild(css3);
     const sc = document.createElement('script');
     sc.src = base + '/dist/plugins/js/plugin.js';
+    sc.setAttribute('data-ls','1');
     const sc2 = document.createElement('script');
     sc2.src = base + '/dist/luckysheet.umd.js';
+    sc2.setAttribute('data-ls','1');
     sc.onload = ()=> document.body.appendChild(sc2);
-    sc2.onload = ()=>{ hasLuckysheet=true; resolve(); };
+    const timer = setTimeout(()=>{ reject(new Error('load-timeout')); }, 8000);
+    sc2.onload = ()=>{ clearTimeout(timer); hasLuckysheet=true; resolve(); };
     sc.onerror = sc2.onerror = (e)=> reject(e);
     document.body.appendChild(sc);
   });
@@ -111,12 +121,20 @@ function initLuckysheet(){
 }
 
 onMounted(async()=>{
-  try{ await ensureLuckysheet(); initLuckysheet(); }catch(e){ msg.value='加载编辑器失败'; }
+  try{
+    await ensureLuckysheet();
+    initLuckysheet();
+  }catch(e){
+    // 自动尝试下一个源一次
+    try{ cdnIdx++; await ensureLuckysheet(); initLuckysheet(); }
+    catch{ msg.value='加载编辑器失败'; }
+  }
 });
 
 async function reloadEditor(){
   ready.value=false; hasLuckysheet=false; cdnIdx++;
-  try{ await ensureLuckysheet(); initLuckysheet(); msg.value='已切换备用源'; setTimeout(()=> msg.value='', 1500);}catch(e){ msg.value='切换失败'; setTimeout(()=> msg.value='', 1500); }
+  msg.value = '正在切换备用源…';
+  try{ await ensureLuckysheet(); initLuckysheet(); msg.value='已切换备用源'; setTimeout(()=> msg.value='', 1500);}catch(e){ msg.value='切换失败，请稍后再试'; setTimeout(()=> msg.value='', 2000); }
 }
 
 function aoaToLuckysheet(aoa: any[][]){
@@ -209,7 +227,8 @@ async function saveToBackend(){
   const normNum = (v:any)=>{ const s=String(v||'').replace(/[\,\s]/g,'').replace(/元|rmb|¥/ig,''); const n=Number(s); return Number.isFinite(n)? n: null; };
   const normYear = (v:any)=>{ const n=parseInt(String(v||'').slice(0,4)); return Number.isFinite(n)? n: null; };
   saving.value=true; msg.value='正在保存...';
-  let ok=0, skip=0, fail=0;
+  // 先尝试批量接口
+  const items:any[] = [];
   for(let i=1;i<aoa.length;i++){
     const row = aoa[i]||[]; if(row.every(c=> String(c||'').trim()==='')) continue;
     const obj:any = { batch_code: bc, enabled: 1 };
@@ -218,11 +237,25 @@ async function saveToBackend(){
     if(obj.premium_discount!=null) obj.premium_discount = normNum(obj.premium_discount);
     if(obj.production_year!=null) obj.production_year = normYear(obj.production_year);
     if(obj.enabled!=null) obj.enabled = normBool(obj.enabled)?1:0;
-    if(!obj.product_id || !obj.name || !obj.category){ skip++; continue; }
-    try{
-      const res = await fetch('/api/products', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj) });
-      if(res.status===201) ok++; else if(res.status===409) skip++; else fail++;
-    }catch{ fail++; }
+    if(obj.product_id && obj.name && obj.category){ items.push(obj); }
+  }
+  let ok=0, skip=0, fail=0;
+  try{
+    const batch = await fetch('/api/products/batch', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items }) });
+    if(batch.ok){
+      const r = await batch.json().catch(()=>({}));
+      ok = r.ok ?? r.inserted ?? items.length; skip = r.skipped ?? 0; fail = r.failed ?? 0;
+    }else{
+      throw new Error('batch-not-available');
+    }
+  }catch{
+    // 回退：逐行提交
+    for(const obj of items){
+      try{
+        const res = await fetch('/api/products', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj) });
+        if(res.status===201) ok++; else if(res.status===409) skip++; else fail++;
+      }catch{ fail++; }
+    }
   }
   msg.value = `保存完成：新增 ${ok}，跳过 ${skip}，失败 ${fail}`;
   saving.value=false; setTimeout(()=> msg.value='', 3000);
