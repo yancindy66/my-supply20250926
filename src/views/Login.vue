@@ -4,7 +4,6 @@
     <section class="panel">
       <div class="brand">探索未来之境</div>
       <div class="panel-card">
-        <h2>欢迎登录</h2>
         <form @submit.prevent="onLogin" class="form">
           <label>用户</label>
           <input id="username" v-model="username" type="text" required placeholder="请输入您的用户名" />
@@ -16,6 +15,7 @@
           </div>
         </form>
         <div v-if="message" class="msg">{{ message }}</div>
+        <div class="welcome-footer">欢迎登录 · 探索未来之境</div>
       </div>
     </section>
 
@@ -31,6 +31,10 @@
         <div class="face f4">Warehouse</div>
         <div class="face f5">Operate</div>
         <div class="face f6">API</div>
+      </div>
+      <div class="gpt-dock">
+        <input v-model="dockInput" placeholder="试着向 AI 询问：如何找回密码？" @keyup.enter="dockSend" />
+        <button @click="dockSend">发送</button>
       </div>
     </section>
   </div>
@@ -77,13 +81,17 @@ function onTouchStart(e: TouchEvent){ const t=e.touches[0]; dragging.value=true;
 function onTouchMove(e: TouchEvent){ if(!dragging.value) return; const t=e.touches[0]; rotY.value += (t.clientX-sx)*0.3; rotX.value -= (t.clientY-sy)*0.3; sx=t.clientX; sy=t.clientY; updateCube(); }
 function onTouchEnd(){ dragging.value=false; window.removeEventListener('touchmove', onTouchMove); window.removeEventListener('touchend', onTouchEnd); }
 onMounted(()=> updateCube());
+
+// 底部对话Dock
+const dockInput = ref('');
+function dockSend(){ const t=dockInput.value.trim(); if(!t) return; dockInput.value=''; alert('（占位）AI已收到：'+t); }
 </script>
 
 <style scoped>
 .login-layout{ min-height:100vh; display:flex; gap:24px; padding:28px; background:linear-gradient(135deg,#f0f6ff 0%,#ffffff 60%); }
 .panel{ flex: 0 0 360px; display:flex; flex-direction:column; gap:16px; }
 .brand{ height:64px; display:flex; align-items:center; justify-content:center; color:#0f172a; font-weight:700; letter-spacing:.2em; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 8px 24px rgba(2,6,23,.06); }
-.panel-card{ flex:1; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 24px rgba(2,6,23,.06); padding:20px; display:flex; flex-direction:column; }
+.panel-card{ flex:1; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 24px rgba(2,6,23,.06); padding:20px; display:flex; flex-direction:column; justify-content:space-between; }
 .panel-card h2{ margin:0 0 16px; }
 .form{ display:flex; flex-direction:column; gap:10px; }
 .form label{ color:#334155; font-size:14px; }
@@ -92,6 +100,7 @@ onMounted(()=> updateCube());
 .actions button{ flex:1; height:38px; border:none; border-radius:8px; background:#2563eb; color:#fff; cursor:pointer; }
 .actions .ghost{ background:#f1f5f9; color:#0f172a; }
 .msg{ margin-top:8px; color:#16a34a; }
+.welcome-footer{ margin-top:16px; text-align:center; color:#64748b; font-size:12px; }
 
 .scene{ position:relative; flex:1; border:1px solid #e2e8f0; border-radius:16px; background:#f8fbff; box-shadow:0 12px 28px rgba(2,6,23,.06); overflow:hidden; display:flex; align-items:center; justify-content:center; }
 .rings{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
@@ -110,4 +119,7 @@ onMounted(()=> updateCube());
 .cube .f4{ transform: rotateY(-90deg) translateZ(120px); }
 .cube .f5{ transform: rotateX(90deg) translateZ(120px); }
 .cube .f6{ transform: rotateX(-90deg) translateZ(120px); color:#64748b; }
+.gpt-dock{ position:absolute; left:24px; right:24px; bottom:20px; display:flex; gap:8px; }
+.gpt-dock input{ flex:1; height:40px; border-radius:10px; border:1px solid #dbeafe; padding:0 12px; background:#fff; box-shadow:0 6px 16px rgba(2,6,23,.06); }
+.gpt-dock button{ height:40px; padding:0 14px; border:none; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
 </style>
