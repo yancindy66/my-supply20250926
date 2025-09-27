@@ -46,6 +46,9 @@ const allMenus = [
   { title: '商品管理', icon: '📦', link: '/inventory', roles: ['inventory','operation'], children: [
     { title: '商品列表', link: '/inventory' }
   ] },
+  { title: '产品（API）', icon: '🧩', link: '/products', roles: ['inventory','operation'], children: [
+    { title: '产品列表（后端）', link: '/products' }
+  ] },
   { title: '仓库管理', icon: '🏬', link: '/operation/warehouse/list', roles: ['operation'], children: [
     { title: '仓库列表', link: '/operation/warehouse/list' }
   ] },
