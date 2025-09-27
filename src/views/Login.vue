@@ -184,7 +184,7 @@ function loginSend(){ const t=loginInput.value.trim(); if(!t) return; loginMessa
 
 /* 玻璃拟态立方体（透明 + 折射高光） */
 .glass-cube{ position:absolute; width:240px; height:240px; transform-style:preserve-3d; transform:rotateX(-18deg) rotateY(30deg); z-index:2; cursor:grab; }
-.gface{ position:absolute; width:240px; height:240px; display:flex; align-items:center; justify-content:center; color:#e6f0ff; font-weight:600; text-shadow:0 0 8px rgba(0,119,255,.5); border-radius:12px; background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.04)); border:1px solid rgba(255,255,255,.2); box-shadow: inset 0 0 28px rgba(255,255,255,.12), 0 24px 60px rgba(3,23,78,.45); backdrop-filter: blur(8px) saturate(140%); }
+.gface{ position:absolute; width:240px; height:240px; display:flex; align-items:center; justify-content:center; color:#e6f0ff; font-weight:600; text-shadow:0 0 8px rgba(0,119,255,.5); border-radius:12px; background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.18); box-shadow: inset 0 0 24px rgba(255,255,255,.12), 0 18px 50px rgba(3,23,78,.35); }
 .g1{ transform: translateZ(120px); }
 .g2{ transform: rotateY(180deg) translateZ(120px); }
 .g3{ transform: rotateY(90deg) translateZ(120px); }
@@ -193,7 +193,26 @@ function loginSend(){ const t=loginInput.value.trim(); if(!t) return; loginMessa
 .g6{ transform: rotateX(-90deg) translateZ(120px); }
 
 /* 右侧对话面板玻璃风格 */
-.chat-pane.full.glass{ position:absolute; left:32px; right:32px; top:24px; bottom:24px; width:auto; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; box-shadow: 0 10px 40px rgba(1,8,36,.45); backdrop-filter: blur(10px) saturate(140%); z-index:3; }
+.chat-pane.full.glass{
+  position:absolute; right:32px; top:24px; bottom:24px; width:440px;
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  box-shadow: 0 10px 40px rgba(1,8,36,.45);
+  backdrop-filter: blur(10px) saturate(140%);
+  z-index:3; display:flex; flex-direction:column;
+}
+.chat-header{ padding:12px 16px; font-weight:600; color:#e6eeff; border-bottom:1px solid rgba(255,255,255,.12); }
+.chat-body{ flex:1; overflow:auto; padding:12px 14px; }
+.msg{ display:flex; margin:8px 0; }
+.msg.assistant{ justify-content:flex-start; }
+.msg.user{ justify-content:flex-end; }
+.bubble{ max-width:72%; padding:10px 12px; border-radius:12px; line-height:1.5; font-size:14px; }
+.msg.assistant .bubble{ background:rgba(255,255,255,.12); color:#e6eeff; border:1px solid rgba(255,255,255,.16); }
+.msg.user .bubble{ background:#2563eb; color:#fff; }
+.chat-input{ display:flex; gap:8px; padding:10px 12px; border-top:1px solid rgba(255,255,255,.12); }
+.chat-input input{ flex:1; height:40px; border-radius:10px; border:1px solid rgba(255,255,255,.18); padding:0 12px; background:rgba(255,255,255,.08); color:#e6eeff; }
+.chat-input button{ height:40px; padding:0 14px; border:none; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
 .gpt-dock{ position:absolute; left:24px; right:24px; bottom:20px; display:flex; gap:8px; }
 .gpt-dock input{ flex:1; height:40px; border-radius:10px; border:1px solid #dbeafe; padding:0 12px; background:#fff; box-shadow:0 6px 16px rgba(2,6,23,.06); }
 .gpt-dock button{ height:40px; padding:0 14px; border:none; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
