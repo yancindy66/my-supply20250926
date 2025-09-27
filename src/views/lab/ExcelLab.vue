@@ -33,12 +33,15 @@
           <table class="grid">
             <thead>
               <tr>
-                <th v-for="(h, i) in rows[0]" :key="'h'+i">{{ typeof h==='string' ? h : ('C'+(i+1)) }}</th>
+                <th v-for="(h, i) in rows[0]" :key="'h'+i" :style="colStyle(i)">
+                  <div class="th-inner">{{ typeof h==='string' ? h : ('C'+(i+1)) }}</div>
+                  <span class="col-resizer" @mousedown.prevent="onResizeStart(i, $event)"></span>
+                </th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(r, ri) in rows.slice(1)" :key="'r'+ri">
-                <td v-for="(c, ci) in r" :key="'c'+ri+'-'+ci">
+                <td v-for="(c, ci) in r" :key="'c'+ri+'-'+ci" :style="colStyle(ci)">
                   <input class="cell" :value="display(c)" @change="e=>onEdit(ri+1, ci, (e.target as HTMLInputElement).value)" />
                 </td>
               </tr>
@@ -65,6 +68,7 @@ const activeSheetIndex = ref(0);
 const rows = ref<Array<Array<string | number | null>>>([]);
 const workbookRef = ref<XLSX.WorkBook|null>(null);
 const lastFileName = ref('export.xlsx');
+const colWidths = ref<number[]>([]);
 
 function triggerFile(){ fileRef.value?.click(); }
 
@@ -106,6 +110,9 @@ function loadActiveSheet(){
   const ws = wb.Sheets[sheetName];
   const aoa = XLSX.utils.sheet_to_json<Array<string|number|null>>(ws, { header: 1, raw: true });
   rows.value = aoa as any;
+  // 初始化列宽（基于列数）
+  const cols = rows.value[0]?.length || 0;
+  colWidths.value = Array.from({length: cols}, ()=> 140);
 }
 
 function switchSheet(idx: number){
@@ -142,6 +149,30 @@ function exportSheet(){
   lastFileName.value = outName;
   XLSX.writeFile(wb, outName);
 }
+
+// 列宽样式 & 拖拽
+function colStyle(i: number){
+  const w = colWidths.value[i] || 140;
+  return { width: w + 'px', minWidth: w + 'px' } as any;
+}
+
+let resizing = false; let resizeCol = -1; let startX = 0; let startW = 0;
+function onResizeStart(i: number, e: MouseEvent){
+  resizing = true; resizeCol = i; startX = e.clientX; startW = colWidths.value[i] || 140;
+  window.addEventListener('mousemove', onResizing);
+  window.addEventListener('mouseup', onResizeEnd);
+}
+function onResizing(e: MouseEvent){
+  if(!resizing) return;
+  const dx = e.clientX - startX;
+  const w = Math.max(64, startW + dx);
+  colWidths.value = colWidths.value.map((v, idx)=> idx===resizeCol ? w : v);
+}
+function onResizeEnd(){
+  resizing = false; resizeCol = -1;
+  window.removeEventListener('mousemove', onResizing);
+  window.removeEventListener('mouseup', onResizeEnd);
+}
 </script>
 
 <style scoped>
@@ -168,13 +199,14 @@ function exportSheet(){
 .file-info .desc{ font-size:12px; color:#c7d2fe; }
 
 /* 简易表格渲染 */
-:deep(table.grid){
-  margin-top:14px; width: min(92vw, 1100px); border-collapse: collapse; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:10px; overflow:hidden;
-}
+:deep(.grid-wrap){ max-height: calc(100vh - 200px); overflow:auto; backdrop-filter: blur(2px); }
+:deep(table.grid){ margin-top:14px; width: max(900px, 92vw); border-collapse: separate; border-spacing:0; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:10px; }
 :deep(table.grid th), :deep(table.grid td){
   border:1px solid rgba(255,255,255,.12); padding:8px 10px; font-size:13px; color:#e6eeff;
 }
-:deep(table.grid thead th){ background: rgba(37,99,235,.25); font-weight:700; }
+:deep(table.grid thead th){ position: sticky; top: 0; z-index: 5; background: linear-gradient(180deg, rgba(37,99,235,.35), rgba(37,99,235,.15)); font-weight:700; }
+:deep(.th-inner){ position: relative; padding-right: 12px; display:block; }
+:deep(.col-resizer){ position:absolute; right:0; top:0; width:6px; height:100%; cursor:col-resize; }
 :deep(.cell){ width:100%; background:transparent; border:none; outline:none; color:#e6eeff; font-size:13px; }
 :deep(.cell):focus{ background: rgba(255,255,255,.08); border-radius:6px; }
 </style>
