@@ -130,7 +130,7 @@ function loginSend(){ const t=loginInput.value.trim(); if(!t) return; loginMessa
 </script>
 
 <style scoped>
-.login-layout{ min-height:100vh; display:grid; grid-template-columns:360px 1fr 1fr; gap:24px; padding:28px; background:linear-gradient(135deg,#f0f6ff 0%,#ffffff 60%); }
+.login-layout{ min-height:100vh; display:grid; grid-template-columns:360px 1fr; gap:24px; padding:28px; background:linear-gradient(135deg,#f0f6ff 0%,#ffffff 60%); }
 .panel{ display:flex; flex-direction:column; gap:16px; }
 .brand{ height:64px; display:flex; align-items:center; justify-content:center; color:#0f172a; font-weight:700; letter-spacing:.2em; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 8px 24px rgba(2,6,23,.06); }
 .panel-card{ position:relative; flex:1; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 24px rgba(2,6,23,.06); padding:20px; display:flex; flex-direction:column; justify-content:flex-end; min-height:520px; }
@@ -193,8 +193,7 @@ function loginSend(){ const t=loginInput.value.trim(); if(!t) return; loginMessa
 .g6{ transform: rotateX(-90deg) translateZ(120px); }
 
 /* 右侧对话面板玻璃风格 */
-.chat-pane.full.glass{ position:absolute; left:32px; right:32px; bottom:24px; top:auto; width:auto; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; box-shadow: 0 10px 40px rgba(1,8,36,.45); backdrop-filter: blur(10px) saturate(140%);
-}
+.chat-pane.full.glass{ position:absolute; left:32px; right:32px; top:24px; bottom:24px; width:auto; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; box-shadow: 0 10px 40px rgba(1,8,36,.45); backdrop-filter: blur(10px) saturate(140%); z-index:3; }
 .gpt-dock{ position:absolute; left:24px; right:24px; bottom:20px; display:flex; gap:8px; }
 .gpt-dock input{ flex:1; height:40px; border-radius:10px; border:1px solid #dbeafe; padding:0 12px; background:#fff; box-shadow:0 6px 16px rgba(2,6,23,.06); }
 .gpt-dock button{ height:40px; padding:0 14px; border:none; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
