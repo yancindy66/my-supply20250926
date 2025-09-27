@@ -41,7 +41,7 @@
         <div class="gface g5" @click="selectTool('wps')">GPT + WPS</div>
         <div class="gface g6" @click="selectTool('flow')">GPT + Flow</div>
       </div>
-      <div class="chat-pane full glass">
+      <div class="chat-pane bottom glass">
         <div class="chat-header">AI 助手</div>
         <div class="chat-body" ref="loginChatBodyRef">
           <div v-for="(m,i) in loginMessages" :key="i" class="msg" :class="m.role">
@@ -51,7 +51,7 @@
         <div class="chat-input">
           <input v-model="loginInput" placeholder="向 AI 提问：例如 用 Excel 统计上月入库数据" @keyup.enter="loginSend" />
           <button @click="loginSend">发送</button>
-        </div>
+      </div>
       </div>
     </section>
   </div>
@@ -193,13 +193,13 @@ function loginSend(){ const t=loginInput.value.trim(); if(!t) return; loginMessa
 .g6{ transform: rotateX(-90deg) translateZ(120px); }
 
 /* 右侧对话面板玻璃风格 */
-.chat-pane.full.glass{
-  position:absolute; right:32px; top:24px; bottom:24px; width:440px;
-  background: rgba(255,255,255,.06);
+.chat-pane.bottom.glass{
+  position:absolute; left:32px; right:32px; bottom:24px; height:220px;
+  background: rgba(10,18,44,.35);
   border:1px solid rgba(255,255,255,.12);
   border-radius:14px;
   box-shadow: 0 10px 40px rgba(1,8,36,.45);
-  backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
   z-index:3; display:flex; flex-direction:column;
 }
 .chat-header{ padding:12px 16px; font-weight:600; color:#e6eeff; border-bottom:1px solid rgba(255,255,255,.12); }
