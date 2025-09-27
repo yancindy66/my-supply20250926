@@ -1,13 +1,11 @@
 // ...existing code...
 import { createRouter, createWebHistory } from 'vue-router';
 import Login from './views/Login.vue';
-import RoleSelect from './views/RoleSelect.vue';
 import Welcome from './views/Welcome.vue';
 
 const routes = [
-  { path: '/', redirect: '/role-select' },
+  { path: '/', redirect: '/login' },
   { path: '/login', component: Login },
-  { path: '/role-select', component: RoleSelect },
   { path: '/welcome', component: Welcome },
   {
     path: '/',
