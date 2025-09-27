@@ -8,13 +8,18 @@
           <label for="batchCode">表编号</label>
           <input id="batchCode" v-model="batchCode" placeholder="例如：IMP-20251001-A" />
         </div>
-        <button class="ghost" title="导入 XLSX" @click="triggerFile">导入 XLSX</button>
-        <button class="ghost" title="新增一行" @click="addRow">新增一行</button>
-        <button class="ghost" title="导出当前表" @click="exportSheet">导出 XLSX</button>
-        <button class="ghost" title="AI 智能映射" @click="aiMap">智能映射</button>
-        <button class="ghost" title="AI 清洗数据" @click="aiClean">清洗数据</button>
-        <button class="ghost" title="同步到后端" @click="syncToBackend" :disabled="syncWorking">同步到后端</button>
-        <button class="primary" title="查看使用流程" @click="showFlow=true">使用流程</button>
+        <div class="btn-group">
+          <button class="btn btn-ghost" title="导入 XLSX" @click="triggerFile">📥 导入</button>
+          <button class="btn btn-ghost" title="新增一行" @click="addRow">➕ 新增</button>
+          <button class="btn btn-ghost" title="导出当前表" @click="exportSheet">📤 导出</button>
+        </div>
+        <div class="btn-sep"></div>
+        <div class="btn-group">
+          <button class="btn btn-ghost" title="AI 智能映射" @click="aiMap">🧠 映射</button>
+          <button class="btn btn-ghost" title="AI 清洗数据" @click="aiClean">🧽 清洗</button>
+          <button class="btn btn-primary" :disabled="syncWorking" title="同步到后端" @click="syncToBackend">🔄 同步</button>
+          <button class="btn btn-outline" title="查看使用流程" @click="showFlow=true">📘 流程</button>
+        </div>
         <input ref="fileRef" type="file" accept=".xlsx,.xls" class="hidden" @change="onFile" />
       </div>
     </header>
@@ -310,9 +315,16 @@ async function syncToBackend(){
 .lab-topbar .title{ text-align:center; font-weight:700; letter-spacing:.12em; color:#c7d2fe; display:flex; align-items:center; justify-content:center; gap:10px; }
 .lab-topbar .title .page-code{ font-size:12px; color:#94a3b8; background:rgba(255,255,255,.06); padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12); }
 .lab-topbar .back{ height:34px; border:none; border-radius:10px; padding:0 12px; background:linear-gradient(135deg,#1f2a44,#22345a); color:#e6eeff; cursor:pointer; box-shadow:0 8px 18px rgba(1,8,36,.35); }
-.lab-topbar .actions{ display:flex; justify-content:flex-end; gap:8px; align-items:center; }
-.lab-topbar .actions .ghost{ height:34px; border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:0 12px; background:rgba(255,255,255,.08); color:#e6eeff; cursor:pointer; box-shadow:0 6px 14px rgba(1,8,36,.35); }
-.lab-topbar .actions .primary{ height:34px; border:1px solid rgba(37,99,235,.6); border-radius:10px; padding:0 12px; background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; cursor:pointer; box-shadow:0 10px 22px rgba(37,99,235,.45); }
+.lab-topbar .actions{ display:flex; justify-content:flex-end; gap:8px; align-items:center; flex-wrap:wrap; }
+.lab-topbar .actions .btn-group{ display:flex; gap:8px; }
+.lab-topbar .actions .btn-sep{ width:8px; height:24px; border-right:1px solid rgba(255,255,255,.15); margin:0 2px; }
+.lab-topbar .actions .btn{ height:34px; border-radius:10px; padding:0 12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-weight:600; letter-spacing:.02em; }
+.lab-topbar .actions .btn-ghost{ border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#e6eeff; box-shadow:0 6px 14px rgba(1,8,36,.35); }
+.lab-topbar .actions .btn-ghost:hover{ background:rgba(255,255,255,.12); }
+.lab-topbar .actions .btn-primary{ border:1px solid rgba(37,99,235,.6); background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; box-shadow:0 10px 22px rgba(37,99,235,.45); }
+.lab-topbar .actions .btn-primary:disabled{ opacity:.6; cursor:not-allowed; }
+.lab-topbar .actions .btn-outline{ border:1px solid rgba(148,163,184,.6); background:transparent; color:#e2e8f0; }
+.lab-topbar .actions .btn-outline:hover{ background:rgba(255,255,255,.06); }
 .lab-topbar .actions .batch{ display:flex; align-items:center; gap:6px; margin-right:8px; }
 .lab-topbar .actions .batch input{ height:32px; width:200px; border-radius:10px; border:1px solid rgba(255,255,255,.2); padding:0 10px; background:rgba(255,255,255,.08); color:#e6eeff; }
 :deep(.flow-mask){ position:fixed; inset:0; background:rgba(0,10,40,.55); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; z-index:50; }
