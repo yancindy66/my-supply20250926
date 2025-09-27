@@ -34,7 +34,7 @@
       <!-- 中心发光蓝色光圈 + 透明玻璃魔方 -->
       <div class="halo"></div>
       <div class="glass-cube" :style="cubeStyle" @mousedown="onMouseDown" @touchstart.prevent="onTouchStart">
-        <div class="gface g1" @click="goTool('excel')">GPT + Excel</div>
+        <div class="gface g1" @click="goTool('sheet')">GPT + Excel</div>
         <div class="gface g2" @click="goTool('tripo')">GPT + TRIPO</div>
         <div class="gface g3" @click="goTool('canva')">GPT + Canva</div>
         <div class="gface g4" @click="goTool('mermaid')">GPT + Mermaid</div>
@@ -92,10 +92,8 @@ onMounted(()=> updateCube());
 
 // 工具跳转：点击魔方 -> 平滑进入各功能实验页（先实现 excel）
 function goTool(key: string){
-  if(key==='excel'){
-    router.push('/lab/excel');
-    return;
-  }
+  if(key==='excel'){ router.push('/lab/excel'); return; }
+  if(key==='sheet'){ router.push('/lab/sheet'); return; }
   // 其他工具占位：后续新增路由
   message.value = '即将开放：'+key.toUpperCase();
 }

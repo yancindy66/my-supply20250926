@@ -9,6 +9,8 @@ const routes = [
   { path: '/welcome', component: Welcome },
   // 实验：Excel 实验页（隐藏XLSX导入，后续接 SheetJS）
   { path: '/lab/excel', component: () => import('./views/lab/ExcelLab.vue') },
+  // 实验：真·Excel（Luckysheet）
+  { path: '/lab/sheet', component: () => import('./views/lab/SheetLab.vue') },
   { path: '/products', component: () => import('./views/Products.vue') },
   {
     path: '/',
