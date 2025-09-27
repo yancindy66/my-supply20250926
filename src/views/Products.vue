@@ -17,6 +17,7 @@
             <th>折扣</th>
             <th>年份</th>
             <th>启用</th>
+            <th>表编号</th>
             <th>更新时间</th>
           </tr>
         </thead>
@@ -29,6 +30,7 @@
             <td>{{ it.premium_discount }}</td>
             <td>{{ it.production_year }}</td>
             <td>{{ it.enabled ? '是':'否' }}</td>
+            <td>{{ batchMap[it.product_id] || '-' }}</td>
             <td>{{ it.updated_at }}</td>
           </tr>
         </tbody>
@@ -53,11 +55,13 @@ type Item = {
 };
 
 const items = ref<Item[]>([]);
+const batchMap = ref<Record<string,string>>({});
 
 async function reload(){
   const res = await fetch('/api/products');
   const data = await res.json();
   items.value = data.items || [];
+  try{ batchMap.value = JSON.parse(localStorage.getItem('productBatchMap') || '{}'); }catch{}
 }
 
 onMounted(reload);
@@ -67,7 +71,7 @@ onMounted(reload);
 .page{ padding:16px; }
 .bar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .title{ font-weight:700; }
-.wrap{ background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; }
+.wrap{ background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; box-shadow:0 8px 24px rgba(2,6,23,.06); }
 table.grid{ width:100%; border-collapse:collapse; }
 table.grid th, table.grid td{ border:1px solid #e5e7eb; padding:8px 10px; font-size:14px; }
 .empty{ color:#64748b; text-align:center; padding:40px 0; }

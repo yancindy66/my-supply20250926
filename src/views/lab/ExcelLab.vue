@@ -2,14 +2,19 @@
   <div class="lab-wrap">
     <header class="lab-topbar">
       <button class="back" @click="goBack">返回</button>
-      <div class="title">AI × Excel 实验</div>
+      <div class="title">AI × Excel 实验 <span class="page-code">页面编号：XL-001</span></div>
       <div class="actions">
+        <div class="batch">
+          <label for="batchCode">表编号</label>
+          <input id="batchCode" v-model="batchCode" placeholder="例如：IMP-20251001-A" />
+        </div>
         <button class="ghost" title="导入 XLSX" @click="triggerFile">导入 XLSX</button>
         <button class="ghost" title="新增一行" @click="addRow">新增一行</button>
         <button class="ghost" title="导出当前表" @click="exportSheet">导出 XLSX</button>
         <button class="ghost" title="AI 智能映射" @click="aiMap">智能映射</button>
         <button class="ghost" title="AI 清洗数据" @click="aiClean">清洗数据</button>
         <button class="ghost" title="同步到后端" @click="syncToBackend" :disabled="syncWorking">同步到后端</button>
+        <button class="primary" title="查看使用流程" @click="showFlow=true">使用流程</button>
         <input ref="fileRef" type="file" accept=".xlsx,.xls" class="hidden" @change="onFile" />
       </div>
     </header>
@@ -55,6 +60,24 @@
         </div>
       </div>
     </section>
+
+    <div v-if="showFlow" class="flow-mask" @click.self="showFlow=false">
+      <div class="flow-card">
+        <div class="flow-title">使用流程</div>
+        <ol>
+          <li>准备 Excel：包含产品编号、名称、分类、价格等字段。</li>
+          <li>导入 XLSX：支持本地选择或拖拽。</li>
+          <li>智能映射：自动将表头映射为后端字段，可手动修正。</li>
+          <li>清洗数据：去空行、规范数字/年份/状态。</li>
+          <li>填写表编号：用于标识本次导入批次。</li>
+          <li>同步到后端：逐行提交；已有编号自动跳过。</li>
+          <li>前往 产品列表：在 /products 查看导入结果（显示批次）。</li>
+        </ol>
+        <div class="flow-actions">
+          <button class="primary" @click="showFlow=false">知道了</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -77,6 +100,8 @@ const colWidths = ref<number[]>([]);
 const mapping = ref<Record<string,string>>({});
 const syncWorking = ref(false);
 const syncMsg = ref('');
+const batchCode = ref(localStorage.getItem('lastBatchCode') || '');
+const showFlow = ref(false);
 
 function triggerFile(){ fileRef.value?.click(); }
 
@@ -234,6 +259,9 @@ function aiClean(){
 // 同步到后端 /api/products（逐行 POST，已存在 product_id 返回 409 跳过）
 async function syncToBackend(){
   if(!rows.value.length) return;
+  const bc = batchCode.value.trim();
+  if(!bc){ syncMsg.value = '请先填写表编号（批次号）'; return; }
+  try{ localStorage.setItem('lastBatchCode', bc); }catch{}
   if(!Object.keys(mapping.value).length){ aiMap(); }
   syncWorking.value = true; syncMsg.value = '正在同步...';
   try{
@@ -248,20 +276,27 @@ async function syncToBackend(){
       if(obj.enabled===undefined) obj.enabled = 1;
       return obj;
     };
+    // 本地记录 product_id -> batchCode，便于前端列表展示
+    const mapKey = 'productBatchMap';
+    let productBatch: Record<string,string> = {};
+    try{ productBatch = JSON.parse(localStorage.getItem(mapKey) || '{}'); }catch{}
+
     let ok=0, skip=0, fail=0;
     for(let i=1;i<rows.value.length;i++){
       const row = rows.value[i];
       if(!row || row.every(c=> String(c||'').trim()==='')) continue;
       const body = buildObj(row);
       if(!body.product_id || !body.name || !body.category){ skip++; continue; }
+      body.batch_code = bc;
       try{
         const res = await fetch('/api/products', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-        if(res.status===201){ ok++; }
+        if(res.status===201){ ok++; productBatch[String(body.product_id)] = bc; }
         else if(res.status===409){ skip++; }
         else { fail++; }
       }catch{ fail++; }
       if((i%20)===0) syncMsg.value = `已处理 ${i}/${rows.value.length-1} 行...`;
     }
+    try{ localStorage.setItem(mapKey, JSON.stringify(productBatch)); }catch{}
     syncMsg.value = `同步完成：新增 ${ok}，跳过 ${skip}，失败 ${fail}`;
   } finally {
     syncWorking.value = false;
@@ -272,10 +307,19 @@ async function syncToBackend(){
 <style scoped>
 .lab-wrap{ min-height:100vh; display:flex; flex-direction:column; background:linear-gradient(140deg,#0b1226 0%,#0f1d3a 45%,#162a59 100%); color:#e6eeff; }
 .lab-topbar{ height:56px; display:grid; grid-template-columns:120px 1fr 200px; align-items:center; padding:0 16px; border-bottom:1px solid rgba(255,255,255,.06); backdrop-filter: blur(6px); }
-.lab-topbar .title{ text-align:center; font-weight:700; letter-spacing:.12em; color:#c7d2fe; }
-.lab-topbar .back{ height:34px; border:none; border-radius:8px; padding:0 12px; background:#1f2a44; color:#e6eeff; cursor:pointer; }
-.lab-topbar .actions{ display:flex; justify-content:flex-end; gap:8px; }
-.lab-topbar .actions .ghost{ height:34px; border:1px solid rgba(255,255,255,.16); border-radius:8px; padding:0 12px; background:rgba(255,255,255,.08); color:#e6eeff; cursor:pointer; }
+.lab-topbar .title{ text-align:center; font-weight:700; letter-spacing:.12em; color:#c7d2fe; display:flex; align-items:center; justify-content:center; gap:10px; }
+.lab-topbar .title .page-code{ font-size:12px; color:#94a3b8; background:rgba(255,255,255,.06); padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12); }
+.lab-topbar .back{ height:34px; border:none; border-radius:10px; padding:0 12px; background:linear-gradient(135deg,#1f2a44,#22345a); color:#e6eeff; cursor:pointer; box-shadow:0 8px 18px rgba(1,8,36,.35); }
+.lab-topbar .actions{ display:flex; justify-content:flex-end; gap:8px; align-items:center; }
+.lab-topbar .actions .ghost{ height:34px; border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:0 12px; background:rgba(255,255,255,.08); color:#e6eeff; cursor:pointer; box-shadow:0 6px 14px rgba(1,8,36,.35); }
+.lab-topbar .actions .primary{ height:34px; border:1px solid rgba(37,99,235,.6); border-radius:10px; padding:0 12px; background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; cursor:pointer; box-shadow:0 10px 22px rgba(37,99,235,.45); }
+.lab-topbar .actions .batch{ display:flex; align-items:center; gap:6px; margin-right:8px; }
+.lab-topbar .actions .batch input{ height:32px; width:200px; border-radius:10px; border:1px solid rgba(255,255,255,.2); padding:0 10px; background:rgba(255,255,255,.08); color:#e6eeff; }
+:deep(.flow-mask){ position:fixed; inset:0; background:rgba(0,10,40,.55); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; z-index:50; }
+:deep(.flow-card){ width:min(560px,96vw); background:linear-gradient(180deg, rgba(20,28,60,.95), rgba(14,22,48,.95)); border:1px solid rgba(255,255,255,.12); border-radius:14px; box-shadow: 0 18px 60px rgba(1,8,36,.55); padding:16px; color:#e6eeff; }
+:deep(.flow-title){ font-weight:700; margin-bottom:10px; }
+:deep(.flow-card ol){ margin:0; padding-left:18px; }
+:deep(.flow-actions){ display:flex; justify-content:flex-end; margin-top:12px; }
 .lab-topbar .hidden{ position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
 
 .stage{ position:relative; flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
