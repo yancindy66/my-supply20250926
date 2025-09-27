@@ -34,12 +34,12 @@
       <!-- 中心发光蓝色光圈 + 透明玻璃魔方 -->
       <div class="halo"></div>
       <div class="glass-cube" :style="cubeStyle" @mousedown="onMouseDown" @touchstart.prevent="onTouchStart">
-        <div class="gface g1" @click="selectTool('chat')">GPT + Excel</div>
-        <div class="gface g2" @click="selectTool('tripo')">GPT + TRIPO</div>
-        <div class="gface g3" @click="selectTool('canva')">GPT + Canva</div>
-        <div class="gface g4" @click="selectTool('mermaid')">GPT + Mermaid</div>
-        <div class="gface g5" @click="selectTool('wps')">GPT + WPS</div>
-        <div class="gface g6" @click="selectTool('flow')">GPT + Flow</div>
+        <div class="gface g1" @click="goTool('excel')">GPT + Excel</div>
+        <div class="gface g2" @click="goTool('tripo')">GPT + TRIPO</div>
+        <div class="gface g3" @click="goTool('canva')">GPT + Canva</div>
+        <div class="gface g4" @click="goTool('mermaid')">GPT + Mermaid</div>
+        <div class="gface g5" @click="goTool('wps')">GPT + WPS</div>
+        <div class="gface g6" @click="goTool('flow')">GPT + Flow</div>
       </div>
       <div class="chat-pane bottom glass">
         <div class="chat-header">AI 助手</div>
@@ -105,17 +105,14 @@ onMounted(()=> updateCube());
 const dockInput = ref('');
 function dockSend(){ const t=dockInput.value.trim(); if(!t) return; dockInput.value=''; alert('（占位）AI已收到：'+t); }
 
-// 工具选择（占位联动：点击魔方面在输入框放入提示）
-function selectTool(key: string){
-  const map: Record<string,string> = {
-    chat: '和 ChatGPT 对话：帮我写一个入库流程说明',
-    img: '图像生成：设计一个登录页背景图（科技蓝）',
-    ui: 'UI 设计：生成商品列表页面布局建议',
-    data: '数据分析：根据过去一月订单量做折线图摘要',
-    doc: '文档总结：总结这份仓单协议的关键条款',
-    flow: '流程编排：把“入库->质检->上架”生成流程图说明'
-  };
-  dockInput.value = map[key] || '向 AI 提问...';
+// 工具跳转：点击魔方 -> 平滑进入各功能实验页（先实现 excel）
+function goTool(key: string){
+  if(key==='excel'){
+    router.push('/lab/excel');
+    return;
+  }
+  // 其他工具占位：后续新增路由
+  message.value = '即将开放：'+key.toUpperCase();
 }
 
 // 登录页右侧全幅聊天

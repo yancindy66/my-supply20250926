@@ -7,6 +7,8 @@ const routes = [
   { path: '/', redirect: '/login' },
   { path: '/login', component: Login },
   { path: '/welcome', component: Welcome },
+  // 实验：Excel 实验页（隐藏XLSX导入，后续接 SheetJS）
+  { path: '/lab/excel', component: () => import('./views/lab/ExcelLab.vue') },
   {
     path: '/',
     component: () => import('./layout/Layout.vue'),
@@ -114,7 +116,7 @@ router.beforeEach((to, _from, next) => {
   const role = localStorage.getItem('role');
 
   // 免鉴权白名单
-  const publicPaths = ['/login', '/role-select'];
+  const publicPaths = ['/login', '/role-select', '/lab/excel'];
   if (publicPaths.includes(to.path)) return next();
 
   // 未选角色先去选
