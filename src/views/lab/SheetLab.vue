@@ -20,7 +20,10 @@
 
     <section class="stage">
       <div class="halo"></div>
-      <div v-show="!ready" class="loading">正在加载编辑器...</div>
+      <div v-show="!ready" class="loading">
+        <div>正在加载编辑器…（若较慢，点击尝试备用源）</div>
+        <button class="btn outline small" @click="reloadEditor">切换备用源</button>
+      </div>
       <div id="luckysheet" class="luckysheet" v-show="ready"></div>
       <div v-if="msg" class="toast">{{ msg }}</div>
     </section>
@@ -54,6 +57,7 @@ const saving = ref(false);
 const showFlow = ref(false);
 const msg = ref('');
 let hasLuckysheet = false;
+let cdnIdx = 0;
 
 function goBack(){ router.push('/login'); }
 function triggerFile(){ fileRef.value?.click(); }
@@ -61,22 +65,28 @@ function triggerFile(){ fileRef.value?.click(); }
 function ensureLuckysheet(): Promise<void>{
   return new Promise((resolve,reject)=>{
     if(hasLuckysheet || (window as any).luckysheet){ hasLuckysheet=true; return resolve(); }
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13',
+      'https://unpkg.com/luckysheet@2.1.13',
+      'https://fastly.jsdelivr.net/npm/luckysheet@2.1.13'
+    ];
+    const base = sources[cdnIdx % sources.length];
     const css = document.createElement('link');
     css.rel = 'stylesheet';
-    css.href = 'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/css/pluginsCss.css';
+    css.href = base + '/dist/plugins/css/pluginsCss.css';
     document.head.appendChild(css);
     const css2 = document.createElement('link');
     css2.rel = 'stylesheet';
-    css2.href = 'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/plugins.css';
+    css2.href = base + '/dist/plugins/plugins.css';
     document.head.appendChild(css2);
     const css3 = document.createElement('link');
     css3.rel = 'stylesheet';
-    css3.href = 'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/css/luckysheet.css';
+    css3.href = base + '/dist/css/luckysheet.css';
     document.head.appendChild(css3);
     const sc = document.createElement('script');
-    sc.src = 'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/js/plugin.js';
+    sc.src = base + '/dist/plugins/js/plugin.js';
     const sc2 = document.createElement('script');
-    sc2.src = 'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js';
+    sc2.src = base + '/dist/luckysheet.umd.js';
     sc.onload = ()=> document.body.appendChild(sc2);
     sc2.onload = ()=>{ hasLuckysheet=true; resolve(); };
     sc.onerror = sc2.onerror = (e)=> reject(e);
@@ -103,6 +113,11 @@ function initLuckysheet(){
 onMounted(async()=>{
   try{ await ensureLuckysheet(); initLuckysheet(); }catch(e){ msg.value='加载编辑器失败'; }
 });
+
+async function reloadEditor(){
+  ready.value=false; hasLuckysheet=false; cdnIdx++;
+  try{ await ensureLuckysheet(); initLuckysheet(); msg.value='已切换备用源'; setTimeout(()=> msg.value='', 1500);}catch(e){ msg.value='切换失败'; setTimeout(()=> msg.value='', 1500); }
+}
 
 function aoaToLuckysheet(aoa: any[][]){
   const celldata: any[] = [];
@@ -228,6 +243,7 @@ async function saveToBackend(){
 .sheet-topbar .btn:hover{ background:rgba(255,255,255,.12); }
 .sheet-topbar .btn.primary{ border:1px solid rgba(37,99,235,.6); background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; box-shadow:0 10px 22px rgba(37,99,235,.45); }
 .sheet-topbar .btn.outline{ border:1px solid rgba(148,163,184,.6); background:transparent; color:#e2e8f0; }
+.sheet-topbar .btn.small{ height:30px; padding:0 10px; font-weight:500; }
 
 .stage{ position:relative; flex:1; }
 .luckysheet{ position:absolute; inset:0; }
