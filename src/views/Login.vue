@@ -27,11 +27,10 @@
       </div>
     </section>
     
-    <!-- 右侧：AI 对话（全幅） -->
+    <!-- 右侧：光圈 + 魔方（视觉层） -->
     <section class="ai-pane">
       <div class="rings"></div>
       <div class="stars"></div>
-      <!-- 中心发光蓝色光圈 + 透明玻璃魔方 -->
       <div class="halo"></div>
       <div class="glass-cube" :style="cubeStyle" @mousedown="onMouseDown" @touchstart.prevent="onTouchStart">
         <div class="gface g1" @click="goTool('sheet')">GPT + Excel</div>
@@ -117,7 +116,7 @@ function goTool(key: string){
 .welcome-footer{ margin-top:16px; text-align:center; color:#64748b; font-size:12px; }
 
 .cube-pane{ position:relative; border:1px solid #e2e8f0; border-radius:16px; background:#f8fbff; box-shadow:0 12px 28px rgba(2,6,23,.06); overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.ai-pane{ position:relative; border:1px solid rgba(255,255,255,0.06); border-radius:16px; background:linear-gradient(140deg,#0b1226 0%,#0f1d3a 45%,#162a59 100%); box-shadow:0 12px 28px rgba(2,6,23,.25); overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.ai-pane{ position:relative; border:1px solid rgba(255,255,255,0.06); border-radius:16px; background:radial-gradient(1200px 600px at 75% 40%, #0f2655, transparent 60%), linear-gradient(140deg,#0b1226 0%,#0f1d3a 45%,#162a59 100%); box-shadow:0 12px 28px rgba(2,6,23,.25); overflow:hidden; display:flex; align-items:center; justify-content:center; }
 .rings{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 .rings::before{ content:''; position:absolute; width:1200px; height:1200px; border-radius:50%; background:
   radial-gradient(circle at center, rgba(37,99,235,.20) 0 2px, transparent 2px) 0 0/24px 24px,
@@ -156,7 +155,7 @@ function goTool(key: string){
 
 /* 玻璃拟态立方体（透明 + 折射高光） */
 .glass-cube{ position:absolute; width:240px; height:240px; transform-style:preserve-3d; transform:rotateX(-18deg) rotateY(30deg); z-index:2; cursor:grab; }
-.gface{ position:absolute; width:240px; height:240px; display:flex; align-items:center; justify-content:center; color:#e6f0ff; font-weight:600; text-shadow:0 0 8px rgba(0,119,255,.5); border-radius:12px; background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.18); box-shadow: inset 0 0 24px rgba(255,255,255,.12), 0 18px 50px rgba(3,23,78,.35); }
+.gface{ position:absolute; width:240px; height:240px; display:flex; align-items:center; justify-content:center; color:#e6f0ff; font-weight:600; text-shadow:0 0 10px rgba(0,0,0,.25); border-radius:12px; background: linear-gradient(160deg, rgba(99,102,241,.28), rgba(37,99,235,.16) 40%, rgba(255,255,255,.04)); border:1px solid rgba(148,163,184,.28); box-shadow: inset 0 0 36px rgba(99,102,241,.25), 0 22px 60px rgba(6,22,80,.45); }
 .g1{ transform: translateZ(120px); }
 .g2{ transform: rotateY(180deg) translateZ(120px); }
 .g3{ transform: rotateY(90deg) translateZ(120px); }
