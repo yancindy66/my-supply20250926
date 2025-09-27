@@ -5,6 +5,8 @@
       <div class="title">AI × Excel 实验</div>
       <div class="actions">
         <button class="ghost" title="导入 XLSX" @click="triggerFile">导入 XLSX</button>
+        <button class="ghost" title="新增一行" @click="addRow">新增一行</button>
+        <button class="ghost" title="导出当前表" @click="exportSheet">导出 XLSX</button>
         <input ref="fileRef" type="file" accept=".xlsx,.xls" class="hidden" @change="onFile" />
       </div>
     </header>
@@ -36,7 +38,9 @@
             </thead>
             <tbody>
               <tr v-for="(r, ri) in rows.slice(1)" :key="'r'+ri">
-                <td v-for="(c, ci) in r" :key="'c'+ri+'-'+ci">{{ c }}</td>
+                <td v-for="(c, ci) in r" :key="'c'+ri+'-'+ci">
+                  <input class="cell" :value="display(c)" @change="e=>onEdit(ri+1, ci, (e.target as HTMLInputElement).value)" />
+                </td>
               </tr>
             </tbody>
           </table>
@@ -60,6 +64,7 @@ const sheetNames = ref<string[]>([]);
 const activeSheetIndex = ref(0);
 const rows = ref<Array<Array<string | number | null>>>([]);
 const workbookRef = ref<XLSX.WorkBook|null>(null);
+const lastFileName = ref('export.xlsx');
 
 function triggerFile(){ fileRef.value?.click(); }
 
@@ -107,6 +112,36 @@ function switchSheet(idx: number){
   activeSheetIndex.value = idx;
   loadActiveSheet();
 }
+
+function display(v: any){ return v==null? '': String(v); }
+
+function onEdit(r: number, c: number, v: string){
+  if(!rows.value.length) return;
+  const next = rows.value.map(row => row.slice());
+  next[r][c] = v;
+  rows.value = next;
+}
+
+function addRow(){
+  if(!rows.value.length){ rows.value = [["A","B","C"],["", "", ""]]; return; }
+  const cols = rows.value[0]?.length || 1;
+  rows.value = [...rows.value, Array.from({length: cols}, ()=>"")];
+}
+
+function exportSheet(){
+  const wb = workbookRef.value || XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows.value as any);
+  const name = sheetNames.value[activeSheetIndex.value] || 'Sheet1';
+  if(wb.Sheets && wb.Sheets[name]){
+    // 覆盖当前活动表
+    wb.Sheets[name] = ws;
+  }else{
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+  const outName = (fileName.value ? fileName.value.replace(/\.(xlsx|xls)$/i,'') : 'export') + '.xlsx';
+  lastFileName.value = outName;
+  XLSX.writeFile(wb, outName);
+}
 </script>
 
 <style scoped>
@@ -140,6 +175,8 @@ function switchSheet(idx: number){
   border:1px solid rgba(255,255,255,.12); padding:8px 10px; font-size:13px; color:#e6eeff;
 }
 :deep(table.grid thead th){ background: rgba(37,99,235,.25); font-weight:700; }
+:deep(.cell){ width:100%; background:transparent; border:none; outline:none; color:#e6eeff; font-size:13px; }
+:deep(.cell):focus{ background: rgba(255,255,255,.08); border-radius:6px; }
 </style>
 
 
