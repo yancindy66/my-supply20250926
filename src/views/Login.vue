@@ -27,26 +27,30 @@
       </div>
     </section>
     
-    <!-- 中间：AI 光圈 + 底部对话框 -->
+    <!-- 右侧：AI 对话（全幅） -->
     <section class="ai-pane">
-      <div class="rings"><div class="ai">AI</div></div>
-      <div class="gpt-dock">
-        <input v-model="dockInput" placeholder="试着向 AI 询问：如何找回密码？" @keyup.enter="dockSend" />
-        <button @click="dockSend">发送</button>
+      <div class="rings"></div>
+      <div class="stars"></div>
+      <!-- 中心发光蓝色光圈 + 透明玻璃魔方 -->
+      <div class="halo"></div>
+      <div class="glass-cube" :style="cubeStyle" @mousedown="onMouseDown" @touchstart.prevent="onTouchStart">
+        <div class="gface g1" @click="selectTool('chat')">GPT + Excel</div>
+        <div class="gface g2" @click="selectTool('tripo')">GPT + TRIPO</div>
+        <div class="gface g3" @click="selectTool('canva')">GPT + Canva</div>
+        <div class="gface g4" @click="selectTool('mermaid')">GPT + Mermaid</div>
+        <div class="gface g5" @click="selectTool('wps')">GPT + WPS</div>
+        <div class="gface g6" @click="selectTool('flow')">GPT + Flow</div>
       </div>
-    </section>
-
-    <!-- 右侧：3D 魔方选择区 -->
-    <section class="cube-pane">
-      <div class="hero"><h1>星云魔方</h1><p>拖拽旋转，进入智慧平台</p></div>
-      <div class="scene-cube" @mousedown="onMouseDown" @touchstart.prevent="onTouchStart">
-        <div class="cube" :style="cubeStyle">
-          <div class="face f1">DeepSeek</div>
-          <div class="face f2">WMS</div>
-          <div class="face f3">Finance</div>
-          <div class="face f4">Warehouse</div>
-          <div class="face f5">Operate</div>
-          <div class="face f6">API</div>
+      <div class="chat-pane full glass">
+        <div class="chat-header">AI 助手</div>
+        <div class="chat-body" ref="loginChatBodyRef">
+          <div v-for="(m,i) in loginMessages" :key="i" class="msg" :class="m.role">
+            <div class="bubble">{{ m.text }}</div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input v-model="loginInput" placeholder="向 AI 提问：例如 用 Excel 统计上月入库数据" @keyup.enter="loginSend" />
+          <button @click="loginSend">发送</button>
         </div>
       </div>
     </section>
@@ -97,9 +101,32 @@ function onTouchMove(e: TouchEvent){ if(!dragging.value) return; const t=e.touch
 function onTouchEnd(){ dragging.value=false; window.removeEventListener('touchmove', onTouchMove); window.removeEventListener('touchend', onTouchEnd); }
 onMounted(()=> updateCube());
 
-// 底部对话Dock
+// 底部对话Dock（角色页）
 const dockInput = ref('');
 function dockSend(){ const t=dockInput.value.trim(); if(!t) return; dockInput.value=''; alert('（占位）AI已收到：'+t); }
+
+// 工具选择（占位联动：点击魔方面在输入框放入提示）
+function selectTool(key: string){
+  const map: Record<string,string> = {
+    chat: '和 ChatGPT 对话：帮我写一个入库流程说明',
+    img: '图像生成：设计一个登录页背景图（科技蓝）',
+    ui: 'UI 设计：生成商品列表页面布局建议',
+    data: '数据分析：根据过去一月订单量做折线图摘要',
+    doc: '文档总结：总结这份仓单协议的关键条款',
+    flow: '流程编排：把“入库->质检->上架”生成流程图说明'
+  };
+  dockInput.value = map[key] || '向 AI 提问...';
+}
+
+// 登录页右侧全幅聊天
+const loginMessages = ref<Array<{role:'user'|'assistant'; text:string}>>([
+  { role:'assistant', text:'你好，我是平台 AI 助手。可以和 Excel/Canva/WPS 等工具协作完成任务。' }
+]);
+const loginInput = ref('');
+const loginChatBodyRef = ref<HTMLElement|null>(null);
+function loginSend(){ const t=loginInput.value.trim(); if(!t) return; loginMessages.value.push({role:'user', text:t}); loginInput.value='';
+  setTimeout(()=>{ loginMessages.value.push({role:'assistant', text:'（占位回复）我已理解你的需求：'+t}); try{ const el=loginChatBodyRef.value; if(el) el.scrollTop=el.scrollHeight; }catch{} }, 250);
+}
 </script>
 
 <style scoped>
@@ -118,7 +145,7 @@ function dockSend(){ const t=dockInput.value.trim(); if(!t) return; dockInput.va
 .welcome-footer{ margin-top:16px; text-align:center; color:#64748b; font-size:12px; }
 
 .cube-pane{ position:relative; border:1px solid #e2e8f0; border-radius:16px; background:#f8fbff; box-shadow:0 12px 28px rgba(2,6,23,.06); overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.ai-pane{ position:relative; border:1px solid #e2e8f0; border-radius:16px; background:#f8fbff; box-shadow:0 12px 28px rgba(2,6,23,.06); overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.ai-pane{ position:relative; border:1px solid rgba(255,255,255,0.06); border-radius:16px; background:linear-gradient(140deg,#0b1226 0%,#0f1d3a 45%,#162a59 100%); box-shadow:0 12px 28px rgba(2,6,23,.25); overflow:hidden; display:flex; align-items:center; justify-content:center; }
 .rings{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 .rings::before{ content:''; position:absolute; width:1200px; height:1200px; border-radius:50%; background:
   radial-gradient(circle at center, rgba(37,99,235,.20) 0 2px, transparent 2px) 0 0/24px 24px,
@@ -126,17 +153,48 @@ function dockSend(){ const t=dockInput.value.trim(); if(!t) return; dockInput.va
   opacity:.65; filter: blur(.2px); animation:pulse 3.2s ease-in-out infinite;
 }
 @keyframes pulse{ 0%{ transform: scale(.98); opacity:.55 } 50%{ transform: scale(1.02); opacity:.8 } 100%{ transform: scale(.98); opacity:.55 } }
+/* 环形扫描（发光扇形沿外环匀速旋转） */
+.rings::after{ content:''; position:absolute; width:1200px; height:1200px; border-radius:50%;
+  background: conic-gradient(from 0deg, rgba(99,102,241,0) 0deg, rgba(99,102,241,.65) 10deg, rgba(99,102,241,0) 20deg);
+  mask: radial-gradient(circle at center, transparent 0 45%, #000 46% 47%, transparent 48% 100%);
+  -webkit-mask: radial-gradient(circle at center, transparent 0 45%, #000 46% 47%, transparent 48% 100%);
+  filter: blur(1px) drop-shadow(0 0 12px rgba(99,102,241,.55));
+  animation: sweep 4s linear infinite;
+}
+@keyframes sweep { to { transform: rotate(360deg); } }
+.rings::after{ display:none; }
 .ai{ position:relative; z-index:1; font-size:160px; font-weight:800; letter-spacing:.1em; color:#64748b33; }
 
-.scene-cube{ width:420px; height:420px; perspective:1100px; cursor:grab; display:flex; align-items:center; justify-content:center; }
-.cube{ position:relative; width:260px; height:260px; transform-style:preserve-3d; transition:transform .06s linear; }
-.cube .face{ position:absolute; width:240px; height:240px; display:flex; align-items:center; justify-content:center; color:#0f172a; font-weight:600; border-radius:10px; background:linear-gradient(180deg,#ffffff,#eef4ff); border:1px solid #dbeafe; box-shadow:0 20px 40px rgba(2,6,23,.08); }
-.cube .f1{ transform: translateZ(120px); }
-.cube .f2{ transform: rotateY(180deg) translateZ(120px); }
-.cube .f3{ transform: rotateY(90deg) translateZ(120px); }
-.cube .f4{ transform: rotateY(-90deg) translateZ(120px); }
-.cube .f5{ transform: rotateX(90deg) translateZ(120px); }
-.cube .f6{ transform: rotateX(-90deg) translateZ(120px); color:#64748b; }
+/* 简单粒子星点背景 */
+.stars{ position:absolute; inset:0; pointer-events:none; background:
+  radial-gradient(2px 2px at 10% 20%, rgba(99,102,241,.45), transparent 70%),
+  radial-gradient(1.5px 1.5px at 30% 60%, rgba(99,102,241,.35), transparent 70%),
+  radial-gradient(1.8px 1.8px at 60% 40%, rgba(99,102,241,.25), transparent 70%),
+  radial-gradient(1.8px 1.8px at 80% 80%, rgba(99,102,241,.30), transparent 70%);
+  animation: starsMove 14s linear infinite alternate;
+}
+@keyframes starsMove{ 0%{ transform: translateY(0) } 100%{ transform: translateY(-12px) } }
+
+.halo{ position:absolute; width:min(62%,720px); aspect-ratio:1/1; border-radius:50%; z-index:1; }
+.halo::before{ content:''; position:absolute; inset:0; border-radius:50%; box-shadow:0 0 140px 40px rgba(32,123,255,.25) inset, 0 0 160px 20px rgba(32,123,255,.25); background:
+  radial-gradient(closest-side, rgba(30,144,255,.45) 0%, rgba(30,144,255,.15) 55%, rgba(30,144,255,0) 60%),
+  radial-gradient(closest-side, transparent 64%, rgba(135,206,255,.35) 66%, transparent 68%);
+  filter: blur(0.4px);
+}
+
+/* 玻璃拟态立方体（透明 + 折射高光） */
+.glass-cube{ position:absolute; width:240px; height:240px; transform-style:preserve-3d; transform:rotateX(-18deg) rotateY(30deg); z-index:2; cursor:grab; }
+.gface{ position:absolute; width:240px; height:240px; display:flex; align-items:center; justify-content:center; color:#e6f0ff; font-weight:600; text-shadow:0 0 8px rgba(0,119,255,.5); border-radius:12px; background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.04)); border:1px solid rgba(255,255,255,.2); box-shadow: inset 0 0 28px rgba(255,255,255,.12), 0 24px 60px rgba(3,23,78,.45); backdrop-filter: blur(8px) saturate(140%); }
+.g1{ transform: translateZ(120px); }
+.g2{ transform: rotateY(180deg) translateZ(120px); }
+.g3{ transform: rotateY(90deg) translateZ(120px); }
+.g4{ transform: rotateY(-90deg) translateZ(120px); }
+.g5{ transform: rotateX(90deg) translateZ(120px); }
+.g6{ transform: rotateX(-90deg) translateZ(120px); }
+
+/* 右侧对话面板玻璃风格 */
+.chat-pane.full.glass{ position:absolute; left:32px; right:32px; bottom:24px; top:auto; width:auto; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; box-shadow: 0 10px 40px rgba(1,8,36,.45); backdrop-filter: blur(10px) saturate(140%);
+}
 .gpt-dock{ position:absolute; left:24px; right:24px; bottom:20px; display:flex; gap:8px; }
 .gpt-dock input{ flex:1; height:40px; border-radius:10px; border:1px solid #dbeafe; padding:0 12px; background:#fff; box-shadow:0 6px 16px rgba(2,6,23,.06); }
 .gpt-dock button{ height:40px; padding:0 14px; border:none; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; }
