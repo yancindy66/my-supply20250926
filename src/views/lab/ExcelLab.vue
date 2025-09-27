@@ -7,6 +7,9 @@
         <button class="ghost" title="导入 XLSX" @click="triggerFile">导入 XLSX</button>
         <button class="ghost" title="新增一行" @click="addRow">新增一行</button>
         <button class="ghost" title="导出当前表" @click="exportSheet">导出 XLSX</button>
+        <button class="ghost" title="AI 智能映射" @click="aiMap">智能映射</button>
+        <button class="ghost" title="AI 清洗数据" @click="aiClean">清洗数据</button>
+        <button class="ghost" title="同步到后端" @click="syncToBackend" :disabled="syncWorking">同步到后端</button>
         <input ref="fileRef" type="file" accept=".xlsx,.xls" class="hidden" @change="onFile" />
       </div>
     </header>
@@ -21,6 +24,8 @@
       <div class="file-info" v-else>
         <div class="name">已选择：{{ fileName }}</div>
         <div class="desc" v-if="!rows.length">解析预留：将使用 SheetJS 读取并展示工作表</div>
+        <div class="desc" v-if="rows.length && Object.keys(mapping).length">映射：{{ Object.entries(mapping).map(([k,v])=>k+'=>'+v).join('，') }}</div>
+        <div class="desc" v-if="syncMsg">{{ syncMsg }}</div>
         <div class="sheets" v-if="sheetNames.length">
           <button
             v-for="(sn, idx) in sheetNames"
@@ -69,6 +74,9 @@ const rows = ref<Array<Array<string | number | null>>>([]);
 const workbookRef = ref<XLSX.WorkBook|null>(null);
 const lastFileName = ref('export.xlsx');
 const colWidths = ref<number[]>([]);
+const mapping = ref<Record<string,string>>({});
+const syncWorking = ref(false);
+const syncMsg = ref('');
 
 function triggerFile(){ fileRef.value?.click(); }
 
@@ -113,6 +121,7 @@ function loadActiveSheet(){
   // 初始化列宽（基于列数）
   const cols = rows.value[0]?.length || 0;
   colWidths.value = Array.from({length: cols}, ()=> 140);
+  mapping.value = {};
 }
 
 function switchSheet(idx: number){
@@ -172,6 +181,91 @@ function onResizeEnd(){
   resizing = false; resizeCol = -1;
   window.removeEventListener('mousemove', onResizing);
   window.removeEventListener('mouseup', onResizeEnd);
+}
+
+// AI：字段智能映射（根据表头关键字匹配到后端产品字段）
+function aiMap(){
+  if(!rows.value.length) return;
+  const header = (rows.value[0] || []).map(v=> String(v||'').trim().toLowerCase());
+  const dict: Record<string,string[]> = {
+    product_id: ['product id','product_id','产品id','产品编码','编号','货号','sku','条码','商品编码'],
+    name: ['name','品名','名称','商品名称','产品名称'],
+    category: ['category','分类','品类','类别'],
+    price: ['price','单价','售价','价格','含税单价','不含税单价'],
+    premium_discount: ['discount','premium','折扣','溢价','优惠','折让'],
+    production_year: ['year','生产年份','出厂年份','年份'],
+    packaging_image: ['image','图片','包装图','封面','图片链接','img','image url'],
+    enabled: ['enabled','启用','是否启用','状态','上架','在售']
+  };
+  const result: Record<string,string> = {};
+  header.forEach((h, idx)=>{
+    for(const [field, keys] of Object.entries(dict)){
+      if(keys.some(k=> h.includes(k)) && result[idx]===undefined){ result[idx] = field; break; }
+    }
+  });
+  mapping.value = result;
+}
+
+// AI：清洗数据（去空行、类型规范、裁剪空列）
+function aiClean(){
+  if(!rows.value.length) return;
+  const head = rows.value[0];
+  let data = rows.value.slice(1);
+  data = data.filter(r=> r && r.some(c=> String(c||'').trim()!==''));
+  const normBool = (v:any)=>{ const s=String(v||'').trim().toLowerCase(); return (s==='1'||s==='true'||s==='是'||s==='y'||s==='yes'||s==='上架'); };
+  const normNum = (v:any)=>{ const s=String(v||'').replace(/[,\s]/g,'').replace(/元|rmb|¥/ig,''); const n=Number(s); return Number.isFinite(n)? n: null; };
+  const normYear = (v:any)=>{ const n=parseInt(String(v||'').slice(0,4)); return Number.isFinite(n)? n: null; };
+  const idxToField = mapping.value; // 形如 { '0':'product_id', '1':'name' }
+  const cleaned = [head.slice()];
+  data.forEach(row=>{
+    const r = row.slice();
+    r.forEach((v, i)=>{
+      const f = (idxToField as any)[i];
+      if(!f) return;
+      if(f==='price' || f==='premium_discount') r[i] = normNum(v);
+      if(f==='production_year') r[i] = normYear(v);
+      if(f==='enabled') r[i] = normBool(v)? 1: 0;
+    });
+    cleaned.push(r);
+  });
+  rows.value = cleaned;
+}
+
+// 同步到后端 /api/products（逐行 POST，已存在 product_id 返回 409 跳过）
+async function syncToBackend(){
+  if(!rows.value.length) return;
+  if(!Object.keys(mapping.value).length){ aiMap(); }
+  syncWorking.value = true; syncMsg.value = '正在同步...';
+  try{
+    const head = rows.value[0];
+    const idx2field = mapping.value; // { idx: field }
+    const buildObj = (row:any[])=>{
+      const obj: any = {};
+      row.forEach((v, i)=>{
+        const f = (idx2field as any)[i]; if(!f) return; obj[f]=v;
+      });
+      // 默认值
+      if(obj.enabled===undefined) obj.enabled = 1;
+      return obj;
+    };
+    let ok=0, skip=0, fail=0;
+    for(let i=1;i<rows.value.length;i++){
+      const row = rows.value[i];
+      if(!row || row.every(c=> String(c||'').trim()==='')) continue;
+      const body = buildObj(row);
+      if(!body.product_id || !body.name || !body.category){ skip++; continue; }
+      try{
+        const res = await fetch('/api/products', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+        if(res.status===201){ ok++; }
+        else if(res.status===409){ skip++; }
+        else { fail++; }
+      }catch{ fail++; }
+      if((i%20)===0) syncMsg.value = `已处理 ${i}/${rows.value.length-1} 行...`;
+    }
+    syncMsg.value = `同步完成：新增 ${ok}，跳过 ${skip}，失败 ${fail}`;
+  } finally {
+    syncWorking.value = false;
+  }
 }
 </script>
 
