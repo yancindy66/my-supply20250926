@@ -18,7 +18,29 @@
       </div>
       <div class="file-info" v-else>
         <div class="name">已选择：{{ fileName }}</div>
-        <div class="desc">解析预留：将使用 SheetJS 读取并展示工作表</div>
+        <div class="desc" v-if="!rows.length">解析预留：将使用 SheetJS 读取并展示工作表</div>
+        <div class="sheets" v-if="sheetNames.length">
+          <button
+            v-for="(sn, idx) in sheetNames"
+            :key="sn+idx"
+            :class="['tab', { active: idx===activeSheetIndex }]"
+            @click="switchSheet(idx)"
+          >{{ sn }}</button>
+        </div>
+        <div class="grid-wrap" v-if="rows.length">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th v-for="(h, i) in rows[0]" :key="'h'+i">{{ typeof h==='string' ? h : ('C'+(i+1)) }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(r, ri) in rows.slice(1)" :key="'r'+ri">
+                <td v-for="(c, ci) in r" :key="'c'+ri+'-'+ci">{{ c }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   </div>
@@ -27,12 +49,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import * as XLSX from 'xlsx';
 
 const router = useRouter();
 function goBack(){ router.push('/login'); }
 
 const fileRef = ref<HTMLInputElement|null>(null);
 const fileName = ref('');
+const sheetNames = ref<string[]>([]);
+const activeSheetIndex = ref(0);
+const rows = ref<Array<Array<string | number | null>>>([]);
+const workbookRef = ref<XLSX.WorkBook|null>(null);
 
 function triggerFile(){ fileRef.value?.click(); }
 
@@ -40,14 +67,45 @@ function onFile(e: Event){
   const input = e.target as HTMLInputElement;
   const f = input.files && input.files[0];
   if(!f) return;
-  fileName.value = f.name;
-  // 预留：后续使用 SheetJS 解析 f
+  handleFile(f);
 }
 
 function onDrop(e: DragEvent){
   const f = e.dataTransfer?.files && e.dataTransfer.files[0];
   if(!f) return;
+  handleFile(f);
+}
+
+function handleFile(f: File){
   fileName.value = f.name;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = new Uint8Array(reader.result as ArrayBuffer);
+      const wb = XLSX.read(data, { type: 'array' });
+      workbookRef.value = wb;
+      sheetNames.value = wb.SheetNames;
+      activeSheetIndex.value = 0;
+      loadActiveSheet();
+    }catch(err){
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function loadActiveSheet(){
+  const wb = workbookRef.value;
+  if(!wb) return;
+  const sheetName = sheetNames.value[activeSheetIndex.value];
+  const ws = wb.Sheets[sheetName];
+  const aoa = XLSX.utils.sheet_to_json<Array<string|number|null>>(ws, { header: 1, raw: true });
+  rows.value = aoa as any;
+}
+
+function switchSheet(idx: number){
+  activeSheetIndex.value = idx;
+  loadActiveSheet();
 }
 </script>
 
@@ -73,6 +131,15 @@ function onDrop(e: DragEvent){
 .file-info{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:8px; background: rgba(10,18,44,.35); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:18px 20px; backdrop-filter: blur(8px) saturate(140%); }
 .file-info .name{ font-weight:600; }
 .file-info .desc{ font-size:12px; color:#c7d2fe; }
+
+/* 简易表格渲染 */
+:deep(table.grid){
+  margin-top:14px; width: min(92vw, 1100px); border-collapse: collapse; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:10px; overflow:hidden;
+}
+:deep(table.grid th), :deep(table.grid td){
+  border:1px solid rgba(255,255,255,.12); padding:8px 10px; font-size:13px; color:#e6eeff;
+}
+:deep(table.grid thead th){ background: rgba(37,99,235,.25); font-weight:700; }
 </style>
 
 

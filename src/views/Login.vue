@@ -41,18 +41,7 @@
         <div class="gface g5" @click="goTool('wps')">GPT + WPS</div>
         <div class="gface g6" @click="goTool('flow')">GPT + Flow</div>
       </div>
-      <div class="chat-pane bottom glass">
-        <div class="chat-header">AI 助手</div>
-        <div class="chat-body" ref="loginChatBodyRef">
-          <div v-for="(m,i) in loginMessages" :key="i" class="msg" :class="m.role">
-            <div class="bubble">{{ m.text }}</div>
-          </div>
-        </div>
-        <div class="chat-input">
-          <input v-model="loginInput" placeholder="向 AI 提问：例如 用 Excel 统计上月入库数据" @keyup.enter="loginSend" />
-          <button @click="loginSend">发送</button>
-      </div>
-      </div>
+      
     </section>
   </div>
 </template>
@@ -101,10 +90,6 @@ function onTouchMove(e: TouchEvent){ if(!dragging.value) return; const t=e.touch
 function onTouchEnd(){ dragging.value=false; window.removeEventListener('touchmove', onTouchMove); window.removeEventListener('touchend', onTouchEnd); }
 onMounted(()=> updateCube());
 
-// 底部对话Dock（角色页）
-const dockInput = ref('');
-function dockSend(){ const t=dockInput.value.trim(); if(!t) return; dockInput.value=''; alert('（占位）AI已收到：'+t); }
-
 // 工具跳转：点击魔方 -> 平滑进入各功能实验页（先实现 excel）
 function goTool(key: string){
   if(key==='excel'){
@@ -115,15 +100,7 @@ function goTool(key: string){
   message.value = '即将开放：'+key.toUpperCase();
 }
 
-// 登录页右侧全幅聊天
-const loginMessages = ref<Array<{role:'user'|'assistant'; text:string}>>([
-  { role:'assistant', text:'你好，我是平台 AI 助手。可以和 Excel/Canva/WPS 等工具协作完成任务。' }
-]);
-const loginInput = ref('');
-const loginChatBodyRef = ref<HTMLElement|null>(null);
-function loginSend(){ const t=loginInput.value.trim(); if(!t) return; loginMessages.value.push({role:'user', text:t}); loginInput.value='';
-  setTimeout(()=>{ loginMessages.value.push({role:'assistant', text:'（占位回复）我已理解你的需求：'+t}); try{ const el=loginChatBodyRef.value; if(el) el.scrollTop=el.scrollHeight; }catch{} }, 250);
-}
+
 </script>
 
 <style scoped>
