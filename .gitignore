@@ -1,0 +1,24 @@
+# dependencies
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# editors & OS
+.vscode/
+.idea/
+.DS_Store
+
+# builds
+**/build/
+**/out/
+
+# env
+.env
+.env.*
