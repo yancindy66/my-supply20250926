@@ -14,24 +14,17 @@
       </div>
     </header>
     <div class="layout-body">
-      <aside class="sidebar cyber-sidebar" :class="{ 'sidebar-collapsed': collapsed }">
+      <aside class="sidebar cyber-sidebar">
         <!-- 顶部品牌已移至导航栏，这里不再显示 LOGO -->
         <ul class="menus">
           <li v-for="(menu, idx) in menus" :key="menu.link"
               class="menu-item"
-              @mouseenter="hoverMenu = idx" @mouseleave="hoverMenu = null"
               @click="onMenuClick(menu, idx)"
               :class="{ active: isActive(menu.link), open: isOpen(idx), 'parent-active': hasActiveChild(menu) }">
             <span class="chev" aria-hidden="true"></span>
             <span class="title">{{ menu.title }}</span>
             <!-- 折叠手风琴：常规子菜单常驻，使用 CSS 过渡（仅当有 children 时渲染） -->
             <ul v-if="menu.children" class="submenu">
-              <li v-for="sub in menu.children" :key="sub.link"
-                  @click.stop="go(sub.link)"
-                  :class="{ active: isActive(sub.link) }">{{ sub.title }}</li>
-            </ul>
-            <!-- 侧栏收起时的悬停飞出子菜单 -->
-            <ul v-if="menu.children && collapsed && hoverMenu === idx" class="submenu submenu-flyout">
               <li v-for="sub in menu.children" :key="sub.link"
                   @click.stop="go(sub.link)"
                   :class="{ active: isActive(sub.link) }">{{ sub.title }}</li>
@@ -53,12 +46,11 @@
 import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 const router = useRouter();
-const collapsed = ref(false);
-const hoverMenu = ref<number|null>(null);
+// 极简基线：移除侧栏折叠与悬停飞出逻辑
 const openMenuIdx = ref<number|null>(null);
 const brandName = ref('郑商云仓');
 const brandLogo = ref('/logo-zhengshang.png');
-function onLogoError(e: any){
+function onLogoError(){
   if(brandLogo.value !== '/vite.svg') brandLogo.value = '/vite.svg';
 }
 const topNav = [
@@ -274,25 +266,6 @@ watch(() => router.currentRoute.value.path, (p) => {
 .cyber-sidebar::-webkit-scrollbar-track { background-color: #f6f7fb; }
 .cyber-sidebar::-webkit-scrollbar { width: 6px; }
 .cyber-sidebar::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.35); border-radius: 4px; }
-.sidebar-collapsed {
-  --sidebar-width: 64px;
-  width: var(--sidebar-width);
-}
-.toggle-fab {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  width: 28px; height: 28px; border-radius: 50%; border: none; cursor: pointer;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  box-shadow: 0 8px 18px rgba(37,99,235,0.32);
-  z-index: 120;
-}
-.toggle-fab::before {
-  content: '';
-  position: absolute; inset: 0; margin: auto; width: 12px; height: 12px;
-  background: #ffffff;
-  mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="%23fff" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>') center/contain no-repeat;
-  transition: transform .2s ease;
-}
-.toggle-fab.collapsed::before { transform: rotate(180deg); }
 /* 折叠按钮：1px 细边+悬浮感 */
 /* 折叠按钮已移除 */
 .menus {
@@ -429,10 +402,7 @@ watch(() => router.currentRoute.value.path, (p) => {
   overflow-x: hidden; /* 防止横向滚动条溢出到侧栏下方 */
   padding-bottom: 56px; /* 为底部工具条预留空间 */
 }
-.sidebar-collapsed ~ .cyber-content { margin-left: 64px; width: calc(100% - 64px); }
-.cyber-content:hover {
-  box-shadow: 0 8px 48px rgba(0,80,255,0.18);
-}
+.cyber-content:hover { box-shadow: none; }
 
 /* 底部工具条（放置退出登录等） */
 .app-footer{ position: fixed; left: 200px; right: 0; bottom: 0; height: 44px; background:#fff; border-top:1px solid rgba(2,6,23,0.06); display:flex; align-items:center; justify-content:flex-end; padding:0 12px; z-index: 120; }
