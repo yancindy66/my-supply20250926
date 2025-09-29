@@ -1,0 +1,52 @@
+[
+  {
+    "id": 5,
+    "name": "光大银行杭州分行",
+    "license_number": "LIC20240005",
+    "type": "商业银行",
+    "status": "合作中",
+    "contact_person": "周洁",
+    "contact_phone": "0571-99990005",
+    "address": "杭州市西湖区文一路66号"
+  },
+  {
+    "id": 6,
+    "name": "某某信托有限公司",
+    "license_number": "LIC20240006",
+    "type": "信托公司",
+    "status": "合作中",
+    "contact_person": "陈浩",
+    "contact_phone": "010-82000006",
+    "address": "北京市海淀区知春路9号"
+  },
+  {
+    "id": 7,
+    "name": "某某商业保理有限公司",
+    "license_number": "LIC20240007",
+    "type": "保理公司",
+    "status": "合作中",
+    "contact_person": "刘颖",
+    "contact_phone": "020-38000007",
+    "address": "广州市天河区珠江新城16号"
+  },
+  {
+    "id": 8,
+    "name": "农业银行成都分行",
+    "license_number": "LIC20240008",
+    "type": "商业银行",
+    "status": "合作中",
+    "contact_person": "孙宁",
+    "contact_phone": "028-66000008",
+    "address": "成都市高新区天府大道188号"
+  },
+  {
+    "id": 10,
+    "name": "邮储银行武汉分行",
+    "license_number": "LIC20240010",
+    "type": "商业银行",
+    "status": "合作中",
+    "contact_person": "高圆",
+    "contact_phone": "027-87000010",
+    "address": "武汉市武昌区中北路88号"
+  }
+]

@@ -1,0 +1,50 @@
+.owner-list-container { font-size: 12px; font-family: Arial, Helvetica, sans-serif; }
+.owner-list-container .toolbar, .owner-list-container .owner-table, .owner-list-container .pagination { font-family: Arial, Helvetica, sans-serif; font-size: 12px; }
+.owner-list-container h2 { margin-bottom: 16px; font-size: 18px; font-weight: 600; letter-spacing: 0.2px; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; white-space: nowrap; padding: 8px 10px; border: 1px solid rgba(99,102,241,0.12); border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(236,244,255,0.58)); -webkit-backdrop-filter: saturate(1.15) blur(8px); backdrop-filter: saturate(1.15) blur(8px); box-shadow: 0 10px 24px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,.5); }
+.toolbar-left { display: flex; align-items: center; gap: 8px; }
+.toolbar-right.filters { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow: auto; }
+.form-item { display:flex; align-items:center; gap:6px; }
+.form-item.grow { min-width: 300px; }
+.form-item .label { color:#475569; font-size:12px; }
+.toolbar-right .search-input { height: 28px; width: 300px; font-size:12px; }
+.btn { height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(99,102,241,.22); background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(240,245,255,.88)); color:#0f172a; cursor: pointer; font-size:12px; display:inline-flex; align-items:center; gap:6px; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .2s ease; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 8px rgba(15,23,42,.06); }
+.btn:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 8px 16px rgba(15,23,42,.10); border-color: rgba(59,130,246,.45); }
+.btn:active { transform: translateY(0); filter: brightness(0.98); }
+.btn-primary { border-color: rgba(37,99,235,.35); background: linear-gradient(180deg, rgba(59,130,246,.18), rgba(37,99,235,.16)); color:#0f172a; }
+.btn-danger { border-color: rgba(239,68,68,.55); background: linear-gradient(180deg, rgba(254,226,226,.9), rgba(254,202,202,.85)); color:#7f1d1d; }
+.btn-ghost { border-color: rgba(148,163,184,.28); background: linear-gradient(180deg, rgba(255,255,255,.66), rgba(248,250,252,.72)); color:#334155; }
+.table-wrapper { width: 100%; overflow: auto; border: 1px solid #e5e7eb; background: #fff; border-radius: 10px; box-shadow: 0 8px 22px rgba(2,6,23,0.06); }
+.owner-table { width: max-content; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.owner-table thead th { position: sticky; top: 0; background: #f8fafc; z-index: 2; }
+.owner-table thead th.name-col,
+.owner-table thead th.index-col { z-index: 4; }
+.owner-table td, .owner-table th { padding: 8px 10px; border-bottom: 1px solid #eef2f7; font-size: 12px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.owner-table tr:nth-child(even) td { background: #fbfdff; }
+.owner-table tr:hover td { background: #eef6ff; }
+.text-ellipsis { max-width: 240px; }
+.sticky-right { position: sticky; right: 0; background: #fff; box-shadow:-8px 0 8px rgba(0,0,0,0.03); }
+.op-cell { display:flex; align-items:center; gap:6px; }
+.action-btn { display:flex; align-items:center; gap:4px; height:22px; padding:0 6px; border-radius:999px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-size:12px; }
+/* Futuristic op buttons */
+.op-btn { display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 6px; border-radius:999px; border:1px solid rgba(99,102,241,.22); background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(240,245,255,.88)); color:#0f172a; cursor:pointer; margin-right:6px; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .2s ease; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 8px rgba(15,23,42,.06); }
+.op-btn:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 8px 16px rgba(15,23,42,.10); border-color: rgba(59,130,246,.45); }
+.op-btn.primary { border-color: rgba(37,99,235,.35); background: linear-gradient(180deg, rgba(59,130,246,.14), rgba(37,99,235,.10)); color:#0f172a; }
+.op-btn.info { border-color: rgba(56,189,248,.35); background: linear-gradient(180deg, rgba(56,189,248,.14), rgba(99,102,241,.08)); }
+.op-btn.danger { border-color: rgba(239,68,68,.55); background: linear-gradient(180deg, rgba(254,226,226,.9), rgba(254,202,202,.85)); color:#7f1d1d; }
+.op-btn.warn { border-color: rgba(245,158,11,.45); background: linear-gradient(180deg, rgba(251,191,36,.18), rgba(251,146,60,.10)); color:#7c2d12; }
+.op-btn.print { border-color: rgba(16,185,129,.35); background: linear-gradient(180deg, rgba(16,185,129,.14), rgba(56,189,248,.08)); color:#064e3b; }
+.op-btn svg { width:12px; height:12px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08)); }
+.pagination { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; color:#64748b; }
+.pagination button { height: 28px; font-size: 12px; padding: 0 10px; border:1px solid rgba(99,102,241,.22); border-radius:999px; background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(240,245,255,.88)); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 8px rgba(15,23,42,.06); }
+
+/* Sticky left common helpers for index and name columns */
+.index-col { position: sticky; left: 0; background:#fff; z-index:3; width: 56px; min-width: 56px; }
+.name-col { position: sticky; left: 56px; background:#fff; z-index:3; min-width: 240px; }
+
+/* Density toggles */
+.owner-list-container.density-compact .owner-table td,
+.owner-list-container.density-compact .owner-table th { padding: 6px 8px; font-size: 12px; }
+.owner-list-container.density-comfortable .owner-table td,
+.owner-list-container.density-comfortable .owner-table th { padding: 11px 12px; font-size: 14px; }
+

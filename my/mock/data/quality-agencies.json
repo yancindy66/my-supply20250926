@@ -1,0 +1,95 @@
+[
+  {
+    "id": 1,
+    "name": "SGS通标标准",
+    "creditCode": "91310000QA000001",
+    "qualification_type": [
+      "CMA",
+      "CNAS"
+    ],
+    "qualCertNo": "QA20240001",
+    "qualValidTo": "2026-12-31",
+    "regAddress": "上海市徐汇区1号",
+    "servicePhone": "021-61000001",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 4,
+    "name": "中检集团",
+    "creditCode": "91310000QA000004",
+    "qualification_type": [
+      "CMA"
+    ],
+    "qualCertNo": "QA20240004",
+    "qualValidTo": "2025-12-31",
+    "regAddress": "北京市朝阳区1号",
+    "servicePhone": "010-61000004",
+    "coop_status": "已暂停"
+  },
+  {
+    "id": 5,
+    "name": "广检中心",
+    "creditCode": "91440100QA000005",
+    "qualification_type": [
+      "CNAS"
+    ],
+    "qualCertNo": "QA20240005",
+    "qualValidTo": "2026-09-30",
+    "regAddress": "广州市天河区1号",
+    "servicePhone": "020-61000005",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 6,
+    "name": "浙检中心",
+    "creditCode": "91330000QA000006",
+    "qualification_type": [
+      "CMA"
+    ],
+    "qualCertNo": "QA20240006",
+    "qualValidTo": "2027-01-31",
+    "regAddress": "杭州市西湖区1号",
+    "servicePhone": "0571-61000006",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 7,
+    "name": "鲁检中心",
+    "creditCode": "91370000QA000007",
+    "qualification_type": [
+      "CNAS",
+      "ILAC-MRA"
+    ],
+    "qualCertNo": "QA20240007",
+    "qualValidTo": "2026-01-31",
+    "regAddress": "济南市历下区1号",
+    "servicePhone": "0531-61000007",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 8,
+    "name": "渝检中心",
+    "creditCode": "91500000QA000008",
+    "qualification_type": [
+      "CMA"
+    ],
+    "qualCertNo": "QA20240008",
+    "qualValidTo": "2025-08-31",
+    "regAddress": "重庆市江北区1号",
+    "servicePhone": "023-61000008",
+    "coop_status": "合作中"
+  },
+  {
+    "id": 9,
+    "name": "川检中心",
+    "creditCode": "91510000QA000009",
+    "qualification_type": [
+      "CMA"
+    ],
+    "qualCertNo": "QA20240009",
+    "qualValidTo": "2026-02-28",
+    "regAddress": "成都市高新区1号",
+    "servicePhone": "028-61000009",
+    "coop_status": "已终止"
+  }
+]

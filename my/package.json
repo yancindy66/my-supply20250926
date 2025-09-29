@@ -1,0 +1,32 @@
+{
+  "name": "my",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/xlsx": "^0.0.35",
+    "mockjs": "^1.1.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.2"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/compiler-sfc": "^3.5.21",
+    "@vue/runtime-core": "^3.5.21",
+    "@vue/runtime-dom": "^3.5.21",
+    "axios": "^1.12.0",
+    "element-plus": "^2.8.6",
+    "luckyexcel": "^1.0.1",
+    "luckysheet": "^2.1.13",
+    "vite-plugin-mock": "^3.0.2",
+    "vue": "^3.5.21",
+    "vue-i18n": "^9.14.5",
+    "vue-router": "^4.5.1",
+    "xlsx": "^0.18.5"
+  }
+}

@@ -1,0 +1,222 @@
+[
+  {
+    "id": 1,
+    "supplier_id": 1,
+    "brand_name": "汇融牌一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 0,
+    "platform_brand_code": "COT-L1-20250916-001",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250916"
+  },
+  {
+    "id": 2,
+    "supplier_id": 1,
+    "brand_name": "汇融牌一级枣",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "COT-L1-20250916-002",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250916"
+  },
+  {
+    "id": 3,
+    "supplier_id": 1,
+    "brand_name": "2025菏泽转运站一级棉花",
+    "platform_standard_id": 1,
+    "custom_premium": 0,
+    "platform_brand_code": "CF20250916",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250916"
+  },
+  {
+    "id": 4,
+    "supplier_id": 1,
+    "brand_name": "好想你一级枣",
+    "platform_standard_id": 3,
+    "custom_premium": 500,
+    "platform_brand_code": "CJ20250916",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250916"
+  },
+  {
+    "id": 5,
+    "supplier_id": 1,
+    "brand_name": "汇丰一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 6,
+    "supplier_id": 1,
+    "brand_name": "菏泽转运站一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 0,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 7,
+    "supplier_id": 1,
+    "brand_name": "汇融转运站一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 8,
+    "supplier_id": 1,
+    "brand_name": "郑州好想你一级枣",
+    "platform_standard_id": 3,
+    "custom_premium": 500,
+    "platform_brand_code": "CJ20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 9,
+    "supplier_id": 1,
+    "brand_name": "菏泽转运一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 10,
+    "supplier_id": 1,
+    "brand_name": "库尔勒银星一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 11,
+    "supplier_id": 1,
+    "brand_name": "汇锦一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 12,
+    "supplier_id": 1,
+    "brand_name": "菏泽一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 13,
+    "supplier_id": 1,
+    "brand_name": "冠农一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 14,
+    "supplier_id": 1,
+    "brand_name": "菏泽公路一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 15,
+    "supplier_id": 1,
+    "brand_name": "转运站公路一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 16,
+    "supplier_id": 1,
+    "brand_name": "北京一级棉",
+    "platform_standard_id": 1,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 17,
+    "supplier_id": 1,
+    "brand_name": "丰汇牌一级",
+    "platform_standard_id": 1,
+    "custom_premium": 0,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 18,
+    "supplier_id": 1,
+    "brand_name": "汇丰牌一级",
+    "platform_standard_id": 3,
+    "custom_premium": 500,
+    "platform_brand_code": "CJ20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 19,
+    "supplier_id": 1,
+    "brand_name": "丰汇牌二级",
+    "platform_standard_id": 2,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  },
+  {
+    "id": 20,
+    "supplier_id": 1,
+    "brand_name": "中芯辉腾二级",
+    "platform_standard_id": 2,
+    "custom_premium": 500,
+    "platform_brand_code": "CF20250917",
+    "status": "已上架",
+    "quality_report_url": "",
+    "_date": "20250917"
+  }
+]
