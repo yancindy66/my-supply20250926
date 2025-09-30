@@ -61,6 +61,25 @@ CREATE TABLE IF NOT EXISTS user_roles (
   CONSTRAINT fk_user_roles_role_id FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户与角色关联表';
 
+-- 权限明细表
+CREATE TABLE IF NOT EXISTS permissions (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  permission_key VARCHAR(255) NOT NULL COMMENT '权限键（通常对应前端路由或API路径）',
+  name VARCHAR(64) NOT NULL COMMENT '权限名称',
+  description VARCHAR(255) DEFAULT NULL COMMENT '权限描述',
+  module VARCHAR(64) DEFAULT NULL COMMENT '所属模块（如：仓单管理）',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_permission_key (permission_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限明细表';
+
+-- 初始化权限（示例；可按路由清单批量扩充）
+INSERT INTO permissions (permission_key, name, module) VALUES
+('/inbound/apply', '入库申请', '入库管理'),
+('/inbound/list', '入库申请列表', '入库管理'),
+('/warehouse-receipt/list', '仓单列表', '仓单管理')
+ON DUPLICATE KEY UPDATE name=VALUES(name), module=VALUES(module);
+
 -- 入库预约表（新版定义）
 CREATE TABLE IF NOT EXISTS inbound_reservations (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
