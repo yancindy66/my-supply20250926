@@ -44,6 +44,9 @@ const routes = [
       { path: 'warehouse-receipt/list', component: () => import('./views/placeholder/WarehouseReceiptList.vue'), meta: { title: '仓单列表' } },
       { path: 'pledge/apply', component: () => import('./views/placeholder/PledgeApply.vue'), meta: { title: '质押申请' } },
       { path: 'pledge/list', component: () => import('./views/placeholder/PledgeList.vue'), meta: { title: '质押记录' } },
+      { path: 'outbound/apply', component: () => import('./views/placeholder/OutboundReservation.vue'), meta: { title: '出库预约' } },
+      { path: 'unfreeze/apply', component: () => import('./views/placeholder/UnfreezeApply.vue'), meta: { title: '解冻申请' } },
+      { path: 'unfreeze/review', component: () => import('./views/placeholder/UnfreezeReview.vue'), meta: { title: '解冻审批' } },
       { path: 'monitor/overview', component: () => import('./views/placeholder/RegulatorOverview.vue') },
 
       ...[
