@@ -48,6 +48,19 @@ INSERT INTO roles (role_key, role_name, description) VALUES
 ('platform_admin', '平台运营', '系统后台管理员，拥有全部权限')
 ON DUPLICATE KEY UPDATE role_name=VALUES(role_name), description=VALUES(description);
 
+-- 用户与角色关联表
+CREATE TABLE IF NOT EXISTS user_roles (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT(20) UNSIGNED NOT NULL,
+  role_id BIGINT(20) UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_user_role (user_id, role_id),
+  KEY idx_role_id (role_id),
+  CONSTRAINT fk_user_roles_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_roles_role_id FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户与角色关联表';
+
 -- 入库预约表（新版定义）
 CREATE TABLE IF NOT EXISTS inbound_reservations (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
