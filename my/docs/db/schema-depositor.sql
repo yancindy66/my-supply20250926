@@ -26,6 +26,28 @@ CREATE TABLE IF NOT EXISTS users (
   KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='统一用户表';
 
+-- 系统角色表
+CREATE TABLE IF NOT EXISTS roles (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  role_key VARCHAR(64) NOT NULL COMMENT '角色键（英文，程序内使用）',
+  role_name VARCHAR(64) NOT NULL COMMENT '角色名称（中文，用于显示）',
+  description VARCHAR(255) DEFAULT NULL COMMENT '角色描述',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_role_key (role_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统角色表';
+
+-- 初始化角色数据
+INSERT INTO roles (role_key, role_name, description) VALUES
+('depositor', '存货人', '货物的所有者，可进行仓单的各项操作'),
+('warehouse_manager', '仓储机构', '负责货物的仓储、入库、出库、仓单管理'),
+('financial_org', '金融机构', '提供融资服务，进行风控与规则管理'),
+('guarantee_org', '担保机构', '为融资提供担保服务'),
+('qc_org', '质检机构', '负责货物的质量检验'),
+('platform_admin', '平台运营', '系统后台管理员，拥有全部权限')
+ON DUPLICATE KEY UPDATE role_name=VALUES(role_name), description=VALUES(description);
+
 -- 入库预约表（新版定义）
 CREATE TABLE IF NOT EXISTS inbound_reservations (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
