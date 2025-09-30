@@ -1,0 +1,197 @@
+openapi: 3.0.0
+info:
+  title: 存货人管理模块 API
+  version: 1.0.0
+  description: 供应链金融系统 - 存货人功能模块
+servers:
+  - url: https://api.scf-system.com/v1
+    description: 生产环境
+  - url: http://127.0.0.1:8080/v1
+    description: 本地开发
+components:
+  schemas:
+    ApiResp:
+      type: object
+      properties:
+        code: { type: integer, example: 0 }
+        message: { type: string, example: ok }
+        data: { type: object }
+    User:
+      type: object
+      required: [username, password, name, type, company_name, unified_social_credit_code]
+      properties:
+        id: { type: integer, format: int64, example: 1001 }
+        username: { type: string, example: company001 }
+        password: { type: string, format: password }
+        name: { type: string, example: 张三 }
+        type:
+          type: string
+          enum: [depositor, warehouse, financial, guarantee, qc, platform]
+          example: depositor
+        company_name: { type: string, example: 某某贸易有限公司 }
+        unified_social_credit_code: { type: string, example: 91310000MA1KXXXXXX }
+        status: { type: integer, enum: [0,1,2], description: 0禁用 1启用 2待审核, example: 1 }
+    InboundReservation:
+      type: object
+      required: [target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit]
+      properties:
+        reservation_number: { type: string, example: RSV20240115001 }
+        depositor_id: { type: integer, format: int64 }
+        target_warehouse_id: { type: integer, format: int64 }
+        commodity_id: { type: integer, format: int64 }
+        total_planned_quantity: { type: number, format: double, example: 120.5 }
+        measurement_unit: { type: string, example: 吨 }
+        expected_arrival_date: { type: string, format: date }
+        status:
+          type: string
+          enum: [draft, submitted, warehouse_confirmed, platform_approved, fully_completed, cancelled]
+          example: draft
+        remarks: { type: string }
+    InboundOrder:
+      type: object
+      required: [order_no, reservation_number, status]
+      properties:
+        order_no: { type: string, example: IN20240120001 }
+        reservation_number: { type: string }
+        status:
+          type: string
+          enum: [created, receiving, completed, cancelled]
+          example: created
+        received_quantity: { type: number, format: double, example: 118.8 }
+        unit: { type: string, example: 吨 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+  parameters:
+    PaginationPage:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PaginationSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 10 }
+paths:
+  /depositors/register:
+    post:
+      summary: 存货人注册
+      tags: [用户管理]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: integer, example: 1001 }
+                      username: { type: string }
+                      status: { type: integer, example: 1 }
+  /inbound/reservations:
+    post:
+      summary: 新建入库预约
+      tags: [入库管理]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InboundReservation' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResp' } } } }
+    get:
+      summary: 入库预约列表
+      tags: [入库管理]
+      parameters:
+        - $ref: '#/components/parameters/PaginationPage'
+        - $ref: '#/components/parameters/PaginationSize'
+        - name: keyword
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/InboundReservation' }
+                      total: { type: integer, example: 100 }
+  /inbound/reservations/{reservation_number}:
+    get:
+      summary: 入库预约详情
+      tags: [入库管理]
+      parameters:
+        - name: reservation_number
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResp' } } } }
+    put:
+      summary: 更新入库预约
+      tags: [入库管理]
+      parameters:
+        - name: reservation_number
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InboundReservation' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResp' } } } }
+    delete:
+      summary: 取消入库预约
+      tags: [入库管理]
+      parameters:
+        - name: reservation_number
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResp' } } } }
+
+  /inbound/orders:
+    get:
+      summary: 入库单列表
+      tags: [入库管理]
+      parameters:
+        - $ref: '#/components/parameters/PaginationPage'
+        - $ref: '#/components/parameters/PaginationSize'
+        - name: reservation_number
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/InboundOrder' }
+                      total: { type: integer, example: 25 }
