@@ -45,6 +45,7 @@ INSERT INTO roles (role_key, role_name, description) VALUES
 ('financial_org', '金融机构', '提供融资服务，进行风控与规则管理'),
 ('guarantee_org', '担保机构', '为融资提供担保服务'),
 ('qc_org', '质检机构', '负责货物的质量检验'),
+('regulator', '监管方', '物联网监控角色，监管可视化'),
 ('platform_admin', '平台运营', '系统后台管理员，拥有全部权限')
 ON DUPLICATE KEY UPDATE role_name=VALUES(role_name), description=VALUES(description);
 
@@ -77,7 +78,18 @@ CREATE TABLE IF NOT EXISTS permissions (
 INSERT INTO permissions (permission_key, name, module) VALUES
 ('/inbound/apply', '入库申请', '入库管理'),
 ('/inbound/list', '入库申请列表', '入库管理'),
-('/warehouse-receipt/list', '仓单列表', '仓单管理')
+('/warehouse-receipt/list', '仓单列表', '仓单管理'),
+('/pledge/create', '创建质押', '质押管理'),
+('/pledge/list', '质押列表', '质押管理'),
+('/freeze/apply', '冻结申请', '仓单管理'),
+('/freeze/release', '冻结解冻', '仓单管理'),
+('/trade/list', '交易列表', '交易管理'),
+('/trade/create', '发布交易', '交易管理'),
+('/transfer/confirm', '过户确认', '交易管理'),
+('/outbound/apply', '出库预约', '出库管理'),
+('/outbound/list', '出库预约列表', '出库管理'),
+('/unfreeze/apply', '解冻申请', '质押管理'),
+('/unfreeze/review', '解冻审批', '质押管理')
 ON DUPLICATE KEY UPDATE name=VALUES(name), module=VALUES(module);
 
 -- 角色-权限关联表
@@ -368,3 +380,185 @@ CREATE TABLE IF NOT EXISTS storage_in_pledge_marks (
   CONSTRAINT fk_sipm_in_item FOREIGN KEY (storage_in_item_id) REFERENCES inbound_order_items(id),
   CONSTRAINT fk_sipm_receipt FOREIGN KEY (warehouse_receipt_id) REFERENCES warehouse_receipts(id)
 ) COMMENT='入库单质押标记表';
+
+-- 出库预约表
+CREATE TABLE IF NOT EXISTS outbound_reservations (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  reservation_number VARCHAR(64) NOT NULL COMMENT '出库预约单号',
+  applicant_id BIGINT UNSIGNED NOT NULL COMMENT '申请人（存货人）',
+  warehouse_id BIGINT UNSIGNED NOT NULL COMMENT '出库仓库',
+  warehouse_receipt_id BIGINT UNSIGNED NOT NULL COMMENT '对应仓单',
+  planned_quantity DECIMAL(20,4) NOT NULL COMMENT '计划出库量',
+  measurement_unit VARCHAR(20) NOT NULL,
+  expected_outbound_time DATETIME NULL,
+  status ENUM('draft','submitted','warehouse_confirmed','completed','cancelled') NOT NULL DEFAULT 'draft',
+  confirmed_by BIGINT UNSIGNED NULL COMMENT '仓储方确认人',
+  confirmed_at DATETIME NULL COMMENT '仓储方确认时间',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_out_reservation_number (reservation_number),
+  KEY idx_applicant_id (applicant_id),
+  KEY idx_receipt_id (warehouse_receipt_id),
+  CONSTRAINT fk_out_res_applicant FOREIGN KEY (applicant_id) REFERENCES users(id),
+  CONSTRAINT fk_out_res_warehouse FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+  CONSTRAINT fk_out_res_receipt FOREIGN KEY (warehouse_receipt_id) REFERENCES warehouse_receipts(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='出库预约表';
+
+-- 出库单表
+CREATE TABLE IF NOT EXISTS outbound_orders (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  outbound_order_number VARCHAR(64) NOT NULL COMMENT '出库单号',
+  reservation_id BIGINT UNSIGNED NOT NULL COMMENT '所属出库预约',
+  actual_quantity DECIMAL(20,4) NOT NULL COMMENT '实际出库量',
+  measurement_unit VARCHAR(20) NOT NULL,
+  status ENUM('arranged','picking','loading','completed','cancelled') NOT NULL DEFAULT 'arranged',
+  completed_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_outbound_order_number (outbound_order_number),
+  KEY idx_reservation_id (reservation_id),
+  CONSTRAINT fk_out_orders_reservation FOREIGN KEY (reservation_id) REFERENCES outbound_reservations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='出库单表';
+
+-- 仓单交易表（挂单/撮合）
+CREATE TABLE IF NOT EXISTS warehouse_receipt_trades (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  trade_no VARCHAR(64) NOT NULL,
+  warehouse_receipt_id BIGINT UNSIGNED NOT NULL,
+  seller_id BIGINT UNSIGNED NOT NULL,
+  buyer_id BIGINT UNSIGNED NULL,
+  price DECIMAL(16,2) NOT NULL,
+  quantity DECIMAL(20,4) NOT NULL,
+  unit VARCHAR(20) NOT NULL,
+  status ENUM('listed','matched','settled','cancelled') NOT NULL DEFAULT 'listed',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_trade_no (trade_no),
+  KEY idx_receipt_id (warehouse_receipt_id),
+  KEY idx_seller (seller_id),
+  KEY idx_buyer (buyer_id),
+  CONSTRAINT fk_wrtr_receipt FOREIGN KEY (warehouse_receipt_id) REFERENCES warehouse_receipts(id),
+  CONSTRAINT fk_wrtr_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+  CONSTRAINT fk_wrtr_buyer FOREIGN KEY (buyer_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='仓单交易表';
+
+-- 仓单过户表
+CREATE TABLE IF NOT EXISTS warehouse_receipt_transfers (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  transfer_no VARCHAR(64) NOT NULL,
+  warehouse_receipt_id BIGINT UNSIGNED NOT NULL,
+  from_user_id BIGINT UNSIGNED NOT NULL,
+  to_user_id BIGINT UNSIGNED NOT NULL,
+  quantity DECIMAL(20,4) NOT NULL,
+  unit VARCHAR(20) NOT NULL,
+  status ENUM('pending','approved','rejected','completed') NOT NULL DEFAULT 'pending',
+  trade_id BIGINT UNSIGNED NULL COMMENT '来源交易ID（若由交易触发）',
+  approved_by BIGINT UNSIGNED NULL,
+  approved_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_transfer_no (transfer_no),
+  KEY idx_receipt_id (warehouse_receipt_id),
+  KEY idx_from_user (from_user_id),
+  KEY idx_to_user (to_user_id),
+  CONSTRAINT fk_wrtrf_receipt FOREIGN KEY (warehouse_receipt_id) REFERENCES warehouse_receipts(id),
+  CONSTRAINT fk_wrtrf_from FOREIGN KEY (from_user_id) REFERENCES users(id),
+  CONSTRAINT fk_wrtrf_to FOREIGN KEY (to_user_id) REFERENCES users(id),
+  CONSTRAINT fk_wrtrf_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
+  CONSTRAINT fk_wrtrf_trade FOREIGN KEY (trade_id) REFERENCES warehouse_receipt_trades(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='仓单过户表';
+
+-- 质押申请表（审批后由仓储执行冻结，生成/关联质押冻结记录）
+CREATE TABLE IF NOT EXISTS pledge_applications (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  application_no VARCHAR(64) NOT NULL,
+  warehouse_receipt_id BIGINT UNSIGNED NOT NULL,
+  applicant_user_id BIGINT UNSIGNED NOT NULL COMMENT '发起人（存货人/金融）',
+  finance_org_user_id BIGINT UNSIGNED NULL COMMENT '目标金融机构用户（可选）',
+  requested_quantity DECIMAL(20,4) NOT NULL,
+  measurement_unit VARCHAR(20) NOT NULL,
+  requested_value DECIMAL(16,2) NULL,
+  remarks VARCHAR(500) NULL,
+  status ENUM('submitted','finance_approved','finance_rejected','frozen','completed','cancelled') NOT NULL DEFAULT 'submitted',
+  approved_by BIGINT UNSIGNED NULL,
+  approved_at DATETIME NULL,
+  pledge_record_id BIGINT UNSIGNED NULL COMMENT '审批通过后关联的质押冻结记录',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_pledge_app_no (application_no),
+  KEY idx_receipt_id (warehouse_receipt_id),
+  KEY idx_status (status),
+  CONSTRAINT fk_plg_app_receipt FOREIGN KEY (warehouse_receipt_id) REFERENCES warehouse_receipts(id),
+  CONSTRAINT fk_plg_app_applicant FOREIGN KEY (applicant_user_id) REFERENCES users(id),
+  CONSTRAINT fk_plg_app_fin_user FOREIGN KEY (finance_org_user_id) REFERENCES users(id),
+  CONSTRAINT fk_plg_app_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
+  CONSTRAINT fk_plg_app_record FOREIGN KEY (pledge_record_id) REFERENCES receipt_pledge_records(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='质押申请表';
+
+-- 解冻申请表
+CREATE TABLE IF NOT EXISTS unfreeze_applications (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  application_no VARCHAR(64) NOT NULL,
+  pledge_record_id BIGINT UNSIGNED NOT NULL COMMENT '关联质押记录',
+  request_user_id BIGINT UNSIGNED NOT NULL,
+  request_reason VARCHAR(500) NOT NULL,
+  status ENUM('submitted','approved','rejected','completed') NOT NULL DEFAULT 'submitted',
+  approved_by BIGINT UNSIGNED NULL,
+  approved_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_unfreeze_no (application_no),
+  KEY idx_pledge_record_id (pledge_record_id),
+  CONSTRAINT fk_unfreeze_pledge FOREIGN KEY (pledge_record_id) REFERENCES receipt_pledge_records(id),
+  CONSTRAINT fk_unfreeze_req_user FOREIGN KEY (request_user_id) REFERENCES users(id),
+  CONSTRAINT fk_unfreeze_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='解冻申请表';
+
+-- 监管（IoT）相关表：设备、遥测、报警、绑定
+CREATE TABLE IF NOT EXISTS iot_devices (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  device_sn VARCHAR(64) NOT NULL,
+  device_type VARCHAR(64) NOT NULL,
+  vendor VARCHAR(64) NULL,
+  status ENUM('online','offline','maintenance') NOT NULL DEFAULT 'offline',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_device_sn (device_sn)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IoT 设备';
+
+CREATE TABLE IF NOT EXISTS iot_device_bindings (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  device_id BIGINT UNSIGNED NOT NULL,
+  warehouse_id BIGINT UNSIGNED NULL,
+  storage_location_id BIGINT UNSIGNED NULL,
+  warehouse_receipt_id BIGINT UNSIGNED NULL,
+  bound_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_device_binding (device_id, warehouse_id, storage_location_id, warehouse_receipt_id),
+  KEY idx_device_id (device_id),
+  CONSTRAINT fk_iot_binding_device FOREIGN KEY (device_id) REFERENCES iot_devices(id),
+  CONSTRAINT fk_iot_binding_wh FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+  CONSTRAINT fk_iot_binding_loc FOREIGN KEY (storage_location_id) REFERENCES warehouse_storage_locations(id),
+  CONSTRAINT fk_iot_binding_receipt FOREIGN KEY (warehouse_receipt_id) REFERENCES warehouse_receipts(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IoT 设备绑定';
+
+CREATE TABLE IF NOT EXISTS iot_telemetry (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  device_id BIGINT UNSIGNED NOT NULL,
+  ts DATETIME NOT NULL,
+  metrics JSON NOT NULL,
+  KEY idx_device_ts (device_id, ts),
+  CONSTRAINT fk_iot_telemetry_device FOREIGN KEY (device_id) REFERENCES iot_devices(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IoT 遥测';
+
+CREATE TABLE IF NOT EXISTS iot_alerts (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  device_id BIGINT UNSIGNED NOT NULL,
+  level ENUM('info','warning','critical') NOT NULL DEFAULT 'warning',
+  title VARCHAR(255) NOT NULL,
+  detail VARCHAR(1000) NULL,
+  status ENUM('open','ack','closed') NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  closed_at DATETIME NULL,
+  KEY idx_device_status (device_id, status),
+  CONSTRAINT fk_iot_alerts_device FOREIGN KEY (device_id) REFERENCES iot_devices(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IoT 告警';
