@@ -1,6 +1,69 @@
+-- 主体表（一个账号一个主体；平台运营用户可不绑定主体）
+CREATE TABLE IF NOT EXISTS organizations (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT COMMENT '主体主键ID',
+  org_type ENUM('depositor','warehouse','financial','guarantee','qc','regulator','platform') NOT NULL COMMENT '主体类型',
+  name VARCHAR(255) NOT NULL COMMENT '主体名称',
+  unified_social_credit_code VARCHAR(100) NULL COMMENT '统一社会信用代码',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0-禁用，1-正常，2-待审核',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_org_name_type (name, org_type),
+  UNIQUE KEY uk_org_uscc (unified_social_credit_code),
+  KEY idx_org_type (org_type),
+  KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='业务主体表';
+
+-- 组织结构：部门表（树形）
+CREATE TABLE IF NOT EXISTS departments (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  organization_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  parent_id BIGINT UNSIGNED NULL,
+  path VARCHAR(1024) NULL COMMENT '路径编码，如 /1/3/5',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_org (organization_id),
+  KEY idx_parent (parent_id),
+  KEY idx_path (path),
+  CONSTRAINT fk_dept_org FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+  CONSTRAINT fk_dept_parent FOREIGN KEY (parent_id) REFERENCES departments(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='部门表';
+
+-- 组织结构：岗位表
+CREATE TABLE IF NOT EXISTS positions (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  organization_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  department_id BIGINT UNSIGNED NULL,
+  rank INT NULL COMMENT '职级/序列',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_org (organization_id),
+  KEY idx_dept (department_id),
+  CONSTRAINT fk_pos_org FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pos_dept FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='岗位表';
+
+-- 用户-岗位关联（可多岗位，标记主岗）
+CREATE TABLE IF NOT EXISTS user_positions (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  position_id BIGINT UNSIGNED NOT NULL,
+  department_id BIGINT UNSIGNED NULL,
+  is_primary TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_position (user_id, position_id),
+  KEY idx_user (user_id),
+  KEY idx_position (position_id),
+  CONSTRAINT fk_up_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_up_pos FOREIGN KEY (position_id) REFERENCES positions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_up_dept FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户岗位关联表';
+
 -- 统一用户表（来自业务定义）
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT COMMENT '用户主键ID',
+  organization_id BIGINT UNSIGNED NULL COMMENT '所属主体，平台运营可为空',
   username VARCHAR(64) NOT NULL COMMENT '用户名（登录用）',
   password_hash VARCHAR(255) NOT NULL COMMENT '加密密码',
   name VARCHAR(64) NOT NULL COMMENT '显示名称（公司名/人名）',
@@ -19,11 +82,13 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at DATETIME NULL COMMENT '最后登录时间',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_org_id (organization_id),
   UNIQUE KEY uk_username (username),
   UNIQUE KEY uk_phone (phone),
   UNIQUE KEY uk_social_credit_code (unified_social_credit_code),
   KEY idx_type (type),
-  KEY idx_status (status)
+  KEY idx_status (status),
+  CONSTRAINT fk_users_org FOREIGN KEY (organization_id) REFERENCES organizations(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='统一用户表';
 
 -- 系统角色表

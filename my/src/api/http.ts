@@ -20,5 +20,17 @@ http.interceptors.response.use(
   (error) => Promise.reject(error)
 );
 
+// 请求拦截：自动附带 token
+http.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers = config.headers || {};
+      (config.headers as any)['Authorization'] = `Bearer ${token}`;
+    }
+  } catch {}
+  return config;
+});
+
 export default http;
 

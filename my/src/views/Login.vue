@@ -24,13 +24,13 @@
           <div class="inline">
             <input v-model="captcha" placeholder="验证码" />
             <button type="button" class="ghost small" :disabled="smsWait>0" @click="sendSms">{{ smsWait>0 ? `${smsWait}s` : '获取验证码' }}</button>
-          </div>
+      </div>
           <div class="inline-check">
             <label class="remember"><input type="checkbox" v-model="remember" /> 记住我</label>
             <a class="link" href="javascript:void(0)">忘记密码？</a>
-          </div>
+      </div>
           <div class="actions">
-            <button type="submit">登录</button>
+      <button type="submit">登录</button>
             <button type="button" class="ghost" @click="router.push('/register')">注册新账号</button>
           </div>
           <div class="social-row cute">
@@ -39,7 +39,7 @@
             <button type="button" class="s cute finger" title="指纹登录" @click="loginWithFingerprint">🔒</button>
             <button type="button" class="s cute wechat" title="微信登录" aria-label="微信登录" @click="loginWithWeChat">微信</button>
           </div>
-        </form>
+    </form>
         <div v-if="message" class="msg">{{ message }}</div>
         <div class="welcome-footer">为确保账号安全，请勿在公共设备保存密码</div>
       </div>
@@ -105,6 +105,7 @@
 
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { login as apiLogin, me as apiMe } from '@/api/auth';
 
 const username = ref('');
 const password = ref('');
@@ -126,21 +127,23 @@ const router = useRouter();
 const role = ref(localStorage.getItem('role') || 'operation');
 const logoSrc = (typeof window !== 'undefined' && window.location) ? undefined : undefined;
 
-function onLogin() {
-  if (username.value && password.value) {
-    try {
-      localStorage.setItem('authToken', 'mock-token');
-      // 登录后，根据是否已选择角色决定去向
-    } catch {}
-    try{ localStorage.setItem('role', String(role.value||'operation')); }catch{}
-    const r = localStorage.getItem('role');
-    if (r) {
-      router.push(homeByRole(String(r)));
-    } else {
-      message.value = '请选择角色';
-    }
-  } else {
-    message.value = '请输入用户名和密码';
+async function onLogin() {
+  if (!username.value || !password.value) { message.value='请输入用户名和密码'; return; }
+  message.value = '';
+  try {
+    const resp = await apiLogin({ username: username.value, password: password.value });
+    const token = (resp as any)?.data?.token || '';
+    if (!token) { message.value = '登录失败'; return; }
+    try { localStorage.setItem('auth_token', token); } catch {}
+    const info = await apiMe();
+    // 根据后端返回的角色与类型确定首页
+    const roles = (info as any)?.roles || [];
+    const type = (info as any)?.user?.type || '';
+    const roleKey = roles[0]?.role_key || type || 'platform';
+    try { localStorage.setItem('role', roleKey); } catch {}
+    router.push(homeByRole(mapRoleKeyToRoute(roleKey)));
+  } catch(e:any) {
+    message.value = '登录失败，请重试';
   }
 }
 
@@ -154,6 +157,15 @@ async function postJSON(url: string, body: any){
   if(!res.ok) throw new Error('HTTP '+res.status);
   return await res.json();
 }
+function mapRoleKeyToRoute(roleKey: string) {
+  if (roleKey==='platform' || roleKey==='platform_admin' || roleKey==='operation') return 'operation';
+  if (roleKey==='depositor' || roleKey==='inventory') return 'inventory';
+  if (roleKey==='warehouse' || roleKey==='warehouse_manager') return 'warehouse';
+  if (roleKey==='financial' || roleKey==='financial_org') return 'financial';
+  if (roleKey==='guarantee' || roleKey==='guarantee_org') return 'guarantee';
+  if (roleKey==='regulator') return 'regulator';
+  return 'operation';
+}
 function homeByRole(r: string){
   switch(r){
     case 'operation': return '/dashboard';
@@ -161,6 +173,7 @@ function homeByRole(r: string){
     case 'warehouse': return '/member/warehouse/list';
     case 'financial': return '/member/financial/list';
     case 'guarantee': return '/member/guarantee/list';
+    case 'regulator': return '/monitor/overview';
     default: return '/dashboard';
   }
 }
