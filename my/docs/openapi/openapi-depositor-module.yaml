@@ -61,6 +61,39 @@ components:
         unit: { type: string, example: 吨 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    WarehouseReceipt:
+      type: object
+      required: [receipt_number, depositor_id, warehouse_id, commodity_id, quantity, measurement_unit, inbound_time]
+      properties:
+        id: { type: integer, format: int64 }
+        receipt_number: { type: string }
+        receipt_name: { type: string }
+        depositor_id: { type: integer, format: int64 }
+        warehouse_id: { type: integer, format: int64 }
+        commodity_id: { type: integer, format: int64 }
+        related_reservation_id: { type: integer, format: int64, nullable: true }
+        quantity: { type: number, format: double }
+        measurement_unit: { type: string }
+        storage_location: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [pending, in_stock, pledged, frozen, transferring, outbound, completed]
+        effective_start: { type: string, format: date-time }
+        effective_end: { type: string, format: date-time }
+    PledgeRecord:
+      type: object
+      required: [record_number, warehouse_receipt_id, storage_in_id, pledge_type, pledged_quantity, pledged_unit]
+      properties:
+        id: { type: integer, format: int64 }
+        record_number: { type: string }
+        warehouse_receipt_id: { type: integer, format: int64 }
+        storage_in_id: { type: integer, format: int64 }
+        pledge_type: { type: string, enum: [full_pledge, partial_pledge] }
+        pledge_status: { type: string, enum: [active, frozen, released, disposed] }
+        pledged_quantity: { type: number, format: double }
+        pledged_unit: { type: string }
+        pledged_value: { type: number, format: double }
+        freeze_status: { type: string, enum: [frozen, partially_released, fully_released] }
   parameters:
     PaginationPage:
       name: page
@@ -195,3 +228,89 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/InboundOrder' }
                       total: { type: integer, example: 25 }
+
+  /v1/warehouse-receipts:
+    get:
+      summary: 仓单列表
+      tags: [仓单管理]
+      parameters:
+        - $ref: '#/components/parameters/PaginationPage'
+        - $ref: '#/components/parameters/PaginationSize'
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/WarehouseReceipt' }
+                      total: { type: integer }
+    post:
+      summary: 新增仓单
+      tags: [仓单管理]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseReceipt' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResp' } } } }
+
+  /v1/warehouse-receipts/{id}:
+    get:
+      summary: 仓单详情
+      tags: [仓单管理]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResp' } } } }
+
+  /v1/pledges:
+    post:
+      summary: 创建质押记录
+      tags: [质押管理]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PledgeRecord' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResp' } } } }
+    get:
+      summary: 质押记录列表
+      tags: [质押管理]
+      parameters:
+        - $ref: '#/components/parameters/PaginationPage'
+        - $ref: '#/components/parameters/PaginationSize'
+        - name: warehouse_receipt_id
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/PledgeRecord' }
+                      total: { type: integer }
