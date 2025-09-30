@@ -80,6 +80,19 @@ INSERT INTO permissions (permission_key, name, module) VALUES
 ('/warehouse-receipt/list', '仓单列表', '仓单管理')
 ON DUPLICATE KEY UPDATE name=VALUES(name), module=VALUES(module);
 
+-- 角色-权限关联表
+CREATE TABLE IF NOT EXISTS role_permissions (
+  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  role_id BIGINT(20) UNSIGNED NOT NULL,
+  permission_id BIGINT(20) UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_role_permission (role_id, permission_id),
+  KEY idx_permission_id (permission_id),
+  CONSTRAINT fk_role_permissions_role FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE,
+  CONSTRAINT fk_role_permissions_permission FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色-权限关联表';
+
 -- 入库预约表（新版定义）
 CREATE TABLE IF NOT EXISTS inbound_reservations (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
