@@ -9,9 +9,7 @@ const routes = [
   { path: '/login', component: Login },
   { path: '/welcome', component: Welcome },
   { path: '/register', component: Register },
-  // 实验：Excel 实验页（隐藏XLSX导入，后续接 SheetJS）
   { path: '/lab/excel', component: () => import('./views/lab/ExcelLab.vue') },
-  // 实验：真·Excel（Luckysheet）
   { path: '/lab/sheet', component: () => import('./views/lab/SheetLab.vue') },
   { path: '/products', component: () => import('./views/Products.vue') },
   {
@@ -20,12 +18,8 @@ const routes = [
     children: [
       { path: 'dashboard', component: () => import('./views/Dashboard.vue') },
       { path: 'inventory', component: () => import('./views/商品管理/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
-      // 兼容旧会员路径
-      { path: 'member', children: [
-        { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') },
-      ]},
+      { path: 'member', children: [ { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') } ] },
 
-      // 占位：角色菜单 JSON 中的常见路由，先挂载占位页，后续替换为真页面
       ...[
         'inbound/apply','inbound/list','warehouse-receipt/list','warehouse-receipt/outbound-apply',
         'outbound/list','transfer/apply','transfer/list','financing/apply','financing/list','financing/risk',
@@ -38,7 +32,24 @@ const routes = [
         'system/user','system/user/list','system/role/list','system/post/list','system/dept/list','system/online/list',
         'log/manage','log/business','log/login','warehouse-receipt/verify','outbound/query','transfer/record-list','transfer/alert-list',
         'warehouse-receipt/alert-list','financing/risk-param-config','financing/application-list','financing/risk-list','financing/info-list','outbound/info-list',
-        'judicial/manage','judicial/registration-list','judicial/disposal-list','archive/manage','archive/maintenance','archive/definition','sms/manage','sms/template','sms/record'
+        'judicial/manage','judicial/registration-list','judicial/disposal-list','archive/manage','archive/maintenance','archive/definition','sms/manage','sms/template','sms/record',
+        // 担保机构新增
+        'guarantee/dashboard','guarantee/products','guarantee/products/create','guarantee/products/approval','guarantee/applications','guarantee/applications/pending',
+        'guarantee/projects/active','guarantee/projects/warning','guarantee/projects/completed','guarantee/compensations','guarantee/compensations/recovery',
+        'risk/dashboard','risk/reserve-funds','risk/warning-rules','risk/stress-test','analysis/business-scale','analysis/compensation-rate','analysis/customer-concentration',
+        // 仓储机构新增
+        'inspection/tasks','inspection/tasks/pending','inspection/records','tanks/monitor','weight/measurements','weight/gross','weight/tare','evidence/requirements','evidence/upload','evidence/audit'
+      ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } })),
+
+      ...[
+        'warehouse/detail/:id','warehouse/review/:id','inbound/detail/:id','inbound/review/:id',
+        'outbound/detail/:id','outbound/review/:id','transfer/detail/:id','transfer/review/:id','financing/detail/:id','financing/review/:id','financing/repayment/:id',
+        'transfer-ownership/detail/:id','transfer-ownership/review/:id','renewal/detail/:id','renewal/review/:id','rules/param-edit/:id','risk-control/handle/:id',
+        'guarantee/review/:id','guarantee/compensate/:id','loan/application-list','loan/project-list','warehouse-receipt/detail/:id','warehouse-receipt/update-quality/:id',
+        // 担保机构新增的动态路由
+        'guarantee/products/edit/:id','guarantee/applications/review/:id','guarantee/projects/monitoring/:id','guarantee/compensations/apply/:id',
+        // 仓储机构新增动态
+        'inbound/confirm/:id','inbound/start/:id','inbound/complete/:id','outbound/confirm/:id','outbound/complete/:id','tanks/current-data/:id','tanks/snapshot/:id','tanks/history/:id','weight/verify/:id','inspection/review/:id'
       ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } }))
     ]
   }
@@ -60,7 +71,7 @@ function roleHome(role: string): string {
     case 'financial':
       return '/member/financial/list';
     case 'guarantee':
-      return '/member/guarantee/list';
+      return '/guarantee/dashboard';
     default:
       return '/dashboard';
   }
@@ -73,10 +84,8 @@ router.beforeEach((to, _from, next) => {
   const publicPaths = ['/login', '/role-select', '/lab/excel', '/register'];
   if (to.path === '/login' && token && role) return next(roleHome(role));
   if (publicPaths.includes(to.path)) return next();
-
   if (!role) return next('/login');
   if (!token) return next('/login');
-
   return next();
 });
 

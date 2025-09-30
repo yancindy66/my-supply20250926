@@ -137,8 +137,8 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
       { title: '编辑仓库', link: '/warehouse/edit/:id' }
     ] },
     { title: '入库管理', link: '/inbound/manage', children: [
-      { title: '入库申请列表', link: '/inbound/list' },
-      { title: '入库申请审核', link: '/inbound/review/:id' }
+      { title: '入库申请列表', link: '/inbound/list' }
+      // 详情/审核/确认/开始/完成等动作页从列表进入
     ] },
     { title: '仓单管理', link: '/warehouse-receipt/manage', children: [
       { title: '仓单列表', link: '/warehouse-receipt/list' },
@@ -148,9 +148,8 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
     ] },
     { title: '出库管理', link: '/outbound/manage', children: [
       { title: '出库申请列表', link: '/outbound/list' },
-      { title: '出库信息查看', link: '/outbound/detail/:id' },
-      { title: '出库信息审核', link: '/outbound/review/:id' },
       { title: '出库信息查询', link: '/outbound/query' }
+      // 详情/审核/确认/完成由列表进入
     ] },
     { title: '移库管理', link: '/transfer/manage', children: [
       { title: '移库申请列表', link: '/transfer/list' },
@@ -172,6 +171,26 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
     { title: '仓单过户', link: '/transfer-ownership/manage', children: [
       { title: '过户申请列表', link: '/transfer-ownership/list' },
       { title: '过户申请审核', link: '/transfer-ownership/review/:id' }
+    ] },
+    { title: '巡检管理', link: '/inspection/tasks', children: [
+      { title: '巡检任务', link: '/inspection/tasks' },
+      { title: '待处理任务', link: '/inspection/tasks/pending' },
+      { title: '巡检记录', link: '/inspection/records' }
+      // 审核：/inspection/review/:id
+    ] },
+    { title: '液位仪管理', link: '/tanks/monitor', children: [
+      { title: '液位监控', link: '/tanks/monitor' }
+      // 历史/快照/当前数据为详情动作页
+    ] },
+    { title: '磅重管理', link: '/weight/measurements', children: [
+      { title: '称重记录', link: '/weight/measurements' },
+      { title: '毛重录入', link: '/weight/gross' },
+      { title: '皮重录入', link: '/weight/tare' }
+    ] },
+    { title: '证据管理', link: '/evidence/requirements', children: [
+      { title: '取证要求', link: '/evidence/requirements' },
+      { title: '资料上传', link: '/evidence/upload' },
+      { title: '取证审核', link: '/evidence/audit' }
     ] },
     { title: '费用管理', link: '/fee/manage', children: [ { title: '费用合计报表', link: '/fee/report' } ] },
     { title: '公告管理', link: '/announcement/manage', children: [ { title: '公告列表', link: '/announcement/list' } ] }
@@ -199,26 +218,38 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
     { title: '公告管理', link: '/announcement/manage', children: [ { title: '公告列表', link: '/announcement/list' } ] }
   ],
 
-  // 担保机构
+  // 担保机构（按新结构）
   guarantee: [
-    { title: '融资管理', link: '/financing/manage', children: [
-      { title: '融资申请列表', link: '/financing/application-list' },
-      { title: '融资信息查看', link: '/financing/detail/:id' },
-      { title: '融资信息审核', link: '/financing/review/:id' }
+    { title: '担保工作台', link: '/guarantee/dashboard', children: [ { title: '业务总览', link: '/guarantee/dashboard' } ] },
+    { title: '担保产品管理', link: '/guarantee/products', children: [
+      { title: '产品列表', link: '/guarantee/products' },
+      { title: '产品创建', link: '/guarantee/products/create' },
+      { title: '产品审批', link: '/guarantee/products/approval' }
     ] },
-    { title: '担保管理', link: '/guarantee/manage', children: [
-      { title: '担保项目列表', link: '/guarantee/project-list' },
-      { title: '担保申请列表', link: '/guarantee/application-list' },
-      { title: '担保信息审核', link: '/guarantee/review/:id' },
-      { title: '在保项目列表', link: '/guarantee/active-list' },
-      { title: '代偿处理', link: '/guarantee/compensate/:id' }
+    { title: '担保申请审批', link: '/guarantee/applications', children: [
+      { title: '申请列表', link: '/guarantee/applications' },
+      { title: '待审批申请', link: '/guarantee/applications/pending' }
     ] },
-    { title: '我的借贷', link: '/loan/manage', children: [
-      { title: '借贷申请列表', link: '/loan/application-list' },
-      { title: '借贷项目列表', link: '/loan/project-list' }
+    { title: '在保项目管理', link: '/guarantee/projects/active', children: [
+      { title: '在保项目列表', link: '/guarantee/projects/active' },
+      { title: '风险预警列表', link: '/guarantee/projects/warning' },
+      { title: '已结清项目', link: '/guarantee/projects/completed' }
     ] },
-    { title: '风控与公告', link: '/risk-view/dashboard', children: [ { title: '风险处理列表查看', link: '/risk-view/list' } ] },
-    { title: '公告管理', link: '/announcement/manage', children: [ { title: '公告列表', link: '/announcement/list' } ] }
+    { title: '代偿追偿管理', link: '/guarantee/compensations', children: [
+      { title: '代偿记录列表', link: '/guarantee/compensations' },
+      { title: '追偿管理', link: '/guarantee/compensations/recovery' }
+    ] },
+    { title: '风险管理', link: '/risk/dashboard', children: [
+      { title: '风险总览', link: '/risk/dashboard' },
+      { title: '风险准备金', link: '/risk/reserve-funds' },
+      { title: '预警规则', link: '/risk/warning-rules' },
+      { title: '压力测试', link: '/risk/stress-test' }
+    ] },
+    { title: '统计分析', link: '/analysis/business-scale', children: [
+      { title: '业务规模分析', link: '/analysis/business-scale' },
+      { title: '代偿率分析', link: '/analysis/compensation-rate' },
+      { title: '客户集中度分析', link: '/analysis/customer-concentration' }
+    ] }
   ]
 };
 
