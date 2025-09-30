@@ -50,11 +50,14 @@
 
           <label>管理员密码</label>
           <div class="inline">
-            <input :type="passVisible?'text':'password'" v-model="adminPass" placeholder="至少8位，含字母数字特殊字符" />
+            <input :type="passVisible?'text':'password'" v-model="adminPass" placeholder="至少8位，建议包含大小写/数字/符号" />
             <button type="button" class="chip" @click="passVisible=!passVisible">{{ passVisible?'隐藏':'显示' }}</button>
             <button type="button" class="chip" @click="copyPass">复制</button>
             <button type="button" class="chip primary" @click="genPass">生成</button>
           </div>
+          <small class="hint" :class="{ ok: isPassStrong, error: !isPassStrong && adminPass }">
+            {{ isPassStrong ? '密码强度良好' : (adminPass ? '密码建议至少8位，包含大小写/数字/符号中的2类以上' : '') }}
+          </small>
           <div class="inline small-row">
             <label class="small">长度</label>
             <input type="number" v-model.number="passLen" min="8" max="32" style="width:80px" />
@@ -69,6 +72,9 @@
             <input :type="pass2Visible?'text':'password'" v-model="adminPass2" placeholder="再次输入密码" />
             <button type="button" class="chip" @click="pass2Visible=!pass2Visible">{{ pass2Visible?'隐藏':'显示' }}</button>
           </div>
+          <small class="hint" :class="{ ok: passMatch && adminPass2, error: !passMatch && adminPass2 }">
+            {{ adminPass2 ? (passMatch ? '两次密码一致' : '两次输入不一致') : '' }}
+          </small>
 
           <label>管理员姓名</label>
           <input v-model="adminName" />
@@ -152,7 +158,7 @@
 
         <div class="full actions">
           <button type="button" class="ghost" @click="router.push('/login')">返回登录</button>
-          <button :disabled="!agreeUser||!agreePrivacy" type="submit" class="primary pill">提交注册</button>
+          <button :disabled="!canSubmit" type="submit" class="primary pill">提交注册</button>
         </div>
         <div v-if="msg" class="full msg">{{ msg }}</div>
       </form>
@@ -161,7 +167,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -175,6 +181,8 @@ const adminPass = ref('');
 const adminPass2 = ref('');
 const passVisible = ref(false);
 const pass2Visible = ref(false);
+const isPassStrong = ref(false);
+const passMatch = ref(false);
 // 自定义密码规则
 const passLen = ref(12);
 const incUpper = ref(true);
@@ -216,10 +224,26 @@ function genPass(){
   // 打乱
   const pwd = arr.sort(()=>Math.random()-0.5).join('');
   adminPass.value=pwd; adminPass2.value=pwd;
+  assessPass();
+  assessMatch();
 }
 async function copyPass(){
   try{ await navigator.clipboard.writeText(adminPass.value||''); }catch(_){/* ignore */}
 }
+function assessPass(){
+  const v = adminPass.value || '';
+  const lenOk = v.length >= 8;
+  let types = 0;
+  if(/[A-Z]/.test(v)) types++;
+  if(/[a-z]/.test(v)) types++;
+  if(/[0-9]/.test(v)) types++;
+  if(/[!@#$%^&*()\-_=+]/.test(v)) types++;
+  isPassStrong.value = lenOk && types >= 2;
+}
+function assessMatch(){ passMatch.value = !!adminPass.value && adminPass.value === adminPass2.value; }
+
+// 实时评估
+watch([adminPass, adminPass2], ()=>{ assessPass(); assessMatch(); });
 function next1(){}
 
 // Step2
@@ -293,6 +317,8 @@ async function runOCR(){
       if(data.org_name && !orgName.value) orgName.value = String(data.org_name);
       if(data.uscc && !uscc.value) uscc.value = String(data.uscc);
       if(data.legal_name && !legalName.value) legalName.value = String(data.legal_name);
+      msg.value = 'OCR识别成功，已自动回填关键信息';
+      setTimeout(()=> msg.value='', 1500);
     }
   }catch(e){
     console.error(e);
@@ -307,6 +333,9 @@ async function runOCR(){
 // Step4
 const agreeUser = ref(true); const agreePrivacy=ref(true); const agreeNotify=ref(true);
 const msg = ref('');
+const canSubmit = computed(()=>{
+  return !!agreeUser.value && !!agreePrivacy.value && isPassStrong.value && passMatch.value && !!(orgName.value && adminAccount.value);
+});
 async function submitAll(){
   // TODO: 调 /api/auth/register（mock），成功后跳到登录
   msg.value='注册成功（模拟），请用微信或短信登录';
@@ -351,6 +380,10 @@ async function submitAll(){
 .chip{ height:36px; padding:0 14px; border:none; border-radius:999px; background:#f3f4f6; color:#0f172a; font-weight:600; cursor:pointer; box-shadow:0 6px 12px rgba(2,6,23,.06); }
 .chip:hover{ filter:brightness(0.98); }
 .chip.primary{ background:#2563eb; color:#fff; box-shadow:0 8px 18px rgba(37,99,235,.18); }
+.chip:disabled{ opacity:.6; cursor:not-allowed; filter:grayscale(.15); }
+.chip.primary:disabled{ background:#93c5fd; box-shadow:none; }
+.hint.ok{ color:#16a34a; }
+.hint.error{ color:#ef4444; }
 .small-row .small{ color:#475569; font-size:12px; display:flex; align-items:center; gap:6px; }
 </style>
 
