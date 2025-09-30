@@ -40,6 +40,10 @@ const routes = [
         // 仓储机构新增
         'inspection/tasks','inspection/tasks/pending','inspection/records','tanks/monitor','weight/measurements','weight/gross','weight/tare','evidence/requirements','evidence/upload','evidence/audit'
       ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } })),
+      { path: 'inbound/apply', component: () => import('./views/placeholder/InboundReservation.vue'), meta: { title: '入库预约' } },
+      { path: 'warehouse-receipt/list', component: () => import('./views/placeholder/WarehouseReceiptList.vue'), meta: { title: '仓单列表' } },
+      { path: 'pledge/apply', component: () => import('./views/placeholder/PledgeApply.vue'), meta: { title: '质押申请' } },
+      { path: 'pledge/list', component: () => import('./views/placeholder/PledgeList.vue'), meta: { title: '质押记录' } },
       { path: 'monitor/overview', component: () => import('./views/placeholder/RegulatorOverview.vue') },
 
       ...[
