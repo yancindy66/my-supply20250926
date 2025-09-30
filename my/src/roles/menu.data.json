@@ -1,0 +1,443 @@
+{
+  "供应链金融管理系统角色权限": {
+    "depositor": {
+      "roleName": "存货人",
+      "modules": [
+        {
+          "title": "入库管理",
+          "titleRoute": "/inbound/apply",
+          "children": [
+            { "name": "入库申请", "route": "/inbound/apply" },
+            { "name": "入库申请列表", "route": "/inbound/list" }
+          ]
+        },
+        {
+          "title": "仓单管理",
+          "titleRoute": "/warehouse-receipt/list",
+          "children": [
+            { "name": "仓单列表", "route": "/warehouse-receipt/list" },
+            { "name": "查看详情", "route": "/warehouse-receipt/detail/:id" },
+            { "name": "修改质检信息", "route": "/warehouse-receipt/update-quality/:id" },
+            { "name": "出库申请", "route": "/warehouse-receipt/outbound-apply" }
+          ]
+        },
+        {
+          "title": "出库管理",
+          "titleRoute": "/outbound/list",
+          "children": [
+            { "name": "出库申请列表", "route": "/outbound/list" }
+          ]
+        },
+        {
+          "title": "移库管理",
+          "titleRoute": "/transfer/apply",
+          "children": [
+            { "name": "移库申请", "route": "/transfer/apply" },
+            { "name": "移库申请列表", "route": "/transfer/list" }
+          ]
+        },
+        {
+          "title": "融资管理",
+          "titleRoute": "/financing/apply",
+          "children": [
+            { "name": "融资申请", "route": "/financing/apply" },
+            { "name": "融资申请列表", "route": "/financing/list" },
+            { "name": "融资风险列表", "route": "/financing/risk" }
+          ]
+        },
+        {
+          "title": "仓单过户",
+          "titleRoute": "/transfer-ownership/apply",
+          "children": [
+            { "name": "过户申请", "route": "/transfer-ownership/apply" },
+            { "name": "过户申请列表", "route": "/transfer-ownership/list" }
+          ]
+        },
+        {
+          "title": "仓单续期",
+          "titleRoute": "/renewal/apply",
+          "children": [
+            { "name": "续期申请", "route": "/renewal/apply" },
+            { "name": "续期申请列表", "route": "/renewal/list" }
+          ]
+        },
+        {
+          "title": "仓单交易",
+          "titleRoute": "/trading/apply",
+          "children": [
+            { "name": "仓单交易申请", "route": "/trading/apply" },
+            { "name": "仓单交易申请列表", "route": "/trading/list" }
+          ]
+        },
+        {
+          "title": "费用管理",
+          "titleRoute": "/fee/payable",
+          "children": [
+            { "name": "应缴费用列表", "route": "/fee/payable" },
+            { "name": "退费列表", "route": "/fee/refund" },
+            { "name": "费用合计报表", "route": "/fee/report" }
+          ]
+        },
+        {
+          "title": "公告管理",
+          "titleRoute": "/announcement/list",
+          "children": [
+            { "name": "公告列表", "route": "/announcement/list" }
+          ]
+        },
+        {
+          "title": "人员功能",
+          "titleRoute": "/warehouse/manage",
+          "children": [
+            { "name": "仓库管理", "route": "/warehouse/manage" },
+            { "name": "仓库列表", "route": "/warehouse/list" },
+            { "name": "添加仓库", "route": "/warehouse/add" },
+            { "name": "编辑仓库", "route": "/warehouse/edit/:id" }
+          ]
+        }
+      ]
+    },
+    "warehouse": {
+      "roleName": "仓储机构",
+      "modules": [
+        {
+          "title": "仓库管理",
+          "titleRoute": "/warehouse/manage",
+          "children": [
+            { "name": "仓库列表", "route": "/warehouse/list" },
+            { "name": "添加仓库", "route": "/warehouse/add" },
+            { "name": "编辑仓库", "route": "/warehouse/edit/:id" }
+          ]
+        },
+        {
+          "title": "入库管理",
+          "titleRoute": "/inbound/manage",
+          "children": [
+            { "name": "入库申请列表", "route": "/inbound/list" },
+            { "name": "入库申请审核", "route": "/inbound/review/:id" }
+          ]
+        },
+        {
+          "title": "仓单管理",
+          "titleRoute": "/warehouse-receipt/manage",
+          "children": [
+            { "name": "仓单列表", "route": "/warehouse-receipt/list" },
+            { "name": "仓单信息查看", "route": "/warehouse-receipt/detail/:id" },
+            { "name": "仓单验真", "route": "/warehouse-receipt/verify" },
+            { "name": "修改质检信息", "route": "/warehouse-receipt/update-quality/:id" }
+          ]
+        },
+        {
+          "title": "出库管理",
+          "titleRoute": "/outbound/manage",
+          "children": [
+            { "name": "出库申请列表", "route": "/outbound/list" },
+            { "name": "出库信息查看", "route": "/outbound/detail/:id" },
+            { "name": "出库信息审核", "route": "/outbound/review/:id" },
+            { "name": "出库信息查询", "route": "/outbound/query" }
+          ]
+        },
+        {
+          "title": "移库管理",
+          "titleRoute": "/transfer/manage",
+          "children": [
+            { "name": "移库申请列表", "route": "/transfer/list" },
+            { "name": "移库信息查看", "route": "/transfer/detail/:id" },
+            { "name": "移库信息审核", "route": "/transfer/review/:id" }
+          ]
+        },
+        {
+          "title": "融资管理",
+          "titleRoute": "/financing/manage",
+          "children": [
+            { "name": "融资申请列表", "route": "/financing/application-list" },
+            { "name": "融资信息列表", "route": "/financing/info-list" },
+            { "name": "融资信息查看", "route": "/financing/detail/:id" },
+            { "name": "融资信息审核", "route": "/financing/review/:id" },
+            { "name": "还款/部分还款", "route": "/financing/repayment/:id" }
+          ]
+        },
+        {
+          "title": "仓单续期",
+          "titleRoute": "/renewal/manage",
+          "children": [
+            { "name": "续期申请列表", "route": "/renewal/list" },
+            { "name": "续期信息查看", "route": "/renewal/detail/:id" },
+            { "name": "续期信息审核", "route": "/renewal/review/:id" }
+          ]
+        },
+        {
+          "title": "仓单过户",
+          "titleRoute": "/transfer-ownership/manage",
+          "children": [
+            { "name": "过户申请列表", "route": "/transfer-ownership/list" },
+            { "name": "过户申请审核", "route": "/transfer-ownership/review/:id" }
+          ]
+        },
+        {
+          "title": "费用管理",
+          "titleRoute": "/fee/manage",
+          "children": [
+            { "name": "费用合计报表", "route": "/fee/report" }
+          ]
+        },
+        {
+          "title": "公告管理",
+          "titleRoute": "/announcement/manage",
+          "children": [
+            { "name": "公告列表", "route": "/announcement/list" }
+          ]
+        }
+      ]
+    },
+    "financial": {
+      "roleName": "金融机构",
+      "modules": [
+        {
+          "title": "融资管理",
+          "titleRoute": "/financing/manage",
+          "children": [
+            { "name": "融资申请列表", "route": "/financing/application-list" },
+            { "name": "融资信息查看", "route": "/financing/detail/:id" },
+            { "name": "融资信息审核", "route": "/financing/review/:id" },
+            { "name": "还款/部分还款", "route": "/financing/repayment/:id" }
+          ]
+        },
+        {
+          "title": "融资风控",
+          "titleRoute": "/risk-control/dashboard",
+          "children": [
+            { "name": "融资风险列表", "route": "/risk-control/risk-list" },
+            { "name": "风险处置列表", "route": "/risk-control/disposal-list" },
+            { "name": "风险处理", "route": "/risk-control/handle/:id" }
+          ]
+        },
+        {
+          "title": "规则与参数",
+          "titleRoute": "/rules/config",
+          "children": [
+            { "name": "融资规则设置", "route": "/rules/financing-rules" },
+            { "name": "参数管理", "route": "/rules/param-list" },
+            { "name": "增加参数", "route": "/rules/param-add" },
+            { "name": "修改参数", "route": "/rules/param-edit/:id" }
+          ]
+        },
+        {
+          "title": "公告管理",
+          "titleRoute": "/announcement/manage",
+          "children": [
+            { "name": "公告列表", "route": "/announcement/list" }
+          ]
+        }
+      ]
+    },
+    "guarantee": {
+      "roleName": "担保机构",
+      "modules": [
+        {
+          "title": "融资管理",
+          "titleRoute": "/financing/manage",
+          "children": [
+            { "name": "融资申请列表", "route": "/financing/application-list" },
+            { "name": "融资信息查看", "route": "/financing/detail/:id" },
+            { "name": "融资信息审核", "route": "/financing/review/:id" }
+          ]
+        },
+        {
+          "title": "担保管理",
+          "titleRoute": "/guarantee/manage",
+          "children": [
+            { "name": "担保项目列表", "route": "/guarantee/project-list" },
+            { "name": "担保申请列表", "route": "/guarantee/application-list" },
+            { "name": "担保信息审核", "route": "/guarantee/review/:id" },
+            { "name": "在保项目列表", "route": "/guarantee/active-list" },
+            { "name": "代偿处理", "route": "/guarantee/compensate/:id" }
+          ]
+        },
+        {
+          "title": "我的借贷",
+          "titleRoute": "/loan/manage",
+          "children": [
+            { "name": "借贷申请列表", "route": "/loan/application-list" },
+            { "name": "借贷项目列表", "route": "/loan/project-list" }
+          ]
+        },
+        {
+          "title": "风控与公告",
+          "titleRoute": "/risk-view/dashboard",
+          "children": [
+            { "name": "风险处理列表查看", "route": "/risk-view/list" }
+          ]
+        },
+        {
+          "title": "公告管理",
+          "titleRoute": "/announcement/manage",
+          "children": [
+            { "name": "公告列表", "route": "/announcement/list" }
+          ]
+        }
+      ]
+    },
+    "platform": {
+      "roleName": "平台运营",
+      "modules": [
+        {
+          "title": "会员管理",
+          "titleRoute": "/member/manage",
+          "children": [
+            { "name": "存货人管理", "route": "/member/depositor-list" },
+            { "name": "监管仓库管理", "route": "/member/supervising-warehouse-list" },
+            { "name": "质检机构管理", "route": "/member/qc-org-list" },
+            { "name": "担保机构管理", "route": "/member/guarantee-org-list" },
+            { "name": "金融机构管理", "route": "/member/financial-org-list" }
+          ]
+        },
+        {
+          "title": "商品管理",
+          "titleRoute": "/commodity/manage",
+          "children": [
+            { "name": "商品列表", "route": "/commodity/list" }
+          ]
+        },
+        {
+          "title": "仓库管理",
+          "titleRoute": "/warehouse/manage",
+          "children": [
+            { "name": "仓库信息列表", "route": "/warehouse/list" },
+            { "name": "仓库信息查看", "route": "/warehouse/detail/:id" },
+            { "name": "仓库信息审核", "route": "/warehouse/review/:id" }
+          ]
+        },
+        {
+          "title": "入库管理",
+          "titleRoute": "/inbound/manage",
+          "children": [
+            { "name": "入库申请列表", "route": "/inbound/list" },
+            { "name": "入库信息查看", "route": "/inbound/detail/:id" },
+            { "name": "入库信息审核", "route": "/inbound/review/:id" }
+          ]
+        },
+        {
+          "title": "出库管理",
+          "titleRoute": "/outbound/manage",
+          "children": [
+            { "name": "出库申请列表", "route": "/outbound/list" },
+            { "name": "出库信息列表", "route": "/outbound/info-list" }
+          ]
+        },
+        {
+          "title": "仓单管理",
+          "titleRoute": "/warehouse-receipt/manage",
+          "children": [
+            { "name": "仓单列表", "route": "/warehouse-receipt/list" },
+            { "name": "仓单预警列表", "route": "/warehouse-receipt/alert-list" }
+          ]
+        },
+        {
+          "title": "移库管理",
+          "titleRoute": "/transfer/manage",
+          "children": [
+            { "name": "移库记录列表", "route": "/transfer/record-list" },
+            { "name": "移库预警记录列表", "route": "/transfer/alert-list" }
+          ]
+        },
+        {
+          "title": "仓单融资管理",
+          "titleRoute": "/financing/manage",
+          "children": [
+            { "name": "融资风险参数设置", "route": "/financing/risk-param-config" },
+            { "name": "融资申请列表", "route": "/financing/application-list" },
+            { "name": "融资风险列表", "route": "/financing/risk-list" },
+            { "name": "融资信息列表", "route": "/financing/info-list" }
+          ]
+        },
+        {
+          "title": "仓单过户管理",
+          "titleRoute": "/transfer-ownership/manage",
+          "children": [
+            { "name": "过户申请列表", "route": "/transfer-ownership/list" },
+            { "name": "过户信息查看", "route": "/transfer-ownership/detail/:id" }
+          ]
+        },
+        {
+          "title": "仓单续期管理",
+          "titleRoute": "/renewal/manage",
+          "children": [
+            { "name": "续期信息列表", "route": "/renewal/list" },
+            { "name": "续期信息查看", "route": "/renewal/detail/:id" }
+          ]
+        },
+        {
+          "title": "费用管理",
+          "titleRoute": "/fee/manage",
+          "children": [
+            { "name": "费用参数管理", "route": "/fee/param-config" },
+            { "name": "预缴费用列表", "route": "/fee/prepaid-list" },
+            { "name": "应缴费用列表", "route": "/fee/payable-list" },
+            { "name": "违约费用列表", "route": "/fee/penalty-list" },
+            { "name": "费用合计报表", "route": "/fee/report" }
+          ]
+        },
+        {
+          "title": "仓单交易管理",
+          "titleRoute": "/trading/manage",
+          "children": [
+            { "name": "仓单交易申请列表", "route": "/trading/list" }
+          ]
+        },
+        {
+          "title": "司法协助",
+          "titleRoute": "/judicial/manage",
+          "children": [
+            { "name": "司法登记列表", "route": "/judicial/registration-list" },
+            { "name": "司法处置列表", "route": "/judicial/disposal-list" }
+          ]
+        },
+        {
+          "title": "资料管理",
+          "titleRoute": "/archive/manage",
+          "children": [
+            { "name": "资料维护", "route": "/archive/maintenance" },
+            { "name": "资料定义管理", "route": "/archive/definition" }
+          ]
+        },
+        {
+          "title": "短信管理",
+          "titleRoute": "/sms/manage",
+          "children": [
+            { "name": "短信模板", "route": "/sms/template" },
+            { "name": "短信记录", "route": "/sms/record" }
+          ]
+        },
+        {
+          "title": "用户权限管理系统",
+          "titleRoute": "/system/user",
+          "children": [
+            { "name": "用户设置", "route": "/system/user/list" },
+            { "name": "角色设置", "route": "/system/role/list" },
+            { "name": "岗位设置", "route": "/system/post/list" },
+            { "name": "组织机构设置", "route": "/system/dept/list" },
+            { "name": "在线用户设置", "route": "/system/online/list" }
+          ]
+        },
+        {
+          "title": "日志管理",
+          "titleRoute": "/log/manage",
+          "children": [
+            { "name": "业务操作日志", "route": "/log/business" },
+            { "name": "登录日志", "route": "/log/login" }
+          ]
+        },
+        {
+          "title": "公告管理",
+          "titleRoute": "/announcement/manage",
+          "children": [
+            { "name": "公告列表", "route": "/announcement/list" }
+          ]
+        }
+      ]
+    }
+  }
+}
+
+

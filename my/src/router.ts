@@ -16,96 +16,30 @@ const routes = [
   { path: '/products', component: () => import('./views/Products.vue') },
   {
     path: '/',
-    component: () => import('./layout/Layout.vue'),
+    component: () => import('./layout/MinimalLayout.vue'),
     children: [
-      // 旧入口：/member 作为分组路由（默认重定向在子路由内处理）
       { path: 'dashboard', component: () => import('./views/Dashboard.vue') },
-      // 商品管理
       { path: 'inventory', component: () => import('./views/商品管理/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
-      // 机构/成员模块（恢复旧页面）
-      {
-        path: 'member/financial',
-        children: [
-          { path: 'list', component: () => import('./views/member/financial/List.vue') },
-          { path: 'create', component: () => import('./views/member/financial/Create.vue') },
-          { path: 'edit/:id', component: () => import('./views/member/financial/Edit.vue') },
-          { path: 'detail/:id', component: () => import('./views/member/financial/Detail.vue') }
-        ]
-      },
-      {
-        path: 'member/guarantee',
-        children: [
-          { path: 'list', component: () => import('./views/member/guarantee/List.vue') },
-          { path: 'create', component: () => import('./views/member/guarantee/Create.vue') },
-          { path: 'edit/:id', component: () => import('./views/member/guarantee/Edit.vue') },
-          { path: 'detail/:id', component: () => import('./views/member/guarantee/Detail.vue') }
-        ]
-      },
-      {
-        path: 'member/quality',
-        children: [
-          { path: 'list', component: () => import('./views/member/quality/List.vue') },
-          { path: 'create', component: () => import('./views/member/quality/Create.vue') },
-          { path: 'edit/:id', component: () => import('./views/member/quality/Edit.vue') },
-          { path: 'detail/:id', component: () => import('./views/member/quality/Detail.vue') }
-        ]
-      },
-      {
-        path: 'member/warehouse',
-        children: [
-          { path: 'list', component: () => import('./views/member/warehouse/List.vue') },
-          { path: 'create', component: () => import('./views/member/warehouse/Create.vue') },
-          { path: 'edit/:id', component: () => import('./views/member/warehouse/Edit.vue') },
-          { path: 'detail/:id', component: () => import('./views/member/warehouse/Detail.vue') }
-        ]
-      },
-      {
-        path: 'member/inventory',
-        children: [
-          { path: 'list', component: () => import('./views/member/inventory/list.vue') },
-          { path: 'add', component: () => import('./views/member/inventory/add.vue') },
-          { path: 'edit/:id', component: () => import('./views/member/inventory/edit.vue') },
-          { path: 'detail/:id', component: () => import('./views/member/inventory/detail.vue') }
-        ]
-      },
-      // 老的单页存货人入口（兼容）
-      { path: 'inventory-owner', component: () => import('./views/member/InventoryOwner.vue') },
-      { path: 'inventory-owner/create', component: () => import('./views/member/CreateInventoryOwner.vue') },
-      { path: 'inventory-owner/edit/:id', component: () => import('./views/member/InventoryOwnerEdit.vue') },
-      { path: 'inventory-owner/detail/:id', component: () => import('./views/member/InventoryOwnerDetail.vue') },
-      // 会员管理（恢复旧路径，避免 /member 报 404）
-      {
-        path: 'member',
-        children: [
-          { path: '', redirect: 'inventory-owner' },
-          { path: 'inventory-owner', component: () => import('./views/member/InventoryOwner.vue') },
-          { path: 'inventory-owner/create', component: () => import('./views/member/CreateInventoryOwner.vue') },
-          { path: 'inventory-owner/edit/:id', component: () => import('./views/member/InventoryOwnerEdit.vue') },
-          { path: 'inventory-owner/detail/:id', component: () => import('./views/member/InventoryOwnerDetail.vue') },
-          // 可用的存货人子模块
-          { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') },
-          { path: 'inventory/add', component: () => import('./views/member/inventory/add.vue') },
-          { path: 'inventory/edit/:id', component: () => import('./views/member/inventory/edit.vue') },
-          { path: 'inventory/detail/:id', component: () => import('./views/member/inventory/detail.vue') }
-        ]
-      },
-      // 仓库管理（仅平台运营方）
-      {
-        path: 'operation/warehouse/list',
-        component: () => import('./views/仓库管理/WarehouseList.vue'),
-        meta: { roles: ['operation'] }
-      },
-      {
-        path: 'operation/warehouse/detail/:id',
-        component: () => import('./views/仓库管理/WarehouseDetail.vue'),
-        meta: { roles: ['operation'] }
-      },
-      {
-        path: 'operation/warehouse/review/:id',
-        component: () => import('./views/仓库管理/WarehouseReview.vue'),
-        meta: { roles: ['operation'] }
-      },
-      // 其他现有页面（仅保留存在的文件）
+      // 兼容旧会员路径
+      { path: 'member', children: [
+        { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') },
+      ]},
+
+      // 占位：角色菜单 JSON 中的常见路由，先挂载占位页，后续替换为真页面
+      ...[
+        'inbound/apply','inbound/list','warehouse-receipt/list','warehouse-receipt/outbound-apply',
+        'outbound/list','transfer/apply','transfer/list','financing/apply','financing/list','financing/risk',
+        'transfer-ownership/apply','transfer-ownership/list','renewal/apply','renewal/list','trading/apply','trading/list',
+        'fee/payable','fee/refund','fee/report','announcement/list','warehouse/manage','warehouse/list','warehouse/add',
+        'inbound/manage','warehouse-receipt/manage','outbound/manage','transfer/manage','financing/manage','renewal/manage',
+        'transfer-ownership/manage','fee/manage','announcement/manage','commodity/manage','commodity/list','member/manage',
+        'member/depositor-list','member/supervising-warehouse-list','member/qc-org-list','member/guarantee-org-list','member/financial-org-list',
+        'risk-control/dashboard','risk-control/risk-list','risk-control/disposal-list','rules/config','rules/financing-rules','rules/param-list','rules/param-add',
+        'system/user','system/user/list','system/role/list','system/post/list','system/dept/list','system/online/list',
+        'log/manage','log/business','log/login','warehouse-receipt/verify','outbound/query','transfer/record-list','transfer/alert-list',
+        'warehouse-receipt/alert-list','financing/risk-param-config','financing/application-list','financing/risk-list','financing/info-list','outbound/info-list',
+        'judicial/manage','judicial/registration-list','judicial/disposal-list','archive/manage','archive/maintenance','archive/definition','sms/manage','sms/template','sms/record'
+      ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } }))
     ]
   }
 ];
@@ -115,7 +49,6 @@ const router = createRouter({
   routes,
 });
 
-// 角色首页映射
 function roleHome(role: string): string {
   switch (role) {
     case 'operation':
@@ -133,28 +66,16 @@ function roleHome(role: string): string {
   }
 }
 
-// 先检查角色，再检查登录；未选角色先去选择
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('authToken');
   const role = localStorage.getItem('role');
 
-  // 免鉴权白名单
   const publicPaths = ['/login', '/role-select', '/lab/excel', '/register'];
-  // 已登录访问登录页 => 按角色跳转首页
   if (to.path === '/login' && token && role) return next(roleHome(role));
   if (publicPaths.includes(to.path)) return next();
 
-  // 未选角色先去选
   if (!role) return next('/login');
-  // 未登录再去登录
   if (!token) return next('/login');
-
-  // 角色校验
-  const needRoles = to.matched.find(r => r.meta && (r.meta as any).roles)?.meta?.roles as string[] | undefined;
-  if (needRoles && role && !needRoles.includes(role)) {
-    try { window.alert && window.alert('无权限访问该页面'); } catch {}
-    return next(roleHome(role));
-  }
 
   return next();
 });
