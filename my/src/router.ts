@@ -40,6 +40,7 @@ const routes = [
         // 仓储机构新增
         'inspection/tasks','inspection/tasks/pending','inspection/records','tanks/monitor','weight/measurements','weight/gross','weight/tare','evidence/requirements','evidence/upload','evidence/audit'
       ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } })),
+      { path: 'monitor/overview', component: () => import('./views/placeholder/RegulatorOverview.vue') },
 
       ...[
         'warehouse/detail/:id','warehouse/review/:id','inbound/detail/:id','inbound/review/:id',
@@ -78,7 +79,7 @@ function roleHome(role: string): string {
 }
 
 router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('authToken');
   const role = localStorage.getItem('role');
 
   const publicPaths = ['/login', '/role-select', '/lab/excel', '/register'];
