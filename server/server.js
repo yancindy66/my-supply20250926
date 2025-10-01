@@ -21,6 +21,11 @@ const allowDemo = String(process.env.ALLOW_DEMO || '').toLowerCase() === '1' || 
 // Demo in-memory store
 let demoStore = { inboundOrders: [] };
 
+// Helper: generate 6-digit numeric reservation code
+function generateSixDigitCode(){
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 app.post('/v1/auth/login', async (req, res) => {
   const { username } = req.body || {};
   try {
@@ -259,7 +264,7 @@ app.post('/v1/inbound/orders', async (req, res) => {
         measurement_unit: measurement_unit || '吨',
         goods_source: '', logistics_carrier: '', vehicle_plate: '', driver_name: '', driver_phone: '',
         eta: '', status: 'draft', created_at: new Date().toISOString().slice(0,16).replace('T',' '),
-        warehouse_handled_at: null, platform_audited_at: null, unique_reservation_code: 'DEMO-CODE'
+        warehouse_handled_at: null, platform_audited_at: null, unique_reservation_code: generateSixDigitCode()
       };
       demoStore.inboundOrders.unshift(row);
       return res.json({ code: 0, data: { id: row.order_no } });
@@ -303,7 +308,7 @@ app.get('/v1/inbound/orders', async (req, res) => {
           created_at: '2025-10-01 09:00',
           warehouse_handled_at: null,
           platform_audited_at: null,
-          unique_reservation_code: 'YZM-9F2K-001'
+          unique_reservation_code: '483920'
         },
         {
           order_no: 'INB-DEMO-002',
@@ -326,7 +331,7 @@ app.get('/v1/inbound/orders', async (req, res) => {
           created_at: '2025-10-01 08:30',
           warehouse_handled_at: '2025-10-01 18:00',
           platform_audited_at: null,
-          unique_reservation_code: 'YZM-9F2K-002'
+          unique_reservation_code: '572614'
         }
       ];
       }
