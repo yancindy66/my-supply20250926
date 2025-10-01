@@ -84,6 +84,17 @@ export function listInboundOrders(params: { page?: number; pageSize?: number; re
   return http.get<ApiResp<{list: InboundOrder[]; total:number}>>('/v1/inbound/orders', { params });
 }
 
+// 新建入库申请（入库单）
+export function createInboundOrder(payload: { reservation_number?: string; planned_quantity: number; measurement_unit: string }) {
+  return http.post<ApiResp<number>>('/v1/inbound/orders', payload);
+}
+
+export function submitInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/submit', {}); }
+export function withdrawInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/withdraw', {}); }
+export function cancelInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/cancel', {}); }
+export function arrivalInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/arrival', {}); }
+export function finishInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/finish', {}); }
+
 // 仓单列表
 export function listWarehouseReceipts(params: { page?: number; pageSize?: number; status?: string }) {
   return http.get<ApiResp<{list: WarehouseReceipt[]; total:number}>>('/v1/warehouse-receipts', { params });

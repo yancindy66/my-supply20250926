@@ -48,7 +48,18 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 // 极简基线：移除侧栏折叠与悬停飞出逻辑
 const openMenuIdx = ref<number|null>(null);
-const brandName = ref('郑商云仓');
+const role = localStorage.getItem('role') || 'operation';
+const brandName = ref('');
+function updateBrand(){
+  const r = localStorage.getItem('role') || 'operation';
+  brandName.value = r === 'inventory' ? '存货人管理平台'
+    : r === 'warehouse' ? '仓储机构管理平台'
+    : r === 'financial' ? '金融机构管理平台'
+    : r === 'guarantee' ? '担保机构管理平台'
+    : '平台运营管理平台';
+}
+updateBrand();
+window.addEventListener('storage', (e) => { if(e.key==='role') updateBrand(); });
 const brandLogo = ref('/logo-zhengshang.png');
 function onLogoError(){
   if(brandLogo.value !== '/vite.svg') brandLogo.value = '/vite.svg';
@@ -60,7 +71,6 @@ const topNav = [
   { title: '仓库', link: '/operation/warehouse/list' },
   { title: 'API', link: '/products' }
 ] as const;
-const role = localStorage.getItem('role') || 'operation';
 const allMenus = [
   // 汇总看板仅平台运营可见
   { title: '汇总看板', icon: '📊', link: '/dashboard', roles: ['operation'], children: [ { title: '首页', link: '/dashboard' } ] },

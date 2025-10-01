@@ -18,6 +18,8 @@ app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 // Auth
 const allowDemo = String(process.env.ALLOW_DEMO || '').toLowerCase() === '1' || String(process.env.ALLOW_DEMO || '').toLowerCase() === 'true';
+// Demo in-memory store
+let demoStore = { inboundOrders: [] };
 
 app.post('/v1/auth/login', async (req, res) => {
   const { username } = req.body || {};
@@ -240,6 +242,148 @@ app.get('/v1/outbound/reservations', async (req, res) => {
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
   }
+});
+
+// Inbound orders
+app.post('/v1/inbound/orders', async (req, res) => {
+  const { reservation_number, planned_quantity, measurement_unit } = req.body || {};
+  try {
+    if (allowDemo) {
+      const row = {
+        order_no: `INB-${Date.now()}`,
+        reservation_number: reservation_number || `RSV${Date.now()}`,
+        reservation_party: '存货人', owner_name: '演示公司',
+        warehouse_name: '演示仓库', warehouse_address: '示例地址',
+        commodity_name: '示例商品', commodity_spec: '',
+        planned_quantity: planned_quantity || 0,
+        measurement_unit: measurement_unit || '吨',
+        goods_source: '', logistics_carrier: '', vehicle_plate: '', driver_name: '', driver_phone: '',
+        eta: '', status: 'draft', created_at: new Date().toISOString().slice(0,16).replace('T',' '),
+        warehouse_handled_at: null, platform_audited_at: null, unique_reservation_code: 'DEMO-CODE'
+      };
+      demoStore.inboundOrders.unshift(row);
+      return res.json({ code: 0, data: { id: row.order_no } });
+    }
+    const result = await query(
+      'INSERT INTO inbound_orders (order_no, reservation_number, planned_quantity, measurement_unit, status) VALUES (CONCAT("INB", UNIX_TIMESTAMP()), ?, ?, ?, "created")',
+      [reservation_number || '', planned_quantity || 0, measurement_unit || '吨']
+    );
+    res.json({ code: 0, data: { id: result.insertId } });
+  } catch (e) {
+    res.status(500).json({ code: 500, message: String(e?.message || e) });
+  }
+});
+
+app.get('/v1/inbound/orders', async (req, res) => {
+  try {
+    if (allowDemo) {
+      const page = Number(req.query.page || 1);
+      const pageSize = Number(req.query.pageSize || 10);
+      // seed demo if empty
+      if (!demoStore.inboundOrders.length) {
+        demoStore.inboundOrders = [
+        {
+          order_no: 'INB-DEMO-001',
+          reservation_number: 'RSV202411110001',
+          reservation_party: '存货人',
+          owner_name: '华夏粮油集团有限公司',
+          warehouse_name: '天津港1号仓',
+          warehouse_address: '天津市滨海新区港口路88号',
+          commodity_name: '大豆/非转基因',
+          commodity_spec: '散装',
+          planned_quantity: 100,
+          measurement_unit: '吨',
+          goods_source: '黑龙江佳木斯',
+          logistics_carrier: '京东物流',
+          vehicle_plate: '津A12345',
+          driver_name: '张三',
+          driver_phone: '138****5678',
+          eta: '2025-10-02 10:00',
+          status: 'created',
+          created_at: '2025-10-01 09:00',
+          warehouse_handled_at: null,
+          platform_audited_at: null,
+          unique_reservation_code: 'YZM-9F2K-001'
+        },
+        {
+          order_no: 'INB-DEMO-002',
+          reservation_number: 'RSV202411110002',
+          reservation_party: '物流方',
+          owner_name: '广源贸易有限公司',
+          warehouse_name: '上海化工仓B区',
+          warehouse_address: '上海市奉贤区化工路1号',
+          commodity_name: '聚丙烯/PP-R',
+          commodity_spec: '25KG/袋',
+          planned_quantity: 80,
+          measurement_unit: '吨',
+          goods_source: '中石化镇海',
+          logistics_carrier: '德邦快递',
+          vehicle_plate: '沪B56789',
+          driver_name: '李四',
+          driver_phone: '139****9876',
+          eta: '2025-10-02 15:30',
+          status: 'receiving',
+          created_at: '2025-10-01 08:30',
+          warehouse_handled_at: '2025-10-01 18:00',
+          platform_audited_at: null,
+          unique_reservation_code: 'YZM-9F2K-002'
+        }
+      ];
+      }
+      const total = demoStore.inboundOrders.length;
+      const list = demoStore.inboundOrders.slice((page-1)*pageSize, page*pageSize);
+      return res.json({ code: 0, data: { list, total } });
+    }
+    const page = Number(req.query.page || 1);
+    const pageSize = Number(req.query.pageSize || 10);
+    const offset = (page - 1) * pageSize;
+    const rows = await query(
+      'SELECT order_no, reservation_number, status, planned_quantity, measurement_unit FROM inbound_orders ORDER BY id DESC LIMIT ? OFFSET ?',
+      [pageSize, offset]
+    );
+    const total = await query('SELECT COUNT(1) as c FROM inbound_orders', []);
+    res.json({ code: 0, data: { list: rows, total: Number(total[0]?.c || 0) } });
+  } catch (e) {
+    res.status(500).json({ code: 500, message: String(e?.message || e) });
+  }
+});
+
+// State transitions (demo)
+function findDemoOrder(id){ return demoStore.inboundOrders.find(o => o.order_no === id || o.reservation_number === id); }
+
+app.post('/v1/inbound/orders/:id/submit', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  if (row.status === 'draft') row.status = 'created';
+  return res.json({ code:0 });
+});
+
+app.post('/v1/inbound/orders/:id/withdraw', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  if (row.status === 'created') row.status = 'draft';
+  return res.json({ code:0 });
+});
+
+app.post('/v1/inbound/orders/:id/cancel', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  row.status = 'cancelled';
+  return res.json({ code:0 });
+});
+
+app.post('/v1/inbound/orders/:id/arrival', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  row.status = row.status === 'partially_delivered' ? 'partially_delivered' : 'receiving';
+  return res.json({ code:0 });
+});
+
+app.post('/v1/inbound/orders/:id/finish', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  row.status = 'completed';
+  return res.json({ code:0 });
 });
 
 const port = Number(process.env.PORT || 8080);

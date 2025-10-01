@@ -150,7 +150,7 @@ async function onLogin() {
 
 function rolePreviewHome(roleKey: string){
   if (roleKey==='operation') return '/dashboard';
-  if (roleKey==='inventory') return '/inbound/apply';
+  if (roleKey==='inventory') return '/inbound/order/list';
   if (roleKey==='warehouse') return '/warehouse/list';
   if (roleKey==='financial') return '/financing/list';
   if (roleKey==='guarantee') return '/guarantee/dashboard';
@@ -185,10 +185,10 @@ function mapRoleKeyToRoute(roleKey: string) {
 function homeByRole(r: string){
   switch(r){
     case 'operation': return '/dashboard';
-    case 'inventory': return '/member/inventory/list';
-    case 'warehouse': return '/member/warehouse/list';
-    case 'financial': return '/member/financial/list';
-    case 'guarantee': return '/member/guarantee/list';
+    case 'inventory': return '/inbound/order/list';
+    case 'warehouse': return '/warehouse/list';
+    case 'financial': return '/financing/list';
+    case 'guarantee': return '/guarantee/dashboard';
     case 'regulator': return '/monitor/overview';
     default: return '/dashboard';
   }

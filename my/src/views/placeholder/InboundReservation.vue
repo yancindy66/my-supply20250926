@@ -1,62 +1,50 @@
 <template>
-  <div class="stub">
-    <h2>入库预约（占位）</h2>
-    <form class="form" @submit.prevent="create">
-      <div class="row">
-        <label>目标仓库ID</label>
-        <input v-model.number="form.target_warehouse_id" type="number" min="1" required />
-        <label>品类ID</label>
-        <input v-model.number="form.commodity_id" type="number" min="1" required />
+  <div class="dash">
+    <h2>入库工作台</h2>
+    <div class="kpis">
+      <div class="card">
+        <div class="num">{{ reservationTotal }}</div>
+        <div class="label">入库预约（条）</div>
       </div>
-      <div class="row">
-        <label>计划数量</label>
-        <input v-model.number="form.total_planned_quantity" type="number" min="0" step="0.01" required />
-        <label>计量单位</label>
-        <input v-model="form.measurement_unit" placeholder="吨" required />
+      <div class="card">
+        <div class="num">{{ orderTotal }}</div>
+        <div class="label">入库申请（条）</div>
       </div>
-      <div class="toolbar">
-        <button type="submit">新建预约</button>
-        <button type="button" class="ghost" @click="load">刷新</button>
-      </div>
-    </form>
-    <div v-if="loading">加载中...</div>
-    <div v-else>
-      <pre>{{ list }}</pre>
     </div>
+    <div class="actions">
+      <button @click="go('/inbound/order/apply')">新建入库申请</button>
+      <button class="ghost" @click="go('/inbound/order/list')">查看入库申请列表</button>
+      <button class="ghost" @click="refresh">刷新</button>
+    </div>
+    <div class="tips">此页作为“入库仪表盘”，后续可接入更多统计图与趋势。</div>
   </div>
-</template>
+ </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { listReservations, createReservation } from '@/api/depositor';
-const loading = ref(false);
-const list = ref<any[]>([]);
-const form = ref({ target_warehouse_id: 1, commodity_id: 1, total_planned_quantity: 100, measurement_unit: '吨' });
-async function load(){
-  loading.value = true;
-  try{ const resp = await listReservations({ page:1, pageSize:10 }); list.value = (resp as any)?.data?.list || []; }catch{ list.value=[]; }
-  loading.value = false;
+import { useRouter } from 'vue-router';
+import { listReservations, listInboundOrders } from '@/api/depositor';
+const router = useRouter();
+const reservationTotal = ref(0);
+const orderTotal = ref(0);
+async function refresh(){
+  try{ const r:any = await listReservations({ page:1, pageSize:1 }); reservationTotal.value = Number(r?.data?.total|| r?.data?.list?.length || 0); }catch{ reservationTotal.value=0; }
+  try{ const o:any = await listInboundOrders({ page:1, pageSize:1 }); orderTotal.value = Number(o?.data?.total|| o?.data?.list?.length || 0); }catch{ orderTotal.value=0; }
 }
-async function create(){
-  try{
-    await createReservation(form.value as any);
-    alert('提交成功');
-    await load();
-  }catch(e:any){
-    alert('提交失败：'+(e?.message||e));
-  }
-}
-load();
+function go(p:string){ router.push(p); }
+refresh();
 </script>
 
 <style scoped>
-.stub{ padding:16px; }
-.form{ display:flex; flex-direction:column; gap:10px; margin:12px 0; }
-.row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.row label{ width:88px; color:#475569; }
-.row input{ height:36px; padding:0 10px; border:1px solid #e2e8f0; border-radius:8px; }
-.toolbar{ margin: 12px 0; }
-.ghost{ margin-left:8px; }
+.dash{ padding:16px; }
+.kpis{ display:flex; gap:16px; margin:12px 0; }
+.card{ width:180px; height:100px; border-radius:12px; background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 10px 24px rgba(37,99,235,.18); }
+.card .num{ font-size:32px; font-weight:800; }
+.card .label{ opacity:.9; margin-top:6px; }
+.actions{ display:flex; gap:10px; margin:8px 0; }
+button{ height:36px; padding:0 12px; border:none; border-radius:8px; background:#2563eb; color:#fff; cursor:pointer; }
+.ghost{ background:#e5e7eb; color:#111827; }
+.tips{ margin-top:10px; color:#64748b; }
 </style>
 
 
