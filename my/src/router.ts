@@ -52,19 +52,22 @@ const routes = [
       { path: 'unfreeze/review', component: () => import('./views/placeholder/UnfreezeReview.vue'), meta: { title: '解冻审批' } },
       { path: 'inbound/order/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库预约列表' } },
       { path: 'inbound/order/apply', component: () => import('./views/placeholder/InboundOrderApply.vue'), meta: { title: '新建入库预约' } },
-      { path: 'inbound/reservation/list', component: () => import('./views/placeholder/InboundReservationList.vue'), meta: { title: '入库预约列表' } },
+      { path: 'inbound/reservation/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库预约列表' } },
       { path: 'monitor/overview', component: () => import('./views/placeholder/RegulatorOverview.vue') },
 
       ...[
-        'warehouse/detail/:id','warehouse/review/:id','inbound/detail/:id','inbound/review/:id',
+        'warehouse/detail/:id','warehouse/review/:id','inbound/review/:id',
         'outbound/detail/:id','outbound/review/:id','transfer/detail/:id','transfer/review/:id','financing/detail/:id','financing/review/:id','financing/repayment/:id',
         'transfer-ownership/detail/:id','transfer-ownership/review/:id','renewal/detail/:id','renewal/review/:id','rules/param-edit/:id','risk-control/handle/:id',
-        'guarantee/review/:id','guarantee/compensate/:id','loan/application-list','loan/project-list','warehouse-receipt/detail/:id','warehouse-receipt/update-quality/:id',
+        'guarantee/review/:id','guarantee/compensate/:id','loan/application-list','loan/project-list','warehouse-receipt/update-quality/:id',
         // 担保机构新增的动态路由
         'guarantee/products/edit/:id','guarantee/applications/review/:id','guarantee/projects/monitoring/:id','guarantee/compensations/apply/:id',
         // 仓储机构新增动态
         'inbound/confirm/:id','inbound/start/:id','inbound/complete/:id','outbound/confirm/:id','outbound/complete/:id','tanks/current-data/:id','tanks/snapshot/:id','tanks/history/:id','weight/verify/:id','inspection/review/:id'
-      ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } }))
+      ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } })),
+      { path: 'warehouse-receipt/detail/:id', component: () => import('./views/placeholder/WarehouseReceiptDetail.vue'), meta: { title: '仓单详情' } },
+      { path: 'inbound/detail/:id', component: () => import('./views/placeholder/InboundOrderDetail.vue'), meta: { title: '入库单详情' } },
+      { path: 'inbound/reservation/detail/:id', component: () => import('./views/placeholder/InboundReservationDetail.vue'), meta: { title: '入库预约详情' } }
     ]
   }
 ];

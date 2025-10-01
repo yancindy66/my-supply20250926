@@ -18,6 +18,23 @@ export interface InboundReservationReq {
   measurement_unit: string;
   expected_arrival_date?: string;
   remarks?: string;
+  // 扩展字段（前端已使用，后端demo已支持）
+  transport_mode?: 'car'|'ship'|'air'|'train'|string;
+  weigh_mode?: 'by_pack'|'by_weight'|string;
+  pack_count?: number|null;
+  convert_ratio?: number|null;
+  weighing_fee?: number|null;
+  expected_arrival_start?: string|null;
+  expected_arrival_end?: string|null;
+  require_weighing?: boolean;
+  logistics_carrier?: string;
+  vehicle_plate?: string;
+  driver_name?: string;
+  driver_phone?: string;
+  driver_id_card?: string;
+  goods_source?: string;
+  source_address?: string;
+  batch_number?: string;
 }
 
 export interface InboundReservation extends InboundReservationReq {
@@ -79,6 +96,26 @@ export function listReservations(params: { page?: number; pageSize?: number; key
   return http.get<ApiResp<{list: InboundReservation[]; total:number}>>('/v1/inbound/reservations', { params });
 }
 
+export function getReservation(id: string|number){
+  return http.get<ApiResp<any>>(`/v1/inbound/reservations/${id}`);
+}
+export function updateReservation(id: string|number, data: Partial<InboundReservationReq & { status?: string }>) {
+  return http.put<ApiResp<any>>(`/v1/inbound/reservations/${id}`, data);
+}
+export function deleteReservation(id: string|number){
+  return http.delete<ApiResp>(`/v1/inbound/reservations/${id}`);
+}
+
+// 通用文档上传（demo）：将已生成的PDF占位上传到仓库
+export function uploadReservationPdf(reservationId: string|number, url: string, filename = 'reservation.pdf'){
+  return http.post<ApiResp<{id:number}>>('/v1/docs/upload', { scope:'reservation', ref_id:String(reservationId), doc_type:'reservation_pdf', url, filename });
+}
+
+// 通用预约单文档上传（支持图片等）
+export function uploadReservationDoc(reservationId: string|number, url: string, filename = 'file', docType: string = 'generic'){
+  return http.post<ApiResp<{id:number}>>('/v1/docs/upload', { scope:'reservation', ref_id:String(reservationId), doc_type:docType, url, filename });
+}
+
 // 入库单列表
 export function listInboundOrders(params: { page?: number; pageSize?: number; reservation_number?: string }) {
   return http.get<ApiResp<{list: InboundOrder[]; total:number}>>('/v1/inbound/orders', { params });
@@ -88,6 +125,10 @@ export function listInboundOrders(params: { page?: number; pageSize?: number; re
 export function createInboundOrder(payload: { reservation_number?: string; planned_quantity: number; measurement_unit: string }) {
   return http.post<ApiResp<number>>('/v1/inbound/orders', payload);
 }
+
+export function getInboundOrder(id: string){ return http.get<ApiResp<any>>('/v1/inbound/orders/'+id); }
+export function updateInboundOrder(id: string, data: any){ return http.put<ApiResp<any>>('/v1/inbound/orders/'+id, data); }
+export function deleteInboundOrder(id: string){ return http.delete<ApiResp>('/v1/inbound/orders/'+id); }
 
 export function submitInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/submit', {}); }
 export function withdrawInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/withdraw', {}); }

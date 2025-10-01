@@ -37,6 +37,7 @@ import { useRouter } from 'vue-router';
 import { getMenusByRole } from '../roles/menu';
 
 const router = useRouter();
+(window as any).$router = router;
 const openMenuIdx = ref<number|null>(null);
 const role = (typeof localStorage !== 'undefined' && localStorage.getItem('role')) || 'operation';
 

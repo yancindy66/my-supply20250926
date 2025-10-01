@@ -19,11 +19,40 @@ app.get('/favicon.ico', (_req, res) => res.status(204).end());
 // Auth
 const allowDemo = String(process.env.ALLOW_DEMO || '').toLowerCase() === '1' || String(process.env.ALLOW_DEMO || '').toLowerCase() === 'true';
 // Demo in-memory store
-let demoStore = { inboundOrders: [] };
+let demoStore = { inboundOrders: [], reservations: [], docs: [], scaleRecords: [], products: [], warehouses: [] };
 
 // Helper: generate 6-digit numeric reservation code
 function generateSixDigitCode(){
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Capabilities by role
+function capabilitiesByRole(roleKey){
+  // common read
+  const base = { receipts:{ read:true }, inbound:{ read:true }, videos:{ read:true } };
+  if (roleKey === 'warehouse') {
+    return {
+      ...base,
+      receipts:{ ...base.receipts, submit:true, withdraw:true, addLocation:true, moveLocation:true, standardize:true },
+      inbound:{ ...base.inbound, gateVerify:true, uploadDocs:true },
+      audit:{ review:false }
+    };
+  }
+  if (roleKey === 'platform' || roleKey === 'operation') {
+    return {
+      ...base,
+      receipts:{ ...base.receipts },
+      inbound:{ ...base.inbound },
+      audit:{ review:true }
+    };
+  }
+  // inventory (depositor)
+  return {
+    ...base,
+    receipts:{ ...base.receipts },
+    inbound:{ ...base.inbound, uploadDocs:true },
+    audit:{ review:false }
+  };
 }
 
 app.post('/v1/auth/login', async (req, res) => {
@@ -48,11 +77,13 @@ app.post('/v1/auth/login', async (req, res) => {
 app.get('/v1/auth/me', async (_req, res) => {
   try {
     if (allowDemo) {
+      const role_key = 'depositor';
       return res.json({
-        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, type: 'depositor' },
-        roles: [{ id: 1, role_key: 'depositor', role_name: '存货人' }],
+        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, type: role_key },
+        roles: [{ id: 1, role_key, role_name: role_key==='depositor'?'存货人':role_key }],
         permissions: ['/inbound/apply','/warehouse-receipt/list','/pledge/list'],
-        data_scope: 'organization'
+        data_scope: 'organization',
+        capabilities: capabilitiesByRole('inventory')
       });
     }
     const user = (await query('SELECT id, username, name, type, organization_id FROM users LIMIT 1'))[0] || null;
@@ -64,18 +95,44 @@ app.get('/v1/auth/me', async (_req, res) => {
       'SELECT p.permission_key FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id WHERE rp.role_id IN (?)',
       [roles.map(r => r.id).concat(0)]
     );
-    res.json({ user, roles, permissions: permissions.map(p => p.permission_key), data_scope: 'organization' });
+    const primaryRole = (roles[0]?.role_key || 'inventory');
+    res.json({ user, roles, permissions: permissions.map(p => p.permission_key), data_scope: 'organization', capabilities: capabilitiesByRole(primaryRole) });
   } catch (e) {
     if (allowDemo) {
+      const role_key = 'depositor';
       return res.json({
-        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, type: 'depositor' },
-        roles: [{ id: 1, role_key: 'depositor', role_name: '存货人' }],
+        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, type: role_key },
+        roles: [{ id: 1, role_key, role_name: '存货人' }],
         permissions: ['/inbound/apply','/warehouse-receipt/list','/pledge/list'],
-        data_scope: 'organization'
+        data_scope: 'organization',
+        capabilities: capabilitiesByRole('inventory')
       });
     }
     res.status(500).json({ code: 500, message: String(e?.message || e) });
   }
+});
+
+// Platform master data (demo)
+app.get('/api/products', (_req, res) => {
+  if (!allowDemo) return res.json({ code:0, data: [] });
+  if (!demoStore.products.length) {
+    demoStore.products = [
+      { id: 1, name: '大豆', spec: '非转基因/散装' },
+      { id: 2, name: '聚丙烯', spec: 'PP-R / 25KG/袋' }
+    ];
+  }
+  res.json({ code:0, data: demoStore.products });
+});
+
+app.get('/api/warehouses', (_req, res) => {
+  if (!allowDemo) return res.json({ code:0, data: [] });
+  if (!demoStore.warehouses.length) {
+    demoStore.warehouses = [
+      { id: 1, name: '天津港1号仓', address: '天津市滨海新区港口路88号' },
+      { id: 2, name: '上海化工仓B区', address: '上海市奉贤区化工路1号' }
+    ];
+  }
+  res.json({ code:0, data: demoStore.warehouses });
 });
 
 // Inbound reservations
@@ -83,9 +140,21 @@ app.get('/v1/inbound/reservations', async (req, res) => {
   try {
     const page = Number(req.query.page || 1);
     const pageSize = Number(req.query.pageSize || 10);
+    if (allowDemo) {
+      if (!demoStore.reservations.length) {
+        demoStore.reservations = [
+          { id:1, reservation_number:'RSV202411110001', unique_reservation_code:'483920', owner_name:'华夏粮油集团有限公司', owner_address:'天津市南开区', status:'submitted', target_warehouse_id:1, commodity_id:1, total_planned_quantity:100, measurement_unit:'吨', created_at:'2025-10-01 09:00' },
+          { id:2, reservation_number:'RSV202411110002', unique_reservation_code:'572614', owner_name:'广源贸易有限公司', owner_address:'上海市浦东新区', status:'submitted', target_warehouse_id:2, commodity_id:2, total_planned_quantity:80, measurement_unit:'吨', created_at:'2025-10-01 10:30' }
+        ];
+      }
+      const total = demoStore.reservations.length;
+      const start = (page-1)*pageSize;
+      const list = demoStore.reservations.slice(start, start+pageSize);
+      return res.json({ code:0, data:{ list, total } });
+    }
     const offset = (page - 1) * pageSize;
     const list = await query(
-      'SELECT reservation_number, status, target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit FROM inbound_reservations ORDER BY id DESC LIMIT ? OFFSET ?',
+      'SELECT id, reservation_number, status, target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit, created_at FROM inbound_reservations ORDER BY id DESC LIMIT ? OFFSET ?',
       [pageSize, offset]
     );
     const totalRows = await query('SELECT COUNT(1) as c FROM inbound_reservations', []);
@@ -98,6 +167,40 @@ app.get('/v1/inbound/reservations', async (req, res) => {
 app.post('/v1/inbound/reservations', async (req, res) => {
   try {
     const b = req.body || {};
+    if (allowDemo) {
+      const id = Date.now();
+      const num = 'RSV'+id;
+      const code6 = generateSixDigitCode();
+      // 模拟从“平台运营的库”带出货主信息（此处写死演示）
+      const owner_name = '演示货主A';
+      const owner_address = '演示地址A';
+      demoStore.reservations.unshift({
+        id,
+        reservation_number:num,
+        unique_reservation_code: code6,
+        owner_name,
+        owner_address,
+        status:'submitted',
+        target_warehouse_id:Number(b.target_warehouse_id||1),
+        commodity_id:Number(b.commodity_id||1),
+        total_planned_quantity:Number(b.total_planned_quantity||0),
+        measurement_unit:String(b.measurement_unit||'吨'),
+        transport_mode: String(b.transport_mode||''),
+        weigh_mode: String(b.weigh_mode||'by_pack'),
+        pack_count: b.pack_count!=null? Number(b.pack_count): null,
+        convert_ratio: b.convert_ratio!=null? Number(b.convert_ratio): null,
+        weighing_fee: b.weighing_fee!=null? Number(b.weighing_fee): null,
+        expected_arrival_start: b.expected_arrival_start || null,
+        expected_arrival_end: b.expected_arrival_end || null,
+        logistics_carrier: String(b.logistics_carrier||''),
+        vehicle_plate: String(b.vehicle_plate||''),
+        driver_name: String(b.driver_name||''),
+        driver_phone: String(b.driver_phone||''),
+        driver_id_no: String(b.driver_id_no||''),
+        created_at:new Date().toISOString().slice(0,16).replace('T',' ')
+      });
+      return res.json({ code:0, data:{ id } });
+    }
     const result = await query(
       'INSERT INTO inbound_reservations (reservation_number, reservation_type, reservist_id, applicant_id, target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit, status) VALUES (CONCAT("RSV", UNIX_TIMESTAMP()), "by_depositor", ?, ?, ?, ?, ?, ?, "submitted")',
       [b.reservist_id || b.applicant_id || 1, b.applicant_id || 1, b.target_warehouse_id, b.commodity_id, b.total_planned_quantity, b.measurement_unit]
@@ -106,6 +209,45 @@ app.post('/v1/inbound/reservations', async (req, res) => {
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
   }
+});
+
+app.get('/v1/inbound/reservations/:id', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = demoStore.reservations.find(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
+  if (!row) return res.json({ code:404, message:'not found' });
+  return res.json({ code:0, data: row });
+});
+
+app.put('/v1/inbound/reservations/:id', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = demoStore.reservations.find(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
+  if (!row) return res.json({ code:404, message:'not found' });
+  const b = req.body || {};
+  if (b.total_planned_quantity != null) row.total_planned_quantity = Number(b.total_planned_quantity);
+  if (b.measurement_unit != null) row.measurement_unit = String(b.measurement_unit);
+  if (b.status) row.status = String(b.status);
+  if (b.transport_mode != null) row.transport_mode = String(b.transport_mode);
+  if (b.weigh_mode != null) row.weigh_mode = String(b.weigh_mode);
+  if (b.pack_count != null) row.pack_count = Number(b.pack_count);
+  if (b.convert_ratio != null) row.convert_ratio = Number(b.convert_ratio);
+  if (b.weighing_fee != null) row.weighing_fee = Number(b.weighing_fee);
+  if (b.expected_arrival_start != null) row.expected_arrival_start = b.expected_arrival_start;
+  if (b.expected_arrival_end != null) row.expected_arrival_end = b.expected_arrival_end;
+  if (b.logistics_carrier != null) row.logistics_carrier = String(b.logistics_carrier);
+  if (b.vehicle_plate != null) row.vehicle_plate = String(b.vehicle_plate);
+  if (b.driver_name != null) row.driver_name = String(b.driver_name);
+  if (b.driver_phone != null) row.driver_phone = String(b.driver_phone);
+  if (b.driver_id_no != null) row.driver_id_no = String(b.driver_id_no);
+  if (b.remarks != null) row.remarks = String(b.remarks);
+  return res.json({ code:0, data: row });
+});
+
+app.delete('/v1/inbound/reservations/:id', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const i = demoStore.reservations.findIndex(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
+  if (i<0) return res.json({ code:404, message:'not found' });
+  demoStore.reservations.splice(i,1);
+  return res.json({ code:0 });
 });
 
 // Warehouse receipts
@@ -251,7 +393,19 @@ app.get('/v1/outbound/reservations', async (req, res) => {
 
 // Inbound orders
 app.post('/v1/inbound/orders', async (req, res) => {
-  const { reservation_number, planned_quantity, measurement_unit } = req.body || {};
+  const {
+    reservation_number,
+    planned_quantity,
+    measurement_unit,
+    weigh_mode = 'by_weight',
+    pack_count = null,
+    pack_spec = null,
+    convert_ratio = null,
+    gross = null,
+    tare = null,
+    deductions = 0,
+    actual = null
+  } = req.body || {};
   try {
     if (allowDemo) {
       const row = {
@@ -264,7 +418,23 @@ app.post('/v1/inbound/orders', async (req, res) => {
         measurement_unit: measurement_unit || '吨',
         goods_source: '', logistics_carrier: '', vehicle_plate: '', driver_name: '', driver_phone: '',
         eta: '', status: 'draft', created_at: new Date().toISOString().slice(0,16).replace('T',' '),
-        warehouse_handled_at: null, platform_audited_at: null, unique_reservation_code: generateSixDigitCode()
+        warehouse_handled_at: null, platform_audited_at: null, unique_reservation_code: generateSixDigitCode(),
+        weigh_mode,
+        pack_count,
+        pack_spec,
+        convert_ratio,
+        gross,
+        tare,
+        deductions,
+        calc_weight: (weigh_mode === 'by_pack' && pack_count!=null && convert_ratio!=null)
+          ? Number(pack_count) * Number(convert_ratio) : null,
+        actual: (actual!=null)
+          ? Number(actual)
+          : (weigh_mode === 'by_weight' && gross!=null && tare!=null)
+            ? (Number(gross) - Number(tare) - Number(deductions||0))
+            : (weigh_mode === 'by_pack' && pack_count!=null && convert_ratio!=null)
+              ? Number(pack_count) * Number(convert_ratio)
+              : null
       };
       demoStore.inboundOrders.unshift(row);
       return res.json({ code: 0, data: { id: row.order_no } });
@@ -348,6 +518,139 @@ app.get('/v1/inbound/orders', async (req, res) => {
     );
     const total = await query('SELECT COUNT(1) as c FROM inbound_orders', []);
     res.json({ code: 0, data: { list: rows, total: Number(total[0]?.c || 0) } });
+  } catch (e) {
+    res.status(500).json({ code: 500, message: String(e?.message || e) });
+  }
+});
+
+// Inbound order item CRUD (demo)
+app.get('/v1/inbound/orders/:id', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = demoStore.inboundOrders.find(o => o.order_no === req.params.id || o.reservation_number === req.params.id);
+  if (!row) return res.json({ code:404, message:'not found' });
+  return res.json({ code:0, data: row });
+});
+
+app.put('/v1/inbound/orders/:id', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = demoStore.inboundOrders.find(o => o.order_no === req.params.id || o.reservation_number === req.params.id);
+  if (!row) return res.json({ code:404, message:'not found' });
+  const b = req.body || {};
+  // allow updating planned_quantity, measurement_unit, eta, status
+  if (b.planned_quantity != null) row.planned_quantity = Number(b.planned_quantity);
+  if (b.measurement_unit != null) row.measurement_unit = String(b.measurement_unit);
+  if (b.eta != null) row.eta = String(b.eta);
+  if (b.status) row.status = String(b.status);
+  return res.json({ code:0, data: row });
+});
+
+app.delete('/v1/inbound/orders/:id', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const i = demoStore.inboundOrders.findIndex(o => o.order_no === req.params.id || o.reservation_number === req.params.id);
+  if (i < 0) return res.json({ code:404, message:'not found' });
+  demoStore.inboundOrders.splice(i,1);
+  return res.json({ code:0 });
+});
+
+// Documents (demo): upload by JSON (url/filename), list by scope/ref_id
+app.post('/v1/docs/upload', (req, res) => {
+  try{
+    const { scope, ref_id, doc_type, url, filename } = req.body || {};
+    if(!scope || !ref_id || !doc_type){ return res.status(400).json({ code:400, message:'scope/ref_id/doc_type required' }); }
+    const rec = { id: Date.now(), scope, ref_id: String(ref_id), doc_type, url: url||'', filename: filename||'', uploaded_at: new Date().toISOString() };
+    if (allowDemo) demoStore.docs.unshift(rec);
+    // 如果是预约磅单，顺带写入预约记录的 doc_url 方便列表直接展示（demo）
+    if (allowDemo && scope === 'reservation'){
+      const r = demoStore.reservations.find(x => String(x.id)===String(ref_id) || x.reservation_number===String(ref_id));
+      if (r) r.doc_url = url || '';
+    }
+    return res.json({ code:0, data:{ id: rec.id } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+app.get('/v1/docs/list', (req, res) => {
+  try{
+    const { scope, ref_id } = req.query || {};
+    if(!scope || !ref_id) return res.json({ code:0, data:{ list:[], total:0 } });
+    if (allowDemo){
+      const list = demoStore.docs.filter(d => d.scope===scope && d.ref_id===String(ref_id));
+      return res.json({ code:0, data:{ list, total:list.length } });
+    }
+    // non-demo not implemented
+    return res.status(501).json({ code:501, message:'not implemented' });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// Scale records (demo)
+app.post('/v1/scale/records', (req, res) => {
+  try{
+    const { ref_type='inbound_order', ref_id, gross, tare, deductions=0, actual=null } = req.body || {};
+    if(!ref_id) return res.status(400).json({ code:400, message:'ref_id required' });
+    const net = (gross!=null && tare!=null) ? (Number(gross)-Number(tare)) : null;
+    const rec = { id: Date.now(), ref_type, ref_id: String(ref_id), gross, tare, net, deductions, actual: (actual!=null? Number(actual) : (net!=null? net-Number(deductions||0) : null)), weighed_at: new Date().toISOString() };
+    if (allowDemo) demoStore.scaleRecords.unshift(rec);
+    return res.json({ code:0, data:{ id: rec.id } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+app.get('/v1/scale/records', (req, res) => {
+  try{
+    const { ref_type='inbound_order', ref_id } = req.query || {};
+    if(!ref_id) return res.json({ code:0, data:{ list:[], total:0 } });
+    if (allowDemo){
+      const list = demoStore.scaleRecords.filter(r => r.ref_type===ref_type && r.ref_id===String(ref_id));
+      return res.json({ code:0, data:{ list, total:list.length } });
+    }
+    return res.status(501).json({ code:501, message:'not implemented' });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// Batch import precheck (validate only, no DB writes)
+app.post('/v1/inbound/orders/batch/precheck', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body) ? req.body : [];
+    // Prepare existing keys to detect duplicates (in demo mode)
+    const existNumbers = new Set();
+    if (allowDemo) {
+      for (const o of demoStore.inboundOrders) {
+        existNumbers.add(String(o.reservation_number || o.order_no || ''));
+      }
+    } else {
+      try {
+        const rows = await query('SELECT reservation_number, order_no FROM inbound_orders LIMIT 10000', []);
+        for (const r of rows) existNumbers.add(String(r.reservation_number || r.order_no || ''));
+      } catch {}
+    }
+
+    const batchSeen = new Set();
+    const allowedParties = new Set(['存货人', '物流方', '仓库方', '', undefined, null]);
+    const results = items.map((it, idx) => {
+      const row = it || {};
+      const errors = [];
+      const warnings = [];
+      const num = String(row.reservation_number || row.order_no || '').trim();
+      const qty = Number(row.planned_quantity);
+      const unit = String(row.measurement_unit || '').trim();
+      const code = String(row.unique_reservation_code || '').trim();
+      const party = row.reservation_party;
+
+      if (!num) errors.push('缺少预约单号');
+      if (!Number.isFinite(qty) || qty <= 0) errors.push('计划数量需为正数');
+      if (!unit) errors.push('计量单位必填');
+      if (!allowedParties.has(party)) warnings.push('预约方非常规值');
+      if (code && !/^\d{6}$/.test(code)) warnings.push('预约码建议为6位数字');
+
+      if (num) {
+        if (batchSeen.has(num)) errors.push('本次导入内存在重复预约单号');
+        batchSeen.add(num);
+        if (existNumbers.has(num)) warnings.push('预约单号与系统中已存在可能冲突');
+      }
+
+      return { index: idx, ok: errors.length === 0, errors, warnings };
+    });
+
+    const valid = results.every(r => r.ok);
+    res.json({ code: 0, data: { valid, items: results } });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
   }
