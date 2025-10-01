@@ -116,6 +116,17 @@ export function uploadReservationDoc(reservationId: string|number, url: string, 
   return http.post<ApiResp<{id:number}>>('/v1/docs/upload', { scope:'reservation', ref_id:String(reservationId), doc_type:docType, url, filename });
 }
 
+// 门岗核验相关（demo）
+export function getReservationByCode(code: string){
+  return http.get<ApiResp<any>>('/v1/inbound/reservations/by-code/'+encodeURIComponent(code));
+}
+export function gateVerifyWechat(payload: { reservation_code: string; driver_phone: string; vehicle_plate?: string; wechat_openid?: string }){
+  return http.post<ApiResp<{ ok:boolean; inbound_order_no:string; reservation:any; phoneMatched:boolean }>>('/v1/inbound/gate/verify/wechat', payload);
+}
+export function listAlerts(){
+  return http.get<ApiResp<{ list:any[]; total:number }>>('/v1/alerts');
+}
+
 // 入库单列表
 export function listInboundOrders(params: { page?: number; pageSize?: number; reservation_number?: string }) {
   return http.get<ApiResp<{list: InboundOrder[]; total:number}>>('/v1/inbound/orders', { params });
