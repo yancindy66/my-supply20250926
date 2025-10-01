@@ -56,6 +56,89 @@
           </div>
         </div>
       </section>
+
+      <section class="card">
+        <h3>车辆与抓拍</h3>
+        <div class="veh-head">本预约关联车次：{{ vehicles.length }} 趟</div>
+        <table class="table">
+          <thead>
+            <tr><th>车单号</th><th>车牌</th><th>毛/皮/净/扣</th><th>实际入库(吨)</th><th>入场抓拍</th><th>出场抓拍</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="v in vehicles" :key="v.order_no">
+              <td>{{ v.order_no }}</td>
+              <td>{{ v.vehicle_plate || '-' }}</td>
+              <td>{{ v.gross || '-' }}/{{ v.tare || '-' }}/{{ v.net || '-' }}/{{ v.deductions || '-' }}</td>
+              <td>{{ v.actual ?? '-' }}</td>
+              <td>
+                <div class="thumbs">
+                  <img v-for="u in v.entry_photos" :key="u" :src="u" />
+                </div>
+              </td>
+              <td>
+                <div class="thumbs">
+                  <img v-for="u in v.exit_photos" :key="u" :src="u" />
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!vehicles.length"><td colspan="6" class="empty">暂无车次</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h3>跺位验证（对版）</h3>
+        <div class="grid">
+          <div class="row"><label>位置编码</label><input v-model="locForm.location_code" placeholder="如 A-01-03" /></div>
+          <div class="row"><label>空仓视频URL</label><input v-model="locForm.empty_video_url" placeholder="视频/图片URL" /></div>
+          <div class="row"><label>入仓视频URL</label><input v-model="locForm.inbound_video_url" placeholder="视频/图片URL" /></div>
+          <div class="row"><label>判定</label>
+            <select v-model="locForm.result"><option value="pending">待验证</option><option value="pass">通过</option><option value="fail">不通过</option></select>
+          </div>
+          <div class="row full"><label>备注</label><input v-model="locForm.remark" placeholder="说明" /></div>
+        </div>
+        <div class="ops-line"><button class="ghost" @click="addLocation">添加跺位记录</button></div>
+        <table class="table mini">
+          <thead><tr><th>位置</th><th>空仓视频</th><th>入仓视频</th><th>判定</th><th>备注</th></tr></thead>
+          <tbody>
+            <tr v-for="(l, i) in locations" :key="i">
+              <td>{{ l.location_code }}</td>
+              <td><a :href="l.empty_video_url" target="_blank">查看</a></td>
+              <td><a :href="l.inbound_video_url" target="_blank">查看</a></td>
+              <td>{{ mapVerify(l.result) }}</td>
+              <td>{{ l.remark || '-' }}</td>
+            </tr>
+            <tr v-if="!locations.length"><td colspan="5" class="empty">暂无记录</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h3>质检监管箱（车车一检）</h3>
+        <div class="grid">
+          <div class="row"><label>抽检比例(%)</label><input type="number" v-model.number="qcForm.sampling_ratio" placeholder="5" /></div>
+          <div class="row"><label>参与人</label><input v-model="qcForm.participants" placeholder="仓库/货主/平台" /></div>
+          <div class="row full"><label>会议链接</label><input v-model="qcForm.meeting_url" placeholder="视频会议URL或会议号" /></div>
+          <div class="row full"><label>结论</label>
+            <select v-model="qcForm.conclusion"><option value="pending">待定</option><option value="pass">通过</option><option value="fail">不通过</option></select>
+          </div>
+        </div>
+        <div class="ops-line">
+          <button class="ghost" @click="startQc">发起/保存质检</button>
+        </div>
+        <table class="table mini">
+          <thead><tr><th>质检号</th><th>抽检比例</th><th>参与人</th><th>结论</th></tr></thead>
+          <tbody>
+            <tr v-for="q in qcSessions" :key="q.qc_no">
+              <td>{{ q.qc_no }}</td>
+              <td>{{ q.sampling_ratio }}%</td>
+              <td>{{ q.participants }}</td>
+              <td>{{ mapQc(q.conclusion) }}</td>
+            </tr>
+            <tr v-if="!qcSessions.length"><td colspan="4" class="empty">暂无记录</td></tr>
+          </tbody>
+        </table>
+      </section>
     </div>
   </div>
 </template>
@@ -73,6 +156,11 @@ const loading = ref(false);
 const detail = ref<any>(null);
 const warehouses = ref<any[]>([]);
 const products = ref<any[]>([]);
+const vehicles = ref<any[]>([]);
+const locations = ref<any[]>([]);
+const locForm = ref<any>({ location_code:'', empty_video_url:'', inbound_video_url:'', result:'pending', remark:'' });
+const qcSessions = ref<any[]>([]);
+const qcForm = ref<any>({ sampling_ratio: 5, participants: '', meeting_url: '', conclusion:'pending' });
 
 const warehouseText = computed(()=>{
   const w = warehouses.value.find((x:any)=> String(x.id)===String(detail.value?.target_warehouse_id));
@@ -116,8 +204,27 @@ async function load(){
   try{
     const resp:any = await getReservation(rid.value);
     detail.value = resp?.data || null;
+    await loadVehicles();
   }catch{ detail.value = null; }
   loading.value = false;
+}
+
+async function loadVehicles(){
+  try{
+    const resp:any = await http.get('/v1/inbound/orders', { params:{ page:1, pageSize:50 } });
+    const all:any[] = resp?.data?.list || [];
+    const filtered = all.filter(o=> String(o.reservation_number||'') === String(detail.value?.reservation_number||rid.value));
+    // 为每个车单取抓拍
+    for(const v of filtered){
+      try{
+        const ent:any = await http.get('/v1/docs/list', { params:{ scope:'gate', ref_id: v.order_no } });
+        const list:any[] = ent?.data?.list || [];
+        v.entry_photos = list.filter(d=>d.doc_type==='entry_photo').map(d=>d.url);
+        v.exit_photos = list.filter(d=>d.doc_type==='exit_photo').map(d=>d.url);
+      }catch{ v.entry_photos=[]; v.exit_photos=[]; }
+    }
+    vehicles.value = filtered;
+  }catch{ vehicles.value = []; }
 }
 
 function goBack(){ router.push('/inbound/order/list'); }
@@ -135,6 +242,18 @@ async function onUpload(){
     await load();
     alert('已上传/替换PDF（demo）');
   }catch(e:any){ alert('上传失败：'+(e?.message||e)); }
+}
+function mapVerify(s:string){ const m:any={ pending:'待验证', pass:'通过', fail:'不通过' }; return m[s]||s; }
+function mapQc(s:string){ const m:any={ pending:'待定', pass:'通过', fail:'不通过' }; return m[s]||s; }
+function addLocation(){
+  if(!locForm.value.location_code) return alert('请填写位置编码');
+  locations.value.push({ ...locForm.value });
+  locForm.value = { location_code:'', empty_video_url:'', inbound_video_url:'', result:'pending', remark:'' };
+}
+function startQc(){
+  const qc_no = 'QC-'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'-'+String(qcSessions.value.length+1).padStart(3,'0');
+  qcSessions.value.unshift({ qc_no, ...qcForm.value });
+  alert('质检已保存（demo）');
 }
 function onPrint(){
   if(!detail.value) return;
@@ -186,6 +305,14 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .thumb-wrap.empty{ display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:12px; }
 .thumb{ width:100%; height:100%; object-fit:cover; }
 .link{ background:transparent; color:#2563eb; padding:0 6px; }
+.veh-head{ color:#334155; margin-bottom:8px; }
+.thumbs{ display:flex; gap:6px; flex-wrap:wrap; }
+.thumbs img{ width:78px; height:52px; border-radius:6px; border:1px solid #e5e7eb; object-fit:cover; }
+.table{ width:100%; border-collapse:collapse; }
+.table th,.table td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
+.table .empty{ text-align:center; color:#94a3b8; }
+.ops-line{ display:flex; justify-content:flex-end; margin:8px 0; }
+.table.mini th,.table.mini td{ padding:6px; }
 </style>
 
 
