@@ -284,6 +284,8 @@
       </tbody>
     </table>
 
+  
+
     <div v-if="importPreview.length" class="import-panel">
       <div class="import-head">
         <b>导入预览</b>
@@ -717,6 +719,7 @@ function view(row:any){
   const id = row.id || row.reservation_number || row.order_no;
   router.push(`/inbound/reservation/detail/${encodeURIComponent(String(id))}`);
 }
+// 二级菜单中进入门岗核验，此处不再提供快捷入口
 // 详情页内提供编辑/打印，此处不再暴露
 async function uploadPdf(row:any){
   try{
@@ -808,6 +811,7 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .resv-link:hover{ color:#1d4ed8; border-color:#93c5fd; }
 .subops{ margin-top:6px; }
 .link.mini{ font-size:12px; color:#3b82f6; }
+.footer-actions{ margin-top:12px; display:flex; justify-content:flex-end; }
 </style>
 
 
