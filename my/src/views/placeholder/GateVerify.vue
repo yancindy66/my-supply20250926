@@ -30,6 +30,7 @@
       <div class="row">
         <input v-model="entryUrl" placeholder="图片URL" class="flex1" />
         <button @click="addEntryUrl" :disabled="!entryUrl">添加</button>
+        <input type="file" accept="image/*" capture="environment" multiple @change="onEntryFiles" />
         <button class="ghost" @click="saveEntryPhotos" :disabled="!entryPhotos.length">保存入场抓拍</button>
       </div>
       <div class="thumbs">
@@ -57,6 +58,7 @@
       <div class="row">
         <input v-model="exitUrl" placeholder="图片URL" class="flex1" />
         <button @click="addExitUrl" :disabled="!exitUrl">添加</button>
+        <input type="file" accept="image/*" capture="environment" multiple @change="onExitFiles" />
         <button class="ghost" @click="saveExitPhotos" :disabled="!exitPhotos.length">保存出场抓拍</button>
       </div>
       <div class="thumbs">
@@ -157,6 +159,32 @@ const weighTicketUrl = ref('');
 
 function addEntryUrl(){ if(entryUrl.value){ entryPhotos.value.push(entryUrl.value); entryUrl.value=''; } }
 function addExitUrl(){ if(exitUrl.value){ exitPhotos.value.push(exitUrl.value); exitUrl.value=''; } }
+
+async function compressImage(file: File, maxW = 1280): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxW / bitmap.width);
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return await fileToDataUrl(file);
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.82);
+}
+function fileToDataUrl(file: File): Promise<string>{
+  return new Promise((resolve,reject)=>{ const r = new FileReader(); r.onload=()=>resolve(String(r.result||'')); r.onerror=reject; r.readAsDataURL(file); });
+}
+async function onEntryFiles(e: Event){
+  const input = e.target as HTMLInputElement; const files = input.files; if(!files) return;
+  for(const f of Array.from(files)){ try{ const data = await compressImage(f); entryPhotos.value.push(data);}catch{} }
+  input.value='';
+}
+async function onExitFiles(e: Event){
+  const input = (e.target as HTMLInputElement); const files = input.files; if(!files) return;
+  for(const f of Array.from(files)){ try{ const data = await compressImage(f); exitPhotos.value.push(data);}catch{} }
+  input.value='';
+}
 
 async function saveEntryPhotos(){
   if(!inboundOrderNo.value || !entryPhotos.value.length) return;
