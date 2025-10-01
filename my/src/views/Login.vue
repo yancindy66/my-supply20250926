@@ -32,6 +32,7 @@
           <div class="actions">
       <button type="submit">登录</button>
             <button type="button" class="ghost" @click="router.push('/register')">注册新账号</button>
+            <button type="button" class="ghost" @click="previewLogin">快速预览</button>
           </div>
           <div class="social-row cute">
             <span>快捷登录：</span>
@@ -145,6 +146,21 @@ async function onLogin() {
   } catch(e:any) {
     message.value = '登录失败，请重试';
   }
+}
+
+function rolePreviewHome(roleKey: string){
+  if (roleKey==='operation') return '/dashboard';
+  if (roleKey==='inventory') return '/inbound/apply';
+  if (roleKey==='warehouse') return '/warehouse/list';
+  if (roleKey==='financial') return '/financing/list';
+  if (roleKey==='guarantee') return '/guarantee/dashboard';
+  if (roleKey==='regulator') return '/monitor/overview';
+  return '/dashboard';
+}
+function previewLogin(){
+  try{ localStorage.setItem('auth_token','preview'); }catch{}
+  try{ localStorage.setItem('role', String(role.value||'operation')); }catch{}
+  router.push(rolePreviewHome(String(role.value||'operation')));
 }
 
 // 三种快捷登录（占位实现：调用后端 /api/auth/*，失败则给出提示）

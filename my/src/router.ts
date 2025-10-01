@@ -3,10 +3,12 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Login from './views/Login.vue';
 const Register = () => import('./views/Register.vue');
 import Welcome from './views/Welcome.vue';
+const RoleSelect = () => import('./views/RoleSelect.vue');
 
 const routes = [
-  { path: '/', redirect: '/login' },
+  { path: '/', redirect: '/role-select' },
   { path: '/login', component: Login },
+  { path: '/role-select', component: RoleSelect },
   { path: '/welcome', component: Welcome },
   { path: '/register', component: Register },
   { path: '/lab/excel', component: () => import('./views/lab/ExcelLab.vue') },
@@ -70,18 +72,13 @@ const router = createRouter({
 
 function roleHome(role: string): string {
   switch (role) {
-    case 'operation':
-      return '/dashboard';
-    case 'inventory':
-      return '/member/inventory/list';
-    case 'warehouse':
-      return '/member/warehouse/list';
-    case 'financial':
-      return '/member/financial/list';
-    case 'guarantee':
-      return '/guarantee/dashboard';
-    default:
-      return '/dashboard';
+    case 'operation': return '/dashboard';
+    case 'inventory': return '/inbound/apply';
+    case 'warehouse': return '/warehouse/list';
+    case 'financial': return '/financing/list';
+    case 'guarantee': return '/guarantee/dashboard';
+    case 'regulator': return '/monitor/overview';
+    default: return '/dashboard';
   }
 }
 

@@ -1,21 +1,21 @@
-{
-  "name": "my-supply-api",
-  "version": "1.0.0",
+﻿{
+  "name": "my-supply-backend",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "migrate": "node migrate.js"
+    "dev": "nodemon --watch . server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "knex": "^3.1.0",
+    "morgan": "^1.10.0",
     "mysql2": "^3.9.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }
-
-

@@ -7,8 +7,12 @@ export interface ApiResponse<T = any> {
   msg?: string;
 }
 
+const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE)
+  ? String((import.meta as any).env.VITE_API_BASE)
+  : '';
+
 const http: AxiosInstance = axios.create({
-  baseURL: '',
+  baseURL: apiBase,
   timeout: 10000,
   headers: { 'Accept': 'application/json' }
 });
