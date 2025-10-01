@@ -273,7 +273,8 @@
               {{ row.platform_audited_at || '-' }}
             </template>
             <template v-else-if="c.key==='actions'">
-              <button class="link danger" @click="remove(row)">删除</button>
+              <button v-if="roleIs('inventory')" class="link danger" @click="remove(row)">删除</button>
+              <span v-else class="muted">—</span>
             </template>
           </td>
         </tr>
@@ -738,7 +739,7 @@ async function remove(row:any){
   if(!confirm('确认删除该入库单？')) return;
   try{ await deleteReservation(row.id || row.reservation_number); await load(); alert('已删除'); }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
 }
-// function roleIs(key:string){ try{ return (localStorage.getItem('role')||'')===key; }catch{return false;} }
+function roleIs(key:string){ try{ return (localStorage.getItem('role')||'')===key; }catch{return false;} }
 
 load();
 </script>

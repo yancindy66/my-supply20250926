@@ -24,7 +24,7 @@ const routes = [
       { path: 'member', children: [ { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') } ] },
 
       ...[
-        'inbound/apply','inbound/list','warehouse-receipt/list','warehouse-receipt/outbound-apply',
+        'inbound/apply','warehouse-receipt/list','warehouse-receipt/outbound-apply',
         'outbound/list','transfer/apply','transfer/list','financing/apply','financing/list','financing/risk',
         'transfer-ownership/apply','transfer-ownership/list','renewal/apply','renewal/list','trading/apply','trading/list',
         'fee/payable','fee/refund','fee/report','announcement/list','warehouse/manage','warehouse/list','warehouse/add',
@@ -51,6 +51,7 @@ const routes = [
       { path: 'unfreeze/apply', component: () => import('./views/placeholder/UnfreezeApply.vue'), meta: { title: '解冻申请' } },
       { path: 'unfreeze/review', component: () => import('./views/placeholder/UnfreezeReview.vue'), meta: { title: '解冻审批' } },
       { path: 'inbound/order/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库预约列表' } },
+      { path: 'inbound/list', redirect: '/inbound/order/list' },
       { path: 'inbound/order/apply', component: () => import('./views/placeholder/InboundOrderApply.vue'), meta: { title: '新建入库预约' } },
       { path: 'inbound/reservation/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库预约列表' } },
       { path: 'monitor/overview', component: () => import('./views/placeholder/RegulatorOverview.vue') },
