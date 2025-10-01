@@ -1,15 +1,24 @@
 <template>
   <div class="rs-layout">
     <section class="chat-pane">
-      <div class="chat-header">系统助手</div>
-      <div class="chat-body" ref="chatBodyRef">
-        <div v-for="(m,i) in messages" :key="i" class="msg" :class="m.role">
-          <div class="bubble">{{ m.text }}</div>
+      <div class="chat-header">登录</div>
+      <div class="login-body">
+        <div class="login-row">
+          <label>账号</label>
+          <input v-model="username" placeholder="手机/邮箱/用户名" />
         </div>
+        <div class="login-row">
+          <label>密码</label>
+          <input v-model="password" type="password" placeholder="密码" />
+        </div>
+        <div class="login-actions">
+          <button @click="onLogin">登录</button>
+          <button class="ghost" @click="goPreview">快速预览</button>
+        </div>
+        <div v-if="message" class="hint">{{ message }}</div>
       </div>
-      <div class="chat-input">
-        <input v-model="inputText" placeholder="问我任何系统相关问题… 回车发送" @keyup.enter="send"/>
-        <button @click="send">发送</button>
+      <div class="chat-footer">
+        <small>选择右侧魔方也可直接预览不同角色页面</small>
       </div>
     </section>
 
@@ -35,19 +44,51 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { ref, onMounted } from 'vue';
+import { login as apiLogin, me as apiMe } from '@/api/auth';
 const router = useRouter();
 // 聊天占位
-const messages = ref<Array<{role:'user'|'assistant'; text:string}>>([
-  { role:'assistant', text:'你好，我是系统助手。右侧魔方可选择角色，选择后进入登录。' }
-]);
-const inputText = ref('');
-const chatBodyRef = ref<HTMLElement|null>(null);
-function send(){
-  const t = inputText.value.trim(); if(!t) return;
-  messages.value.push({ role:'user', text:t }); inputText.value='';
-  setTimeout(()=>{ messages.value.push({ role:'assistant', text:'收到：'+t }); scrollChat(); }, 200);
+const username = ref('');
+const password = ref('');
+const message = ref('');
+async function onLogin(){
+  if(!username.value || !password.value){ message.value='请输入账号与密码'; return; }
+  message.value='';
+  try{
+    const resp:any = await apiLogin({ username: username.value, password: password.value });
+    const token = resp?.data?.token || '';
+    if(!token){ message.value='登录失败'; return; }
+    try{ localStorage.setItem('auth_token', token); }catch{}
+    const info:any = await apiMe();
+    const roles = info?.roles || [];
+    const type = info?.user?.type || '';
+    const roleKey = roles[0]?.role_key || type || 'operation';
+    try{ localStorage.setItem('role', roleKey); }catch{}
+    router.push(roleHome(mapRoleKeyToRoute(roleKey)));
+  }catch(_e:any){ message.value = '登录失败，请重试'; }
 }
-function scrollChat(){ try{ const el=chatBodyRef.value; if(el){ el.scrollTop = el.scrollHeight; } }catch{}
+function mapRoleKeyToRoute(roleKey: string){
+  if (roleKey==='platform' || roleKey==='platform_admin' || roleKey==='operation') return 'operation';
+  if (roleKey==='depositor' || roleKey==='inventory') return 'inventory';
+  if (roleKey==='warehouse' || roleKey==='warehouse_manager') return 'warehouse';
+  if (roleKey==='financial' || roleKey==='financial_org') return 'financial';
+  if (roleKey==='guarantee' || roleKey==='guarantee_org') return 'guarantee';
+  if (roleKey==='regulator') return 'regulator';
+  return 'operation';
+}
+function roleHome(r: string){
+  switch(r){
+    case 'operation': return '/dashboard';
+    case 'inventory': return '/inbound/apply';
+    case 'warehouse': return '/warehouse/list';
+    case 'financial': return '/financing/list';
+    case 'guarantee': return '/guarantee/dashboard';
+    case 'regulator': return '/monitor/overview';
+    default: return '/dashboard';
+  }
+}
+function goPreview(){
+  const currentRole = localStorage.getItem('role') || 'operation';
+  router.push(roleHome(String(currentRole)));
 }
 
 // 3D 魔方交互
@@ -67,8 +108,8 @@ function selectRole(roleKey: string) {
   try {
     localStorage.setItem('role', roleKey);
   } catch {}
-  // 先选角色再登录
-  router.push('/login');
+  // 直接进入各角色首页进行预览
+  router.push(roleHome(roleKey));
 }
 
 function onFaceClick(roleKey: string){ if(!roleKey) return; selectRole(roleKey); }
@@ -82,15 +123,15 @@ function onFaceClick(roleKey: string){ if(!roleKey) return; selectRole(roleKey);
 }
 .chat-pane{ flex:1 1 55%; display:flex; flex-direction:column; background:#fff; border:1px solid rgba(2,6,23,0.08); border-radius:12px; box-shadow:0 10px 24px rgba(2,6,23,0.06); overflow:hidden; }
 .chat-header{ padding:14px 16px; font-weight:600; border-bottom:1px solid rgba(2,6,23,0.06); }
-.chat-body{ flex:1; padding:14px; overflow:auto; background:linear-gradient(180deg,#ffffff, #fafbff); }
-.msg{ display:flex; margin:8px 0; }
-.msg.user{ justify-content:flex-end; }
-.bubble{ max-width:70%; padding:10px 12px; border-radius:12px; line-height:1.5; font-size:14px; box-shadow:0 2px 8px rgba(2,6,23,0.06); }
-.msg.assistant .bubble{ background:#f1f5f9; color:#0f172a; border:1px solid rgba(2,6,23,0.06); }
-.msg.user .bubble{ background:#2563eb; color:#fff; }
-.chat-input{ display:flex; gap:8px; padding:12px; border-top:1px solid rgba(2,6,23,0.06); }
-.chat-input input{ flex:1; height:36px; border:1px solid #e2e8f0; border-radius:8px; padding:0 10px; }
-.chat-input button{ height:36px; padding:0 14px; border:none; background:#2563eb; color:#fff; border-radius:8px; cursor:pointer; }
+.login-body{ padding:16px; display:flex; flex-direction:column; gap:10px; }
+.login-row{ display:flex; align-items:center; gap:8px; }
+.login-row label{ width:64px; color:#475569; }
+.login-row input{ flex:1; height:36px; border:1px solid #e2e8f0; border-radius:8px; padding:0 10px; }
+.login-actions{ display:flex; gap:10px; padding:0 16px 6px; }
+.login-actions button{ height:36px; padding:0 14px; border:none; border-radius:8px; background:#2563eb; color:#fff; cursor:pointer; }
+.login-actions .ghost{ background:#f1f5f9; color:#0f172a; }
+.hint{ color:#ef4444; padding:0 16px; }
+.chat-footer{ padding:8px 16px; border-top:1px solid rgba(2,6,23,0.06); color:#64748b; }
 
 .cube-pane{ flex:1 1 45%; display:flex; flex-direction:column; align-items:center; }
 .hero{ text-align:center; margin-bottom:14px; }
