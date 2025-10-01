@@ -88,7 +88,8 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
   inventory: [
     { title: '入库管理', link: '/inbound/order/list', children: [
       { title: '新建入库预约', link: '/inbound/order/apply' },
-      { title: '入库预约列表', link: '/inbound/order/list' }
+      { title: '入库预约列表', link: '/inbound/order/list' },
+      { title: '门岗核验', link: '/inbound/gate/verify' }
     ] },
     { title: '仓单管理', link: '/warehouse-receipt/list', children: [
       { title: '仓单列表', link: '/warehouse-receipt/list' },
