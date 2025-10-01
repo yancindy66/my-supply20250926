@@ -18,6 +18,7 @@ const routes = [
     path: '/',
     component: () => import('./layout/MinimalLayout.vue'),
     children: [
+      { path: 'inbound/apply', redirect: '/inbound/order/list' },
       { path: 'dashboard', component: () => import('./views/Dashboard.vue') },
       { path: 'inventory', component: () => import('./views/商品管理/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
       { path: 'member', children: [ { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') } ] },
