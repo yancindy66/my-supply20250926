@@ -19,7 +19,7 @@ app.get('/favicon.ico', (_req, res) => res.status(204).end());
 // Auth
 const allowDemo = String(process.env.ALLOW_DEMO || '').toLowerCase() === '1' || String(process.env.ALLOW_DEMO || '').toLowerCase() === 'true';
 // Demo in-memory store
-let demoStore = { inboundOrders: [], reservations: [], docs: [], scaleRecords: [], products: [], warehouses: [] };
+let demoStore = { inboundOrders: [], reservations: [], docs: [], scaleRecords: [], products: [], warehouses: [], gateEvents: [], alerts: [] };
 
 // Helper: generate 6-digit numeric reservation code
 function generateSixDigitCode(){
@@ -128,8 +128,8 @@ app.get('/api/warehouses', (_req, res) => {
   if (!allowDemo) return res.json({ code:0, data: [] });
   if (!demoStore.warehouses.length) {
     demoStore.warehouses = [
-      { id: 1, name: '天津港1号仓', address: '天津市滨海新区港口路88号' },
-      { id: 2, name: '上海化工仓B区', address: '上海市奉贤区化工路1号' }
+      { id: 1, name: '天津港1号仓', address: '天津市滨海新区港口路88号', manager_phone: '13800001111' },
+      { id: 2, name: '上海化工仓B区', address: '上海市奉贤区化工路1号', manager_phone: '13900002222' }
     ];
   }
   res.json({ code:0, data: demoStore.warehouses });
@@ -214,6 +214,14 @@ app.post('/v1/inbound/reservations', async (req, res) => {
 app.get('/v1/inbound/reservations/:id', (req, res) => {
   if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
   const row = demoStore.reservations.find(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
+  if (!row) return res.json({ code:404, message:'not found' });
+  return res.json({ code:0, data: row });
+});
+
+// by reservation code (6 digits)
+app.get('/v1/inbound/reservations/by-code/:code', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = demoStore.reservations.find(r => String(r.unique_reservation_code)===String(req.params.code));
   if (!row) return res.json({ code:404, message:'not found' });
   return res.json({ code:0, data: row });
 });
@@ -579,6 +587,46 @@ app.get('/v1/docs/list', (req, res) => {
     // non-demo not implemented
     return res.status(501).json({ code:501, message:'not implemented' });
   }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// Gate verify: wechat + phone check
+app.post('/v1/inbound/gate/verify/wechat', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const { reservation_code, driver_phone, vehicle_plate='', wechat_openid='' } = req.body || {};
+    const r = demoStore.reservations.find(x => String(x.unique_reservation_code)===String(reservation_code));
+    if (!r) return res.json({ code:404, message:'预约不存在或已失效' });
+    const order_no = `INB-${Date.now()}`;
+    // phone match rule: demo 用 owner_address 中是否包含最后两位数字模拟（仅演示）
+    const phoneMatched = true; // 放行为主，默认 true；如需模拟不一致：Math.random()<0.3
+    demoStore.inboundOrders.unshift({
+      order_no,
+      reservation_number: r.reservation_number,
+      owner_name: r.owner_name,
+      warehouse_name: (demoStore.warehouses.find(w=>w.id===r.target_warehouse_id)||{}).name || '',
+      warehouse_address: (demoStore.warehouses.find(w=>w.id===r.target_warehouse_id)||{}).address || '',
+      commodity_name: '', commodity_spec: '', planned_quantity: r.total_planned_quantity, measurement_unit: r.measurement_unit,
+      vehicle_plate, driver_phone, status:'created', created_at: new Date().toISOString().slice(0,16).replace('T',' '), unique_reservation_code: r.unique_reservation_code
+    });
+    // gate event
+    demoStore.gateEvents.unshift({ id: Date.now(), reservation_number: r.reservation_number, reservation_code, driver_phone, vehicle_plate, wechat_openid, phoneMatched, arrive_at: new Date().toISOString() });
+    // alert placeholder
+    if (!phoneMatched){
+      const wh = demoStore.warehouses.find(w=>w.id===r.target_warehouse_id);
+      const receiver = wh?.manager_phone || '13800000000';
+      const content = `[告警] 门岗手机号不一致 预约:${reservation_code} 司机:${driver_phone} 仓库:${wh?.name||''}`;
+      demoStore.alerts.unshift({ id: Date.now(), type:'gate_mismatch', receiver, content, created_at: new Date().toISOString() });
+      // 占位：控制台输出，后续对接短信/企业微信
+      console.log(content);
+    }
+    return res.json({ code:0, data:{ ok:true, inbound_order_no: order_no, reservation: r, phoneMatched } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// Alerts list (demo)
+app.get('/v1/alerts', (_req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  return res.json({ code:0, data:{ list: demoStore.alerts.slice(0,50), total: demoStore.alerts.length } });
 });
 
 // Scale records (demo)
