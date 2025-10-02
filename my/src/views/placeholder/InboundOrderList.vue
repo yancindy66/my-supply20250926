@@ -1,8 +1,8 @@
 <template>
   <div class="page">
-    <h2>入库预约列表</h2>
+    <h2>入库单列表</h2>
     <div class="toolbar">
-      <button @click="openCreate">新建入库预约</button>
+      <!-- 入库单列表不再新建预约，入口前移至门岗核验 -->
       <button class="ghost" @click="load">刷新</button>
       <button class="ghost" @click="downloadTemplate">下载模板</button>
       <label class="upload-btn">
@@ -68,7 +68,7 @@
         <button @click="saveCols">保存</button>
       </div>
     </div>
-    <!-- 新建入库预约弹窗 -->
+    <!-- 入库单列表无创建弹窗：保留占位以免大改动，默认不显示 -->
     <el-dialog v-model="showCreate" title="新建入库预约" width="760px">
       <el-form :model="createForm" label-width="100px" class="pretty-form">
         <el-row :gutter="12">
@@ -338,7 +338,7 @@
 import { ref, computed, watch } from 'vue';
 import http from '@/api/http';
 import { useRouter } from 'vue-router';
-import { listReservations, createReservation, deleteReservation, uploadReservationPdf } from '@/api/depositor';
+import { listInboundOrders, deleteInboundOrder, uploadReservationPdf } from '@/api/depositor';
 // import { capabilities } from '@/store/capabilities';
 
 const router = useRouter();
@@ -397,30 +397,11 @@ async function loadOptions(){
   try{ const w:any = await http.get('/api/warehouses'); warehouses.value = w?.data || []; }catch{ warehouses.value=[]; }
   try{ const p:any = await http.get('/api/products'); products.value = p?.data || []; }catch{ products.value=[]; }
 }
-function resetCreate(){ createForm.value = { warehouse_id:'', commodity_id:'', transport_mode:'', weigh_mode:'by_pack', pack_count:null, convert_ratio:null, total_planned_quantity:100, measurement_unit:'吨', expected_arrival_date:'', expected_arrival_range:null, weighing_fee:null, remarks:'' }; }
+// function resetCreate(){ createForm.value = { warehouse_id:'', commodity_id:'', transport_mode:'', weigh_mode:'by_pack', pack_count:null, convert_ratio:null, total_planned_quantity:100, measurement_unit:'吨', expected_arrival_date:'', expected_arrival_range:null, weighing_fee:null, remarks:'' }; }
 async function createReservationSubmit(){
   if(!createForm.value.warehouse_id || !createForm.value.commodity_id){ return alert('请选择仓库与商品'); }
   try{
-    await createReservation({
-      target_warehouse_id:Number(createForm.value.warehouse_id),
-      commodity_id:Number(createForm.value.commodity_id),
-      total_planned_quantity:Number(createForm.value.total_planned_quantity),
-      measurement_unit:String(createForm.value.measurement_unit),
-      expected_arrival_date:createForm.value.expected_arrival_range?.[0] || createForm.value.expected_arrival_date,
-      expected_arrival_start:createForm.value.expected_arrival_range?.[0] || null,
-      expected_arrival_end:createForm.value.expected_arrival_range?.[1] || null,
-      remarks:createForm.value.remarks,
-      transport_mode:createForm.value.transport_mode,
-      weigh_mode:createForm.value.weigh_mode,
-      pack_count:createForm.value.pack_count,
-      convert_ratio:createForm.value.convert_ratio,
-      weighing_fee:createForm.value.weighing_fee,
-      require_weighing:createForm.value.require_weighing
-    } as any);
-    resetCreate();
-    showCreate.value = false;
-    await load();
-    alert('预约已提交并已刷新列表');
+    alert('入库单列表不支持新增，门岗核验完成后自动生成');
   }catch(e:any){ alert('提交失败：'+(e?.message||e)); }
 }
 
@@ -695,29 +676,19 @@ function maskDriver(name?:string, phone?:string){
 async function load(){
   loading.value = true;
   try{
-    const resp: any = await listReservations({ page:1, pageSize:10 });
+    const resp: any = await listInboundOrders({ page:1, pageSize:10 });
     const rows:any[] = resp?.data?.list || [];
-    const wMap:Record<string, any> = {}; warehouses.value?.forEach((w:any)=> wMap[String(w.id)] = w);
-    const pMap:Record<string, any> = {}; products.value?.forEach((p:any)=> pMap[String(p.id)] = p);
-    list.value = rows.map(r=>({
-      ...r,
-      planned_quantity: r.total_planned_quantity,
-      warehouse_name: wMap[String(r.target_warehouse_id)]?.name,
-      warehouse_address: wMap[String(r.target_warehouse_id)]?.address,
-      commodity_name: pMap[String(r.commodity_id)]?.name,
-      commodity_spec: pMap[String(r.commodity_id)]?.spec,
-      eta: r.expected_arrival_start || r.expected_arrival_date || '-',
-    }));
+    list.value = rows.map(r=>({ ...r }));
   }catch{ list.value = []; }
   loading.value = false;
 }
  
 loadOptions();
 // function goApply(){ router.push('/inbound/order/apply'); }
-function openCreate(){ showCreate.value = true; }
+// function openCreate(){ showCreate.value = false; }
 function view(row:any){
-  const id = row.id || row.reservation_number || row.order_no;
-  router.push(`/inbound/reservation/detail/${encodeURIComponent(String(id))}`);
+  const id = row.order_no || row.reservation_number || row.id;
+  router.push(`/inbound/detail/${encodeURIComponent(String(id))}`);
 }
 // 二级菜单中进入门岗核验，此处不再提供快捷入口
 // 详情页内提供编辑/打印，此处不再暴露
@@ -740,7 +711,7 @@ async function uploadDriverLicense(row:any){
 // function withdraw(_row:any){ alert('撤回（占位）'); }
 async function remove(row:any){
   if(!confirm('确认删除该入库单？')) return;
-  try{ await deleteReservation(row.id || row.reservation_number); await load(); alert('已删除'); }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
+  try{ await deleteInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已删除'); }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
 }
 function roleIs(key:string){ try{ return (localStorage.getItem('role')||'')===key; }catch{return false;} }
 
