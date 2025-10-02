@@ -155,10 +155,28 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     };
     try{
       await persistGatePass(rowForPersist);
-      // 写入本地“车辆入库”Mock，办公室列表即刻可见
+      // 写入本地“车辆入库”Mock，办公室列表即刻可见（补齐运输单号/客户/商品）
       try{
         const inbList = (JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')) as any[];
-        inbList.unshift({ order_no: 'INB-'+Date.now(), reservation_number: rowForPersist.reservation_number, vehicle_plate: plateNow, driver_name: rowForPersist.driver_name||'-', driver_phone: rowForPersist.driver_phone||'-', status:'created', created_at: new Date().toISOString().slice(0,16).replace('T',' ') });
+        const owner = targetBk?.owner_name || targetTop?.owner_name || '-';
+        const commodityId = targetBk?.commodity_id || null;
+        const prod:any = commodityId ? productMap.value[String(commodityId)] : null;
+        const commodity_name = prod?.name || (targetTop?.product_name || '-');
+        const commodity_spec = prod?.spec || '';
+        const transport_no = targetTop?.transport_no || '-';
+        inbList.unshift({
+          order_no: 'INB-'+Date.now(),
+          reservation_number: rowForPersist.reservation_number,
+          transport_no,
+          owner_name: owner,
+          commodity_name,
+          commodity_spec,
+          vehicle_plate: plateNow,
+          driver_name: rowForPersist.driver_name||'-',
+          driver_phone: rowForPersist.driver_phone||'-',
+          status:'created',
+          created_at: new Date().toISOString().slice(0,16).replace('T',' ')
+        });
         localStorage.setItem('mockInboundOrders', JSON.stringify(inbList));
       }catch{}
       // UI 标记入库
@@ -199,6 +217,27 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     // 更新UI
     topRows.value.unshift({ reservation_number: rsvNo, transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', status: '车辆入库' });
     queueRows.value.unshift({ plate: plateNow, status:'车辆入库' });
+    // 同步写入本地“车辆入库”Mock（补齐运输单号/客户/商品）
+    try{
+      const inbList = (JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')) as any[];
+      const prod:any = rsvDetail?.commodity_id ? productMap.value[String(rsvDetail.commodity_id)] : null;
+      const commodity_name = prod?.name || '-';
+      const commodity_spec = prod?.spec || '';
+      inbList.unshift({
+        order_no: 'INB-'+Date.now(),
+        reservation_number: rsvNo,
+        transport_no: '-',
+        owner_name: rsvDetail?.owner_name || '临时入场',
+        commodity_name,
+        commodity_spec,
+        vehicle_plate: plateNow,
+        driver_name: rsvDetail?.driver_name || '-',
+        driver_phone: rsvDetail?.driver_phone || '-',
+        status:'created',
+        created_at: payload.expected_arrival_start
+      });
+      localStorage.setItem('mockInboundOrders', JSON.stringify(inbList));
+    }catch{}
     try{ await loadBookings(); }catch{}
     try{ await loadOrders(); }catch{}
     alert(`已自动为未预约车辆${plateNow}创建入库单`);
