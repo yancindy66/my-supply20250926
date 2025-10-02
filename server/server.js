@@ -258,6 +258,15 @@ app.delete('/v1/inbound/reservations/:id', (req, res) => {
   return res.json({ code:0 });
 });
 
+// cancel reservation (demo)
+app.post('/v1/inbound/reservations/:id/cancel', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const r = demoStore.reservations.find(x => String(x.id)===String(req.params.id) || x.reservation_number===req.params.id);
+  if (!r) return res.json({ code:404, message:'not found' });
+  r.status = 'cancelled';
+  return res.json({ code:0 });
+});
+
 // Warehouse receipts
 app.get('/v1/warehouse-receipts', async (req, res) => {
   try {
@@ -739,6 +748,25 @@ app.post('/v1/inbound/orders/:id/finish', (req, res) => {
   if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
   const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
   row.status = 'completed';
+  return res.json({ code:0 });
+});
+
+// Review inbound order → create a warehouse receipt (demo)
+app.post('/v1/inbound/orders/:id/approve', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  row.status = 'platform_approved';
+  // create a demo warehouse receipt
+  const receipt = { id: Date.now(), receipt_number: 'WR-'+Date.now(), reservation_number: row.reservation_number, quantity: Number(row.actual||row.planned_quantity||0), measurement_unit: row.measurement_unit||'吨', status: 'in_stock', created_at: new Date().toISOString().slice(0,16).replace('T',' ') };
+  if (!demoStore.warehouseReceipts) demoStore.warehouseReceipts = [];
+  demoStore.warehouseReceipts.unshift(receipt);
+  return res.json({ code:0, data:{ receipt_number: receipt.receipt_number } });
+});
+
+app.post('/v1/inbound/orders/:id/reject', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  row.status = 'platform_rejected';
   return res.json({ code:0 });
 });
 

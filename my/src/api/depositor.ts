@@ -141,6 +141,10 @@ export function getInboundOrder(id: string){ return http.get<ApiResp<any>>('/v1/
 export function updateInboundOrder(id: string, data: any){ return http.put<ApiResp<any>>('/v1/inbound/orders/'+id, data); }
 export function deleteInboundOrder(id: string){ return http.delete<ApiResp>('/v1/inbound/orders/'+id); }
 
+export function approveInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/approve', {}); }
+export function rejectInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/reject', {}); }
+export function cancelReservationApi(id: string|number){ return http.post<ApiResp>('/v1/inbound/reservations/'+id+'/cancel', {}); }
+
 export function submitInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/submit', {}); }
 export function withdrawInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/withdraw', {}); }
 export function cancelInboundOrder(id: string){ return http.post<ApiResp>('/v1/inbound/orders/'+id+'/cancel', {}); }

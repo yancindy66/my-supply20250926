@@ -238,6 +238,9 @@
             <template v-else-if="c.key==='planned_quantity'">
               {{ row.total_planned_quantity || row.planned_quantity }} {{ row.measurement_unit || row.unit || '' }}
             </template>
+            <template v-else-if="c.key==='actual_in_weight'">
+              {{ row.actual || row.calc_weight || '-' }} {{ row.measurement_unit || row.unit || '' }}
+            </template>
             <template v-else-if="c.key==='goods_source'">
               {{ row.goods_source || '司机上传磅单' }}
             </template>
@@ -260,6 +263,9 @@
             <template v-else-if="c.key==='eta'">
               {{ row.eta || '-' }}
             </template>
+            <template v-else-if="c.key==='qc_result'">
+              {{ row.qc_result || '-' }}
+            </template>
             <template v-else-if="c.key==='status'">
               <span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span>
             </template>
@@ -273,8 +279,9 @@
               {{ row.platform_audited_at || '-' }}
             </template>
             <template v-else-if="c.key==='actions'">
-              <button v-if="roleIs('inventory')" class="link danger" @click="remove(row)">删除</button>
-              <span v-else class="muted">—</span>
+              <button class="link" @click="approve(row)">审核</button>
+              <button class="link" @click="reject(row)">驳回</button>
+              <button class="link danger" v-if="row.reservation_number" @click="cancelReservation(row)">取消预约</button>
             </template>
           </td>
         </tr>
@@ -338,7 +345,7 @@
 import { ref, computed, watch } from 'vue';
 import http from '@/api/http';
 import { useRouter } from 'vue-router';
-import { listInboundOrders, deleteInboundOrder, uploadReservationPdf } from '@/api/depositor';
+import { listInboundOrders, uploadReservationPdf, approveInboundOrder, rejectInboundOrder, cancelReservationApi } from '@/api/depositor';
 // import { capabilities } from '@/store/capabilities';
 
 const router = useRouter();
@@ -414,7 +421,8 @@ const defaultColumns: Col[] = [
   { key:'owner_name', label:'货主名称', visible:true },
   { key:'warehouse', label:'目标仓库', visible:true },
   { key:'commodity', label:'商品名称', visible:true },
-  { key:'planned_quantity', label:'计划数量', visible:true },
+  { key:'planned_quantity', label:'预约量', visible:true },
+  { key:'actual_in_weight', label:'已入库量', visible:true },
   { key:'goods_source', label:'货物来源', visible:true },
   { key:'source_addr', label:'来源地址/厂家批次', visible:true },
   { key:'logistics_carrier', label:'物流承运商', visible:true },
@@ -422,7 +430,8 @@ const defaultColumns: Col[] = [
   { key:'driver_id_card', label:'司机身份证号', visible:true },
   { key:'driver_license_img', label:'司机驾照', visible:true },
   { key:'eta', label:'预计到库', visible:true },
-  { key:'status', label:'当前状态', visible:true },
+  { key:'qc_result', label:'质检', visible:true },
+  { key:'status', label:'审核状态', visible:true },
   { key:'created_at', label:'申请入库时间', visible:true },
   { key:'warehouse_handled_at', label:'仓库处理时间', visible:true },
   { key:'platform_audited_at', label:'平台审核时间', visible:true },
@@ -651,7 +660,7 @@ function dropOn(i:number){
 }
 
 function mapStatus(s: string){
-  const m: Record<string,string> = { created: '已创建', receiving: '收货中', completed: '已完成', cancelled: '已取消' };
+  const m: Record<string,string> = { created: '已创建', receiving: '收货中', completed: '已完成', cancelled: '已取消', platform_approved:'已审核', platform_rejected:'已驳回' };
   return m[s] || s || '-';
 }
 function statusColor(s:string){
@@ -709,11 +718,23 @@ async function uploadDriverLicense(row:any){
   }catch(e:any){ alert('上传失败：'+(e?.message||e)); }
 }
 // function withdraw(_row:any){ alert('撤回（占位）'); }
-async function remove(row:any){
-  if(!confirm('确认删除该入库单？')) return;
-  try{ await deleteInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已删除'); }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
+// async function remove(row:any){
+//   if(!confirm('确认删除该入库单？')) return;
+//   try{ await deleteInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已删除'); }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
+// }
+// function roleIs(key:string){ try{ return (localStorage.getItem('role')||'')===key; }catch{return false;} }
+
+async function approve(row:any){
+  try{ await approveInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已审核并生成仓单（demo）'); }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
 }
-function roleIs(key:string){ try{ return (localStorage.getItem('role')||'')===key; }catch{return false;} }
+async function reject(row:any){
+  try{ await rejectInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已驳回'); }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
+}
+async function cancelReservation(row:any){
+  if(!row.reservation_number) return;
+  if(!confirm('确认取消该预约？')) return;
+  try{ await cancelReservationApi(row.reservation_number); await load(); alert('预约已取消'); }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
+}
 
 load();
 </script>
