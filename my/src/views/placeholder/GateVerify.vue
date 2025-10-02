@@ -164,14 +164,20 @@ async function handleCapturedPlate(capturedPlateNumber: string){
       commodity_id: products.value[0]?.id,
       expected_arrival_start: now.toISOString().slice(0,16).replace('T',' '),
       vehicle_plate: plateNow,
+      driver_phone: '',
+      driver_id_no: '',
       goods_source: '无预约',
       status: 'submitted'
     };
     const rsvResp:any = await apiCreateReservation(payload);
-    const rsv = rsvResp?.data || {};
-    await apiCreateInboundOrder({ reservation_number: rsv.reservation_number || null, vehicle_plate: plateNow, goods_name: '', status:'submitted', source:'gate-unreserved' });
+    const createdId = rsvResp?.data?.id;
+    let rsvDetail:any = null;
+    if(createdId){ const d:any = await http.get(`/v1/inbound/reservations/${createdId}`); rsvDetail = d?.data?.data || null; }
+    const rsvNo = rsvDetail?.reservation_number || null;
+    await apiCreateInboundOrder({ reservation_number: rsvNo, vehicle_plate: plateNow, goods_name: '', status:'submitted', source:'gate-unreserved' });
+    if(createdId){ try{ await apiUpdateReservation(createdId, { status: 'warehouse_confirmed' }); }catch{} }
     // 更新UI
-    topRows.value.unshift({ reservation_number: rsv.reservation_number, transport_no: '-', owner_name: rsv.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: '-', driver_phone: '-', driver_id_card: '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', status: '车辆到库' });
+    topRows.value.unshift({ reservation_number: rsvNo, transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', status: '车辆到库' });
     queueRows.value.unshift({ plate: plateNow, status:'车辆到库' });
     try{ await loadBookings(); }catch{}
     try{ await loadOrders(); }catch{}
