@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <h2>入库单列表</h2>
+    <h2>{{ pageTitle }}</h2>
     <div class="toolbar" :class="{office: routeOfficeMode}">
       <!-- 入库单列表不再新建预约，入口前移至门岗核验 -->
       <button class="ghost" @click="load">刷新</button>
@@ -394,12 +394,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import http from '@/api/http';
 import { useRouter } from 'vue-router';
+import http from '@/api/http';
 import { listInboundOrders, uploadReservationPdf, approveInboundOrder, rejectInboundOrder, cancelReservationApi } from '@/api/depositor';
 // import { capabilities } from '@/store/capabilities';
 
 const router = useRouter();
+const pageTitle = computed(()=> (router.currentRoute.value.meta as any)?.title || '入库单列表');
 const routeOfficeMode = computed(()=> Boolean((router.currentRoute.value.meta as any)?.office) || router.currentRoute.value.path.includes('/inbound/office/list'));
 const loading = ref(false);
 const list = ref<any[]>([]);

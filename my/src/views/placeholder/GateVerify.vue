@@ -107,17 +107,17 @@ const orders = ref<any[]>([]);
 
 // 上部：静态预约Mock（待核验）
 const topRows = ref<any[]>([
-  { reservation_number:'RSV-M1', transport_no:'T-2025100101', owner_name:'演示客户A', product_name:'玉米 2024', expected_time:'2025-10-02 09:00', vehicle_plate:'沪A12345', driver_name:'张三', status:'待核验' },
-  { reservation_number:'RSV-M2', transport_no:'T-2025100102', owner_name:'演示客户B', product_name:'小麦 2024', expected_time:'2025-10-02 10:00', vehicle_plate:'沪B67890', driver_name:'李四', status:'待核验' },
-  { reservation_number:'RSV-M3', transport_no:'T-2025100103', owner_name:'演示客户C', product_name:'钢材 HRB400', expected_time:'2025-10-02 10:30', vehicle_plate:'沪C00123', driver_name:'王五', status:'待核验' },
-  { reservation_number:'RSV-M4', transport_no:'T-2025100104', owner_name:'演示客户D', product_name:'铜锭 1#', expected_time:'2025-10-02 11:00', vehicle_plate:'沪D33445', driver_name:'赵六', status:'待核验' }
+  { reservation_number:'RSV-M1', transport_no:'T-2025100101', owner_name:'演示客户A', product_name:'玉米 2024', expected_time:'2025-10-02 09:00', vehicle_plate:'沪A12345', driver_name:'张三', status:'车辆未入库' },
+  { reservation_number:'RSV-M2', transport_no:'T-2025100102', owner_name:'演示客户B', product_name:'小麦 2024', expected_time:'2025-10-02 10:00', vehicle_plate:'沪B67890', driver_name:'李四', status:'车辆未入库' },
+  { reservation_number:'RSV-M3', transport_no:'T-2025100103', owner_name:'演示客户C', product_name:'钢材 HRB400', expected_time:'2025-10-02 10:30', vehicle_plate:'沪C00123', driver_name:'王五', status:'车辆未入库' },
+  { reservation_number:'RSV-M4', transport_no:'T-2025100104', owner_name:'演示客户D', product_name:'铜锭 1#', expected_time:'2025-10-02 11:00', vehicle_plate:'沪D33445', driver_name:'赵六', status:'车辆未入库' }
 ]);
-function startVerify(row:any){ row.status = '核验中'; const idx = queueRows.value.findIndex(x=>x.plate===row.vehicle_plate); if(idx>=0){ queueRows.value[idx].status='核验中'; } else { queueRows.value.unshift({ plate: row.vehicle_plate, status:'核验中' }); } }
+function startVerify(row:any){ row.status = '车辆未入库'; const idx = queueRows.value.findIndex(x=>x.plate===row.vehicle_plate); if(idx>=0){ queueRows.value[idx].status='车辆未入库'; } else { queueRows.value.unshift({ plate: row.vehicle_plate, status:'车辆未入库' }); } }
 
 // 下部：队列与快速登记
 const queueRows = ref<{plate:string,status:string}[]>([
-  { plate:'沪A12345', status:'待核验' },
-  { plate:'沪B67890', status:'核验中' }
+  { plate:'沪A12345', status:'车辆未入库' },
+  { plate:'沪B67890', status:'车辆入库' }
 ]);
 const quickPlate = ref('');
 const quickGoods = ref('');
@@ -177,8 +177,8 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     await apiCreateInboundOrder({ reservation_number: rsvNo, vehicle_plate: plateNow, goods_name: '', status:'submitted', source:'gate-unreserved' });
     if(createdId){ try{ await apiUpdateReservation(createdId, { status: 'warehouse_confirmed' }); }catch{} }
     // 更新UI
-    topRows.value.unshift({ reservation_number: rsvNo, transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', status: '车辆到库' });
-    queueRows.value.unshift({ plate: plateNow, status:'车辆到库' });
+    topRows.value.unshift({ reservation_number: rsvNo, transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', status: '车辆入库' });
+    queueRows.value.unshift({ plate: plateNow, status:'车辆入库' });
     try{ await loadBookings(); }catch{}
     try{ await loadOrders(); }catch{}
     alert(`已自动为未预约车辆${plateNow}创建入库单`);
