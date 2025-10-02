@@ -145,10 +145,24 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     || bookings.value.some((b:any)=> String(b.vehicle_plate||'')===plateNow);
   const existsInTop = topRows.value.some(x=> String(x.vehicle_plate||'')===plateNow);
   if(existsInBookings || existsInTop){
-    // 2) 已预约：提示并高亮（若在上部mock表中）
-    alert('车辆已预约，高亮后自动同步到门岗核验（办公室列表）');
-    const target = topRows.value.find(x=> String(x.vehicle_plate)===plateNow);
-    if(target){ activeReservationNo.value = target.reservation_number; startVerify(target); }
+    // 2) 已预约：直接生成入库单并标记“车辆入库”
+    const targetTop = topRows.value.find(x=> String(x.vehicle_plate)===plateNow) || null;
+    const targetBk = bookings.value.find((b:any)=> String(b.vehicle_plate||'')===plateNow) || null;
+    const rowForPersist:any = {
+      reservation_number: targetTop?.reservation_number || targetBk?.reservation_number,
+      vehicle_plate: plateNow,
+      driver_name: targetBk?.driver_name || targetTop?.driver_name || '-'
+    };
+    try{
+      await persistGatePass(rowForPersist);
+      // UI 标记入库
+      if(targetTop){ targetTop.status = '车辆入库'; activeReservationNo.value = targetTop.reservation_number; }
+      const qi = queueRows.value.findIndex(x=>x.plate===plateNow);
+      if(qi>=0) queueRows.value[qi].status = '车辆入库'; else queueRows.value.unshift({ plate: plateNow, status:'车辆入库' });
+      try{ await loadBookings(); }catch{}
+      try{ await loadOrders(); }catch{}
+      alert(`车牌${plateNow}已预约，已生成入库单并标记为“车辆入库”`);
+    }catch(e:any){ alert('生成入库单失败：'+(e?.message||e)); }
     allowCreateQuick.value = false;
     return;
   }
