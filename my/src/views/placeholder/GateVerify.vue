@@ -1,87 +1,89 @@
 <template>
   <div class="page">
-    <h2>门岗核验（微信扫码 + 手机号）</h2>
-    <div class="panel">
-      <div class="row">
-        <label>预约码</label>
-        <input v-model="code" placeholder="6位预约码" maxlength="6" />
-        <button @click="fetchByCode" :disabled="loading">查询</button>
+    <div class="split">
+      <!-- 上部：主工作区 70% -->
+      <div class="top">
+        <h2>今日预约列表</h2>
+        <div class="panel">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>预约单号</th>
+                <th>运输单号</th>
+                <th>客户</th>
+                <th>商品</th>
+                <th>预计入库时间</th>
+                <th>车牌</th>
+                <th>司机</th>
+                <th>司机手机</th>
+                <th>司机身份证</th>
+                <th>入场抓拍</th>
+                <th>入场时间</th>
+                <th>出场抓拍</th>
+                <th>出场时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in topRows" :key="r.reservation_number || r.vehicle_plate" :class="{activeRow: isActive(r)}">
+                <td>{{ r.reservation_number }}</td>
+                <td>{{ r.transport_no }}</td>
+                <td>{{ r.owner_name }}</td>
+                <td>{{ r.product_name }}</td>
+                <td>{{ r.expected_time }}</td>
+                <td>{{ r.vehicle_plate }}</td>
+                <td>{{ r.driver_name }}</td>
+                <td>{{ r.driver_phone || '-' }}</td>
+                <td>{{ r.driver_id_card || '-' }}</td>
+                <td>{{ r.entry_capture || '-' }}</td>
+                <td>{{ r.entry_time || '-' }}</td>
+                <td>{{ r.exit_capture || '-' }}</td>
+                <td>{{ r.exit_time || '-' }}</td>
+                <td><span class="tag">{{ r.status }}</span></td>
+                <td>
+                  <button class="ghost" @click="editRow(r)">编辑</button>
+                  <button class="danger" @click="deleteRow(r)">删除</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="row">
-        <label>司机手机号</label>
-        <input v-model="phone" placeholder="用于核验与联系" />
-        <label>车牌</label>
-        <input v-model="plate" placeholder="车牌号" />
-        <button @click="verify" :disabled="!code || !phone || loading">核验</button>
-      </div>
-      <div class="hint" v-if="reservation">
-        <div>预约单号：{{ reservation.reservation_number }}｜货主：{{ reservation.owner_name }}</div>
-        <div>目标仓库：{{ warehouseText }}</div>
-        <div>商品：{{ productText }}</div>
-      </div>
-      <div v-if="result" class="result" :class="{warn: !result.phoneMatched}">
-        <div>车单号：{{ result.inbound_order_no }}</div>
-        <div>手机号一致：{{ result.phoneMatched ? '是' : '否（已告警仓库负责人）' }}</div>
-      </div>
-    </div>
 
-    <div v-if="inboundOrderNo" class="panel">
-      <h3>入场抓拍</h3>
-      <div class="row">
-        <input v-model="entryUrl" placeholder="图片URL" class="flex1" />
-        <button @click="addEntryUrl" :disabled="!entryUrl">添加</button>
-        <input type="file" accept="image/*" capture="environment" multiple @change="onEntryFiles" />
-        <button class="ghost" @click="saveEntryPhotos" :disabled="!entryPhotos.length">保存入场抓拍</button>
+      <!-- 下部：操作面板 30% -->
+      <div class="bottom">
+        <div class="ops">
+          <!-- 左：实时视频面板 -->
+          <div class="col">
+            <h3>实时视频面板</h3>
+            <div class="videoBox" @click="captureVehicle" title="点击抓拍并识别">摄像头实时画面</div>
+            <div class="row"><button @click="captureVehicle">抓拍车辆</button></div>
+          </div>
+          <!-- 中：今日车辆队列 -->
+          <div class="col wide">
+            <h3>今日车辆队列</h3>
+            <ul class="queue">
+              <li v-for="q in queueRows" :key="q.plate">{{ q.plate }} ({{ q.status }})</li>
+            </ul>
+          </div>
+          <!-- 右：无预约车辆快速登记 -->
+          <div class="col">
+            <h3>无预约车辆快速登记</h3>
+            <div class="row">
+              <label>车牌号</label>
+              <input v-model="quickPlate" placeholder="如 沪A12345" class="flex1" />
+            </div>
+            <div class="row">
+              <label>货物类型</label>
+              <input v-model="quickGoods" placeholder="如 玉米/钢材 ..." class="flex1" />
+            </div>
+            <div class="row">
+              <button @click="createQuickInbound" :disabled="!allowCreateQuick">创建入库单</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="thumbs">
-        <img v-for="u in entryPhotos" :key="u" :src="u" />
-      </div>
-    </div>
-
-    <div v-if="inboundOrderNo" class="panel">
-      <h3>称重（毛/皮/扣 → 实际入库）</h3>
-      <div class="row">
-        <label>毛重</label><input v-model.number="gross" type="number" placeholder="吨" />
-        <label>皮重</label><input v-model.number="tare" type="number" placeholder="吨" />
-        <label>扣重</label><input v-model.number="deductions" type="number" placeholder="吨" />
-        <button @click="saveWeigh" :disabled="loading">保存称重</button>
-      </div>
-      <div class="row">
-        <label>磅单URL</label><input v-model="weighTicketUrl" class="flex1" placeholder="图片或PDF URL" />
-        <button class="ghost" @click="uploadWeighTicket" :disabled="!weighTicketUrl">上传磅单</button>
-      </div>
-      <div class="calc">实际入库重量：<b>{{ actualComputed }}</b> 吨</div>
-    </div>
-
-    <div v-if="inboundOrderNo" class="panel">
-      <h3>出场抓拍</h3>
-      <div class="row">
-        <input v-model="exitUrl" placeholder="图片URL" class="flex1" />
-        <button @click="addExitUrl" :disabled="!exitUrl">添加</button>
-        <input type="file" accept="image/*" capture="environment" multiple @change="onExitFiles" />
-        <button class="ghost" @click="saveExitPhotos" :disabled="!exitPhotos.length">保存出场抓拍</button>
-      </div>
-      <div class="thumbs">
-        <img v-for="u in exitPhotos" :key="u" :src="u" />
-      </div>
-    </div>
-
-    <div class="panel">
-      <h3>今日车辆（示例）</h3>
-      <table class="table">
-        <thead>
-          <tr><th>车单号</th><th>预约单号</th><th>车牌</th><th>状态</th><th>创建时间</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="o in orders" :key="o.order_no">
-            <td>{{ o.order_no }}</td>
-            <td>{{ o.reservation_number }}</td>
-            <td>{{ o.vehicle_plate || '-' }}</td>
-            <td>{{ o.status }}</td>
-            <td>{{ o.created_at }}</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </div>
 </template>
@@ -89,6 +91,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import http from '@/api/http';
+import { apiCreateReservation, apiCreateInboundOrder, apiUpdateReservation, apiGetBookingList } from '@/api/gate';
 import { getReservationByCode, gateVerifyWechat } from '@/api/depositor';
 
 const code = ref('');
@@ -99,14 +102,159 @@ const reservation = ref<any>(null);
 const result = ref<any>(null);
 const warehouses = ref<any[]>([]);
 const products = ref<any[]>([]);
+const productMap = ref<Record<string, any>>({});
 const orders = ref<any[]>([]);
+
+// 上部：静态预约Mock（待核验）
+const topRows = ref<any[]>([
+  { reservation_number:'RSV-M1', transport_no:'T-2025100101', owner_name:'演示客户A', product_name:'玉米 2024', expected_time:'2025-10-02 09:00', vehicle_plate:'沪A12345', driver_name:'张三', status:'待核验' },
+  { reservation_number:'RSV-M2', transport_no:'T-2025100102', owner_name:'演示客户B', product_name:'小麦 2024', expected_time:'2025-10-02 10:00', vehicle_plate:'沪B67890', driver_name:'李四', status:'待核验' },
+  { reservation_number:'RSV-M3', transport_no:'T-2025100103', owner_name:'演示客户C', product_name:'钢材 HRB400', expected_time:'2025-10-02 10:30', vehicle_plate:'沪C00123', driver_name:'王五', status:'待核验' },
+  { reservation_number:'RSV-M4', transport_no:'T-2025100104', owner_name:'演示客户D', product_name:'铜锭 1#', expected_time:'2025-10-02 11:00', vehicle_plate:'沪D33445', driver_name:'赵六', status:'待核验' }
+]);
+function startVerify(row:any){ row.status = '核验中'; const idx = queueRows.value.findIndex(x=>x.plate===row.vehicle_plate); if(idx>=0){ queueRows.value[idx].status='核验中'; } else { queueRows.value.unshift({ plate: row.vehicle_plate, status:'核验中' }); } }
+
+// 下部：队列与快速登记
+const queueRows = ref<{plate:string,status:string}[]>([
+  { plate:'沪A12345', status:'待核验' },
+  { plate:'沪B67890', status:'核验中' }
+]);
+const quickPlate = ref('');
+const quickGoods = ref('');
+const allowCreateQuick = ref(false);
+const activeReservationNo = ref('');
+function isActive(row:any){ return row.reservation_number === activeReservationNo.value; }
+async function captureVehicle(){
+  // 模拟摄像头抓拍：随机选择队列或上部表格中的一个车牌
+  const candidates = [
+    ...queueRows.value.map(x=>x.plate),
+    ...topRows.value.map(x=>x.vehicle_plate)
+  ].filter(Boolean);
+  const plate = candidates.length ? candidates[Math.floor(Math.random()*candidates.length)] : '沪Z99999';
+  await handleCapturedPlate(plate);
+}
+
+/**
+ * 处理抓拍车牌与预约列表比对
+ * @param {string} capturedPlateNumber 抓拍到的车牌号
+ */
+async function handleCapturedPlate(capturedPlateNumber: string){
+  const plateNow = String(capturedPlateNumber).trim();
+  // 1) 遍历预约数据源（bookingRows/bookings）判断是否存在
+  const existsInBookings = bookingRows.value.some((b:any)=> String(b.vehicle_plate||'')===plateNow)
+    || bookings.value.some((b:any)=> String(b.vehicle_plate||'')===plateNow);
+  const existsInTop = topRows.value.some(x=> String(x.vehicle_plate||'')===plateNow);
+  if(existsInBookings || existsInTop){
+    // 2) 已预约：提示并高亮（若在上部mock表中）
+    alert('车辆已预约，高亮后自动同步到门岗核验（办公室列表）');
+    const target = topRows.value.find(x=> String(x.vehicle_plate)===plateNow);
+    if(target){ activeReservationNo.value = target.reservation_number; startVerify(target); }
+    allowCreateQuick.value = false;
+    return;
+  }
+  // 3) 未预约：自动创建流程，提示并延时模拟
+  alert(`正在为车牌${plateNow}创建入库流程...`);
+  await new Promise(r=> setTimeout(r, 2000 + Math.floor(Math.random()*1000)));
+  try{
+    const now = new Date();
+    const payload:any = {
+      owner_name: '临时入场',
+      reservation_party: 'driver',
+      target_warehouse_id: warehouses.value[0]?.id,
+      commodity_id: products.value[0]?.id,
+      expected_arrival_start: now.toISOString().slice(0,16).replace('T',' '),
+      vehicle_plate: plateNow,
+      goods_source: '无预约',
+      status: 'submitted'
+    };
+    const rsvResp:any = await apiCreateReservation(payload);
+    const rsv = rsvResp?.data || {};
+    await apiCreateInboundOrder({ reservation_number: rsv.reservation_number || null, vehicle_plate: plateNow, goods_name: '', status:'submitted', source:'gate-unreserved' });
+    // 更新UI
+    topRows.value.unshift({ reservation_number: rsv.reservation_number, transport_no: '-', owner_name: rsv.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: '-', driver_phone: '-', driver_id_card: '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', status: '车辆到库' });
+    queueRows.value.unshift({ plate: plateNow, status:'车辆到库' });
+    try{ await loadBookings(); }catch{}
+    try{ await loadOrders(); }catch{}
+    alert(`已自动为未预约车辆${plateNow}创建入库单`);
+  }catch(e:any){ alert('自动创建失败：'+(e?.message||e)); }
+}
+
+// 核验通过后：创建入库单 + 更新预约状态（同步办公室列表）
+async function persistGatePass(row:any){
+  // 优先在已加载的预约中按车牌或预约单号匹配
+  let match = bookings.value.find((b:any)=> String(b.vehicle_plate||'')===String(row.vehicle_plate))
+           || bookings.value.find((b:any)=> String(b.reservation_number||'')===String(row.reservation_number));
+  if(!match){ await loadBookings();
+    match = bookings.value.find((b:any)=> String(b.vehicle_plate||'')===String(row.vehicle_plate))
+          || bookings.value.find((b:any)=> String(b.reservation_number||'')===String(row.reservation_number));
+  }
+  // 创建入库单
+  await http.post('/v1/inbound/orders', {
+    reservation_number: row.reservation_number,
+    vehicle_plate: row.vehicle_plate,
+    driver_name: row.driver_name,
+    driver_phone: (match?.driver_phone)||'',
+    status: 'submitted'
+  });
+  // 更新预约状态（办公室列表读同一数据源即可看到）
+  if(match?.id){
+    await http.put(`/v1/inbound/reservations/${match.id}`, { status: 'warehouse_confirmed' });
+  }
+}
+async function createQuickInbound(){
+  if(!quickPlate.value){ alert('请先抓拍识别车牌'); return; }
+  try{
+    // 若该车牌已存在预约/上部列表，则提示走核验流程，避免重复创建
+    const plateNow = String(quickPlate.value).trim();
+    const existsInTop = topRows.value.some(x=> String(x.vehicle_plate)===plateNow);
+    const existsInBookings = bookings.value.some((b:any)=> String(b.vehicle_plate||'')===plateNow);
+    if(existsInTop || existsInBookings){
+      alert('该车已有预约记录，请在上部列表中执行“开始核验”。');
+      return;
+    }
+    // 1) 为无预约车辆创建一条简易预约（便于办公室列表同步展示）
+    const now = new Date();
+    const payload:any = {
+      owner_name: '临时入场',
+      reservation_party: 'driver',
+      target_warehouse_id: warehouses.value[0]?.id,
+      commodity_id: products.value[0]?.id,
+      expected_arrival_start: now.toISOString().slice(0,16).replace('T',' '),
+      vehicle_plate: quickPlate.value,
+      goods_source: '无预约',
+      status: 'submitted'
+    };
+    const rsvResp:any = await apiCreateReservation(payload);
+    const rsv = rsvResp?.data || {};
+
+    // 2) 创建入库单并关联该预约
+    await apiCreateInboundOrder({
+      reservation_number: rsv.reservation_number || null,
+      vehicle_plate: quickPlate.value,
+      goods_name: quickGoods.value || '',
+      status: 'submitted',
+      source: 'gate-unreserved'
+    });
+
+    // 3) 更新队列与提示
+    queueRows.value.unshift({ plate: quickPlate.value, status:'核验通过' });
+    // 刷新办公室读取的数据源（预约/订单）
+    try{ await loadBookings(); }catch{}
+    try{ await loadOrders(); }catch{}
+    alert('已创建入库单，并在办公室列表同步显示（以预约形式呈现）');
+    quickPlate.value=''; quickGoods.value='';
+  }catch(e:any){ alert('创建失败：'+(e?.message||e)); }
+}
+
+// API 已迁移至 @/api/gate
 
 async function loadMaster(){
   try{ const w:any = await http.get('/api/warehouses'); warehouses.value = w?.data || []; }catch{}
-  try{ const p:any = await http.get('/api/products'); products.value = p?.data || []; }catch{}
+  try{ const p:any = await http.get('/api/products'); products.value = p?.data || []; products.value.forEach((x:any)=> (productMap.value[String(x.id)]=x)); }catch{}
 }
 loadMaster();
 onMounted(loadOrders);
+onMounted(loadBookings);
 
 const warehouseText = computed(()=>{
   const w = warehouses.value.find((x:any)=> String(x.id)===String(reservation.value?.target_warehouse_id));
@@ -116,6 +264,7 @@ const productText = computed(()=>{
   const p = products.value.find((x:any)=> String(x.id)===String(reservation.value?.commodity_id));
   return p? `${p.name}${p.spec?(' / '+p.spec):''}` : '-';
 });
+function productName(id:any){ const p = productMap.value[String(id)]; return p? `${p.name}${p.spec?(' / '+p.spec):''}` : '-'; }
 
 async function fetchByCode(){
   if(!code.value) return;
@@ -145,6 +294,50 @@ async function verify(){
 async function loadOrders(){
   try{ const resp:any = await http.get('/v1/inbound/orders', { params:{ page:1, pageSize:10 } }); orders.value = resp?.data?.list || []; }catch{ orders.value = []; }
 }
+
+// 预约列表 + Mock 回退
+const bookings = ref<any[]>([]);
+const bookSearch = ref('');
+function buildMockBookings(){
+  const names = ['张三','李四','王五','赵六','钱七','孙八','周九','吴十','郑一','冯二'];
+  const plates = ['豫A12345','鲁B67890','苏C11223','浙D44556','皖E77889','湘F99001','京G22334','沪H55667','渝A88990','川B00112'];
+  const phones = ['13800000001','13800000002','13800000003','13800000004','13800000005','13800000006','13800000007','13800000008','13800000009','13800000010'];
+  const statuses = ['submitted','warehouse_confirmed','platform_approved','submitted','submitted','platform_rejected','cancelled','submitted','warehouse_confirmed','submitted'];
+  const list:any[] = [];
+  const now = Date.now();
+  for(let i=0;i<10;i++){
+    const ts = new Date(now + i*60*60*1000).toISOString().slice(0,16).replace('T',' ');
+    list.push({
+      reservation_number: `RSV-MOCK-${(i+1).toString().padStart(2,'0')}`,
+      transport_no: `T-${20251001}${(100+i)}`,
+      owner_name: `演示客户${i+1}`,
+      commodity_id: (products.value[i % Math.max(1, products.value.length)]?.id) || 1,
+      expected_arrival_start: ts,
+      vehicle_plate: plates[i],
+      driver_name: names[i],
+      driver_phone: phones[i],
+      driver_id_card: `4101********${(1000+i)}`,
+      status: statuses[i]
+    });
+  }
+  return list;
+}
+async function loadBookings(){
+  try{
+    const resp:any = await apiGetBookingList({ page:1, pageSize:100 });
+    bookings.value = resp?.data?.list || [];
+    if(!bookings.value.length){ bookings.value = buildMockBookings(); }
+  }catch{ bookings.value = buildMockBookings(); }
+}
+const bookingRows = computed(()=>{
+  const kw = (bookSearch.value||'').trim();
+  if(!kw) return bookings.value;
+  return bookings.value.filter((b:any)=>{
+    const text = `${b.reservation_number||''} ${b.owner_name||''} ${b.vehicle_plate||''} ${b.driver_name||''} ${b.driver_phone||''}`;
+    return text.includes(kw);
+  });
+});
+function mapStatus(s:string){ const m:Record<string,string>={ draft:'草稿', submitted:'已提交', warehouse_confirmed:'已确认', platform_approved:'平台已核', platform_rejected:'平台驳回', cancelled:'已取消' }; return m[s]||s||'-'; }
 
 // 抓拍与称重
 const inboundOrderNo = ref('');
@@ -221,6 +414,12 @@ async function uploadWeighTicket(){
 
 <style scoped>
 .page{ padding:16px; }
+.split{ display:flex; flex-direction:column; gap:12px; min-height:calc(100vh - 32px); }
+.top{ flex:7; background:#f8fafc; border-radius:12px; padding:12px; }
+.bottom{ flex:3; background:#f1f5f9; border-radius:12px; padding:12px; }
+.ops{ display:grid; grid-template-columns: 1fr 1.6fr 1fr; gap:12px; height:100%; }
+.col{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; display:flex; flex-direction:column; }
+.videoBox{ flex:1; min-height:140px; border:1px dashed #cbd5e1; background:#e5e7eb; color:#475569; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-top:8px; }
 .panel{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; box-shadow:0 6px 16px rgba(2,6,23,.06); }
 .row{ display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
 label{ color:#475569; min-width:80px; }
@@ -235,6 +434,12 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .table{ width:100%; border-collapse:collapse; margin-top:8px; }
 .table th,.table td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
 .calc{ color:#0f172a; }
+.tag{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2f7; color:#0f172a; font-size:12px; }
+.activeRow{ background:#fff7ed; }
+.queue{ list-style:none; margin:8px 0 0; padding:0; }
+.queue li{ padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; background:#f8fafc; }
+button.ghost{ background:#64748b; }
+button.danger{ background:#ef4444; }
 </style>
 
 

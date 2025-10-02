@@ -14,6 +14,27 @@
         <button v-if="routeOfficeMode" class="ghost" @click="toggleFilter">高级筛选</button>
         <button v-if="routeOfficeMode" class="ghost" @click="toggleCols">列显示设置</button>
     </div>
+    <!-- 顶部总览条（办公室模式） -->
+    <div v-if="routeOfficeMode" class="summary-bar">
+      <div class="stat">
+        <div class="num">{{ totalPlanned }}</div>
+        <div class="lbl">预约量合计（{{ unitHint }}）</div>
+      </div>
+      <div class="stat">
+        <div class="num">{{ totalActual }}</div>
+        <div class="lbl">已入库量合计（{{ unitHint }}）</div>
+      </div>
+      <div class="stat">
+        <div class="num">{{ pendingReview }}</div>
+        <div class="lbl">待审核</div>
+      </div>
+      <div class="stat warn">
+        <div class="num">{{ abnormalCount }}</div>
+        <div class="lbl">异常</div>
+      </div>
+      <div class="flex1"></div>
+      <label class="abn-toggle"><input type="checkbox" v-model="showAbnormalOnly" /> 仅看异常</label>
+    </div>
     <div v-if="showFilter" class="filter-panel">
       <div class="filter-row">
         <label>预约方</label>
@@ -214,7 +235,7 @@
         <tr v-for="row in visibleRows" :key="row.reservation_number || row.order_no">
           <td v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key">
             <template v-if="c.key==='reservation_number'">
-              <a class="resv-link" href="javascript:;" :title="'查看详情'" @click="view(row)">{{ row.reservation_number || row.order_no }}</a>
+              <span class="resv-link" :title="'入库单（列表即详情）'">{{ row.reservation_number || row.order_no }}</span>
               <div class="subops">
                 <img v-if="row.doc_url" :src="row.doc_url" alt="doc" class="doc-thumb" @click="uploadPdf(row)"/>
                 <button v-else class="link mini" @click="uploadPdf(row)">上传PDF</button>
@@ -240,6 +261,36 @@
             </template>
             <template v-else-if="c.key==='actual_in_weight'">
               {{ row.actual || row.calc_weight || '-' }} {{ row.measurement_unit || row.unit || '' }}
+            </template>
+            <template v-else-if="c.key==='order_no'">{{ row.order_no || '-' }}</template>
+            <template v-else-if="c.key==='weigh_mode'">{{ row.weigh_mode==='by_pack'?'按规格':'按磅重' }}</template>
+            <template v-else-if="c.key==='gross'">{{ row.gross ?? '-' }}</template>
+            <template v-else-if="c.key==='tare'">{{ row.tare ?? '-' }}</template>
+            <template v-else-if="c.key==='net'">{{ (row.gross!=null && row.tare!=null)?(Number(row.gross)-Number(row.tare)): '-' }}</template>
+            <template v-else-if="c.key==='deductions'">{{ row.deductions ?? '-' }}</template>
+            <template v-else-if="c.key==='entry_photos'">
+              <span v-if="row.entry_photos?.length">{{ row.entry_photos.length }} 张</span>
+              <span v-else>-</span>
+            </template>
+            <template v-else-if="c.key==='exit_photos'">
+              <span v-if="row.exit_photos?.length">{{ row.exit_photos.length }} 张</span>
+              <span v-else>-</span>
+            </template>
+            <template v-else-if="c.key==='weigh_ticket'">
+              <span v-if="row.weigh_ticket_url">已上传</span>
+              <span v-else>-</span>
+            </template>
+            <template v-else-if="c.key==='gross'">
+              {{ row.gross ?? '-' }}
+            </template>
+            <template v-else-if="c.key==='tare'">
+              {{ row.tare ?? '-' }}
+            </template>
+            <template v-else-if="c.key==='net'">
+              {{ (row.gross!=null && row.tare!=null) ? (Number(row.gross)-Number(row.tare)) : '-' }}
+            </template>
+            <template v-else-if="c.key==='deductions'">
+              {{ row.deductions ?? '-' }}
             </template>
             <template v-else-if="c.key==='goods_source'">
               {{ row.goods_source || '司机上传磅单' }}
@@ -362,6 +413,20 @@ const precheckResult = ref<any>({ items: [] });
 // const precheckOk = computed(()=> (precheckResult.value.items||[]).every((x:any)=>x.ok) && (precheckResult.value.items||[]).length>0);
 const passCount = computed(()=> (precheckResult.value.items||[]).filter((x:any)=>x.ok).length);
 const failCount = computed(()=> (precheckResult.value.items||[]).filter((x:any)=>!x.ok).length);
+// 总览条数据（基于当前可见或全量？采用可见列表统计，和视图一致）
+const unitHint = computed(()=> '吨');
+const totalPlanned = computed(()=> visibleRows.value.reduce((s:any, r:any)=> s + Number(r.total_planned_quantity || r.planned_quantity || 0), 0));
+const totalActual = computed(()=> visibleRows.value.reduce((s:any, r:any)=> s + Number(r.actual || r.calc_weight || 0), 0));
+const pendingReview = computed(()=> visibleRows.value.filter((r:any)=> !['platform_approved','platform_rejected','cancelled'].includes(r.status||'')).length);
+const showAbnormalOnly = ref(false);
+function isAbnormal(row:any){
+  // 简易规则：被驳回 或 缺少关键证据（驾驶证/预约单PDF）
+  if ((row.status||'')==='platform_rejected') return true;
+  if (!row.driver_license_url) return true;
+  if (!row.doc_url) return true;
+  return false;
+}
+const abnormalCount = computed(()=> visibleRows.value.filter((r:any)=> isAbnormal(r)).length);
 // 顶部新建入库预约（简版）
 const createForm = ref<any>({
   warehouse_id:'', commodity_id:'',
@@ -382,6 +447,9 @@ const settlementWeight = computed(()=>{
   }
   return '—';
 });
+// 行内展开相关
+// 展开功能暂时取消点击触发，仅保留函数以便后续启用
+// 展开功能后续启用时再恢复；当前列表以列汇聚为主
 
 watch(()=>createForm.value.weigh_mode, (m)=>{
   if(m==='by_weight'){
@@ -417,6 +485,7 @@ type Col = { key:string; label:string; visible:boolean; locked?:boolean };
 const STORAGE_KEY = 'inboundOrderList.columns.v1';
 const FILTER_KEY = 'inboundOrderList.filters.v1';
 const defaultColumns: Col[] = [
+  { key:'order_no', label:'入库单号', visible:true },
   { key:'reservation_number', label:'预约单号', visible:true, locked:true },
   { key:'unique_reservation_code', label:'预约码', visible:true },
   { key:'owner_name', label:'货主名称', visible:true },
@@ -424,12 +493,20 @@ const defaultColumns: Col[] = [
   { key:'commodity', label:'商品名称', visible:true },
   { key:'planned_quantity', label:'预约量', visible:true },
   { key:'actual_in_weight', label:'已入库量', visible:true },
+  { key:'weigh_mode', label:'入库方式', visible:true },
+  { key:'gross', label:'毛重', visible:true },
+  { key:'tare', label:'皮重', visible:true },
+  { key:'net', label:'净重', visible:true },
+  { key:'deductions', label:'扣重', visible:true },
   { key:'goods_source', label:'货物来源', visible:true },
   { key:'source_addr', label:'来源地址/厂家批次', visible:true },
   { key:'logistics_carrier', label:'物流承运商', visible:true },
   { key:'driver', label:'车牌/司机', visible:true },
   { key:'driver_id_card', label:'司机身份证号', visible:true },
   { key:'driver_license_img', label:'司机驾照', visible:true },
+  { key:'entry_photos', label:'入场抓拍', visible:true },
+  { key:'exit_photos', label:'出场抓拍', visible:true },
+  { key:'weigh_ticket', label:'磅单', visible:true },
   { key:'eta', label:'预计到库', visible:true },
   { key:'qc_result', label:'质检', visible:true },
   { key:'status', label:'审核状态', visible:true },
@@ -494,6 +571,7 @@ const visibleRows = computed(()=>{
     if (f.carrier && String(row.logistics_carrier||'').indexOf(f.carrier)===-1) return false;
     if (f.start){ const ct = new Date(row.created_at || row.eta || 0).getTime(); if (isFinite(ct) && ct < new Date(f.start).getTime()) return false; }
     if (f.end){ const ct = new Date(row.created_at || row.eta || 0).getTime(); if (isFinite(ct) && ct > new Date(f.end).getTime()) return false; }
+    if (showAbnormalOnly.value && !isAbnormal(row)) return false;
     return true;
   });
 });
@@ -696,10 +774,7 @@ async function load(){
 loadOptions();
 // function goApply(){ router.push('/inbound/order/apply'); }
 // function openCreate(){ showCreate.value = false; }
-function view(row:any){
-  const id = row.order_no || row.reservation_number || row.id;
-  router.push(`/inbound/detail/${encodeURIComponent(String(id))}`);
-}
+// 入库单不再跳详情，使用行内展开
 // 二级菜单中进入门岗核验，此处不再提供快捷入口
 // 详情页内提供编辑/打印，此处不再暴露
 async function uploadPdf(row:any){
@@ -744,6 +819,7 @@ load();
 .page{ padding:16px; }
 .toolbar{ margin:12px 0; display:flex; gap:8px; }
 .toolbar .ghost{ background:#f1f5f9; }
+.toolbar.office{ background:#f8fafc; padding:8px; border-radius:10px; }
 .spacer{ flex:1; }
 .pretty-form :deep(.el-form-item){ margin-bottom:10px; }
 .pretty-form :deep(.el-input),
@@ -805,6 +881,17 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .subops{ margin-top:6px; }
 .link.mini{ font-size:12px; color:#3b82f6; }
 .footer-actions{ margin-top:12px; display:flex; justify-content:flex-end; }
+.summary-bar{ display:flex; gap:12px; align-items:center; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:8px 12px; box-shadow:0 6px 16px rgba(2,6,23,.06); margin:10px 0; }
+.summary-bar .stat{ min-width:140px; }
+.summary-bar .stat .num{ font-size:18px; font-weight:700; color:#0f172a; }
+.summary-bar .stat .lbl{ font-size:12px; color:#64748b; }
+.summary-bar .stat.warn .num{ color:#b91c1c; }
+.abn-toggle{ font-size:13px; color:#0f172a; }
+.expand{ background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px; box-shadow:0 6px 16px rgba(2,6,23,.06); }
+.expand-title{ font-weight:600; color:#0f172a; margin-bottom:6px; }
+.thumb-fig{ width:90px; }
+.thumb-fig img{ width:90px; height:60px; border-radius:6px; border:1px solid #e5e7eb; object-fit:cover; display:block; }
+.thumb-fig figcaption{ font-size:10px; color:#64748b; margin-top:4px; line-height:1.2; word-break:break-all; }
 </style>
 
 
