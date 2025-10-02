@@ -14,60 +14,40 @@
     </div>
 
     <div v-if="loading">加载中...</div>
-    <table v-else class="table">
-      <thead>
-        <tr>
-          <th style="width:40px"><input type="checkbox" v-model="allChecked" @change="toggleAll" /></th>
-          <th>仓单号</th>
-          <th>预约单号</th>
-          <th>货主</th>
-          <th>商品/规格</th>
-          <th>跺位卡</th>
-          <th>库容/占用/剩余</th>
-          <th>状态</th>
-          <th>审核状态</th>
-          <th>创建时间</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in list" :key="row.id">
-          <td><input type="checkbox" v-model="row.__checked" @change="syncSelection" /></td>
-          <td><a href="javascript:;" @click="view(row)">{{ row.receipt_number || row.receipt_no || '-' }}</a></td>
-          <td>{{ row.reservation_number || '-' }}</td>
-          <td>{{ row.owner_name || '-' }}</td>
-          <td>{{ (row.commodity_name||'-') + (row.spec?(' / '+row.spec):'') }}</td>
-          <td>{{ row.location_code || '-' }}</td>
-          <td>{{ fmtCap(row.capacity) }}/{{ fmtCap(row.occupied) }}/{{ fmtCap(remain(row)) }}</td>
-          <td><span class="tag gray">{{ row.status || '-' }}</span></td>
-          <td><span class="tag" :class="auditColor(row.audit_status)">{{ mapAudit(row.audit_status) }}</span></td>
-          <td>{{ row.created_at || '-' }}</td>
-          <td class="ops">
-            <template v-if="caps.receipts?.addLocation">
-              <button class="link" @click="addLocation(row)">新增跺位卡</button>
-            </template>
-            <template v-if="caps.receipts?.moveLocation">
-              <button class="link" @click="moveLocation(row)">移跺</button>
-            </template>
-            <template v-if="caps.receipts?.standardize">
-              <button class="link" @click="standardize(row)">标准化</button>
-            </template>
-            <button class="link" @click="sources(row)">来源</button>
-          </td>
-        </tr>
-        <tr v-if="!list.length"><td colspan="11" class="empty">暂无数据</td></tr>
-      </tbody>
-    </table>
+    <FixedTable v-else :default-fix="true" :columns="ftColumns" :rows="list">
+      <template #cell-receipt_number="{row}"><a href="javascript:;" @click="view(row)">{{ row.receipt_number || row.receipt_no || '-' }}</a></template>
+      <template #cell-capacityMix="{row}">{{ fmtCap(row.capacity) }}/{{ fmtCap(row.occupied) }}/{{ fmtCap(remain(row)) }}</template>
+      <template #cell-audit_status="{row}"><span class="tag" :class="auditColor(row.audit_status)">{{ mapAudit(row.audit_status) }}</span></template>
+      <template #cell-actions="{row}">
+        <template v-if="caps.receipts?.addLocation"><button class="link" @click="addLocation(row)">新增跺位卡</button></template>
+        <template v-if="caps.receipts?.moveLocation"><button class="link" @click="moveLocation(row)">移跺</button></template>
+        <template v-if="caps.receipts?.standardize"><button class="link" @click="standardize(row)">标准化</button></template>
+        <button class="link" @click="sources(row)">来源</button>
+      </template>
+    </FixedTable>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import FixedTable from '@/components/FixedTable.vue';
 import { listWarehouseReceipts } from '@/api/depositor';
 import { capabilities } from '@/store/capabilities';
 const loading = ref(false);
 const list = ref<any[]>([]);
 const caps = computed(()=> capabilities.value || {});
+const ftColumns = computed(()=>[
+  { key:'receipt_number', label:'仓单号', width:180 },
+  { key:'reservation_number', label:'预约单号', width:160 },
+  { key:'owner_name', label:'货主', width:160 },
+  { key:'commodity', label:'商品/规格', width:220 },
+  { key:'location_code', label:'跺位卡', width:140 },
+  { key:'capacityMix', label:'库容/占用/剩余', width:200 },
+  { key:'status', label:'状态', width:120 },
+  { key:'audit_status', label:'审核状态', width:140 },
+  { key:'created_at', label:'创建时间', width:180 },
+  { key:'actions', label:'操作', width:200 },
+]);
 const selection = ref<any[]>([]);
 const allChecked = ref(false);
 async function load(){

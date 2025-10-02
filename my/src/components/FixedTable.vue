@@ -1,16 +1,16 @@
 <template>
   <div class="ft-wrap">
-    <table class="ft-table">
+    <table class="ft-table" :style="{ width: ftWidth + 'px' }">
       <thead>
         <tr>
-          <th v-for="(col,ci) in columns" :key="col.key"
+          <th v-for="(col,ci) in normColumns" :key="col.key"
               :style="thStyle(col)"
               :class="cellClass(col)">{{ col.label }}</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(row,ri) in rows" :key="ri">
-          <td v-for="(col,ci) in columns" :key="col.key"
+          <td v-for="(col,ci) in normColumns" :key="col.key"
               :style="tdStyle(col)"
               :class="cellClass(col)">
             <slot :name="`cell-${col.key}`" :row="row" :col="col">
@@ -27,14 +27,31 @@
 import { computed } from 'vue';
 
 type Col = { key:string; label:string; width?:number; fixed?: 'left'|'right' };
-const props = defineProps<{ columns: Col[]; rows: any[] }>();
+const props = defineProps<{ columns: Col[]; rows: any[]; defaultFix?: boolean }>();
+const ftWidth = computed(()=>{
+  let sum = 0;
+  for(const c of normColumns.value){ sum += (c.width || 160); }
+  // 保障最小宽度
+  return Math.max(sum, 1400);
+});
 
 function safe(v:any){ return v==null || v==='' ? '-' : v; }
+
+const normColumns = computed(()=>{
+  if(props.defaultFix && props.columns.length>=3){
+    const cols = props.columns.slice();
+    cols[0] = { ...cols[0], fixed:'left' } as Col;
+    cols[1] = { ...cols[1], fixed:'left' } as Col;
+    cols[cols.length-1] = { ...cols[cols.length-1], fixed:'right' } as Col;
+    return cols;
+  }
+  return props.columns;
+});
 
 const leftOffsets = computed(()=>{
   const map: Record<string, number> = {};
   let acc = 0;
-  for(const c of props.columns){
+  for(const c of normColumns.value){
     if(c.fixed==='left'){
       map[c.key] = acc;
       acc += (c.width || 160);
@@ -45,8 +62,8 @@ const leftOffsets = computed(()=>{
 const rightOffsets = computed(()=>{
   const map: Record<string, number> = {};
   let acc = 0;
-  for(let i=props.columns.length-1;i>=0;i--){
-    const c = props.columns[i];
+  for(let i=normColumns.value.length-1;i>=0;i--){
+    const c = normColumns.value[i];
     if(c.fixed==='right'){
       map[c.key] = acc;
       acc += (c.width || 160);
@@ -58,15 +75,15 @@ const rightOffsets = computed(()=>{
 function thStyle(col: Col){
   const w = `${col.width || 160}px`;
   const base:any = { minWidth:w, width:w, maxWidth:w, whiteSpace:'nowrap', background:'#f8fafc' };
-  if(col.fixed==='left'){ base.position='sticky'; base.left = `${leftOffsets.value[col.key]||0}px`; base.zIndex=3; base.boxShadow='2px 0 0 rgba(0,0,0,0.06)'; }
-  if(col.fixed==='right'){ base.position='sticky'; base.right = `${rightOffsets.value[col.key]||0}px`; base.zIndex=4; base.boxShadow='-2px 0 0 rgba(0,0,0,0.06)'; }
+  if(col.fixed==='left'){ base.position='sticky'; base.left = `${leftOffsets.value[col.key]||0}px`; base.zIndex=4; base.boxShadow='2px 0 0 rgba(0,0,0,0.08)'; }
+  if(col.fixed==='right'){ base.position='sticky'; base.right = `${rightOffsets.value[col.key]||0}px`; base.zIndex=5; base.boxShadow='-2px 0 0 rgba(0,0,0,0.08)'; }
   return base;
 }
 function tdStyle(col: Col){
   const w = `${col.width || 160}px`;
   const base:any = { minWidth:w, width:w, maxWidth:w, whiteSpace:'nowrap', background:'#fff' };
-  if(col.fixed==='left'){ base.position='sticky'; base.left = `${leftOffsets.value[col.key]||0}px`; base.zIndex=2; base.background='#fff'; base.boxShadow='2px 0 0 rgba(0,0,0,0.03)'; }
-  if(col.fixed==='right'){ base.position='sticky'; base.right = `${rightOffsets.value[col.key]||0}px`; base.zIndex=3; base.background='#fff'; base.boxShadow='-2px 0 0 rgba(0,0,0,0.03)'; }
+  if(col.fixed==='left'){ base.position='sticky'; base.left = `${leftOffsets.value[col.key]||0}px`; base.zIndex=3; base.background='#fff'; base.boxShadow='2px 0 0 rgba(0,0,0,0.04)'; }
+  if(col.fixed==='right'){ base.position='sticky'; base.right = `${rightOffsets.value[col.key]||0}px`; base.zIndex=4; base.background='#fff'; base.boxShadow='-2px 0 0 rgba(0,0,0,0.04)'; }
   return base;
 }
 function cellClass(col: Col){
