@@ -5,6 +5,7 @@
       <div class="top">
         <h2>今日预约列表</h2>
         <div class="panel">
+          <div class="table-wrap">
           <table class="table">
             <thead>
               <tr>
@@ -64,6 +65,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
@@ -522,6 +524,7 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .thumbs img{ width:100px; height:66px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; }
 .flex1{ flex:1; min-width:240px; }
 .table{ width:100%; border-collapse:collapse; margin-top:8px; }
+.table-wrap{ width:100%; overflow-x:auto; }
 .table th,.table td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
 .calc{ color:#0f172a; }
 .tag{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2f7; color:#0f172a; font-size:12px; }
