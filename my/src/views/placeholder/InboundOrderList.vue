@@ -908,8 +908,9 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .table.mini tr.warn{ background:#fff7ed; }
 .precheck-summary{ display:flex; gap:12px; color:#334155; margin-top:6px; }
 /* 固定首列与末列 */
-.table thead th.col-reservation_number, .table tbody td.col-reservation_number{ position:sticky; left:0; z-index:2; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.03); }
-.table thead th.col-actions, .table tbody td.col-actions{ position:sticky; right:0; z-index:3; background:#f8fafc; box-shadow:-2px 0 0 rgba(0,0,0,0.03); }
+.table thead th.col-order_no, .table tbody td.col-order_no{ position:sticky; left:0; z-index:3; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.03); min-width:160px; }
+.table thead th.col-reservation_number, .table tbody td.col-reservation_number{ position:sticky; left:160px; z-index:2; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.03); min-width:160px; }
+.table thead th.col-actions, .table tbody td.col-actions{ position:sticky; right:0; z-index:4; background:#f8fafc; box-shadow:-2px 0 0 rgba(0,0,0,0.03); min-width:140px; }
 .doc-thumb{ width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; }
 /* 预约号样式：弱化但可点击 */
 .resv-link{ color:#0f172a; text-decoration:none; border-bottom:1px dashed #cbd5e1; padding-bottom:1px; }
