@@ -551,10 +551,17 @@ function resetCols(){ columns.value = defaultColumns.map(c=>({...c})); }
 function toggleCols(){ showCols.value = !showCols.value; }
 const visibleColumns = computed(()=> {
   const arr = columns.value.filter(c=>c.visible);
+  // 确保左侧两列顺序固定：预约单号、运输单号
+  const desiredLeft = ['reservation_number','transport_no'];
+  const leftFixed: any[] = [];
+  for(const k of desiredLeft){ const idx = arr.findIndex(c=>c.key===k); if(idx>=0){ leftFixed.push(arr.splice(idx,1)[0]); } }
   // 确保 actions 列在末尾
   const i = arr.findIndex(c=>c.key==='actions');
-  if(i>=0){ const act = arr.splice(i,1)[0]; arr.push(act); }
-  return arr;
+  let act: any | null = null;
+  if(i>=0){ act = arr.splice(i,1)[0]; }
+  const result = [...leftFixed, ...arr];
+  if(act) result.push(act);
+  return result;
 });
 // Filter state
 type Filters = { party:string; statuses:string[]; start:string; end:string; warehouse:string; carrier:string };
@@ -912,9 +919,8 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .table.mini tr.warn{ background:#fff7ed; }
 .precheck-summary{ display:flex; gap:12px; color:#334155; margin-top:6px; }
 /* 固定首列与末列 */
-.table thead th.col-order_no, .table tbody td.col-order_no{ position:sticky; left:0; z-index:3; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.03); min-width:160px; }
-.table thead th.col-reservation_number, .table tbody td.col-reservation_number{ position:sticky; left:160px; z-index:2; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.03); min-width:160px; }
-.table thead th.col-transport_no, .table tbody td.col-transport_no{ position:sticky; left:320px; z-index:2; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.03); min-width:160px; }
+.table thead th.col-reservation_number, .table tbody td.col-reservation_number{ position:sticky; left:0; z-index:3; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.06); min-width:160px; }
+.table thead th.col-transport_no, .table tbody td.col-transport_no{ position:sticky; left:160px; z-index:2; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.04); min-width:160px; }
 .table thead th.col-actions, .table tbody td.col-actions{ position:sticky; right:0; z-index:4; background:#f8fafc; box-shadow:-2px 0 0 rgba(0,0,0,0.03); min-width:140px; }
 .doc-thumb{ width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; }
 /* 预约号样式：弱化但可点击 */
