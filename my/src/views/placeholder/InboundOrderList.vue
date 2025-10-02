@@ -225,133 +225,43 @@
     </el-dialog>
 
     <div v-if="loading">加载中...</div>
-    <div v-else class="table-wrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key" :title="c.label" :style="columnStyle(c.key)">{{ c.label }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in visibleRows" :key="row.reservation_number || row.order_no">
-          <td v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key" :style="columnStyle(c.key)">
-            <template v-if="c.key==='reservation_number'">
-              <span class="resv-link" :title="'入库单（列表即详情）'">{{ row.reservation_number || row.order_no }}</span>
-              <div class="subops">
-                <img v-if="row.doc_url" :src="row.doc_url" alt="doc" class="doc-thumb" @click="uploadPdf(row)"/>
-                <button v-else class="link mini" @click="uploadPdf(row)">上传PDF</button>
-              </div>
-            </template>
-            <template v-else-if="c.key==='transport_no'">
-              {{ row.transport_no || '-' }}
-            </template>
-            <template v-else-if="c.key==='reservation_party'">
-              <span :class="['tag', partyColor(row.reservation_party)]">{{ row.reservation_party || '-' }}</span>
-            </template>
-            <template v-else-if="c.key==='unique_reservation_code'">
-              {{ row.unique_reservation_code || '-' }}
-            </template>
-            <template v-else-if="c.key==='owner_name'">
-              {{ row.owner_name || '-' }}
-            </template>
-            <template v-else-if="c.key==='warehouse'">
-              {{ (row.warehouse_name||'-') + ' ' + (row.warehouse_address||'') }}
-            </template>
-            <template v-else-if="c.key==='commodity'">
-              {{ (row.commodity_name||'-') + (row.commodity_spec?(' / '+row.commodity_spec):'') }}
-            </template>
-            <template v-else-if="c.key==='planned_quantity'">
-              {{ row.total_planned_quantity || row.planned_quantity }} {{ row.measurement_unit || row.unit || '' }}
-            </template>
-            <template v-else-if="c.key==='actual_in_weight'">
-              {{ row.actual || row.calc_weight || '-' }} {{ row.measurement_unit || row.unit || '' }}
-            </template>
-            <template v-else-if="c.key==='order_no'">{{ row.order_no || '-' }}</template>
-            <template v-else-if="c.key==='weigh_mode'">{{ row.weigh_mode==='by_pack'?'按规格':'按磅重' }}</template>
-            <template v-else-if="c.key==='gross'">{{ row.gross ?? '-' }}</template>
-            <template v-else-if="c.key==='tare'">{{ row.tare ?? '-' }}</template>
-            <template v-else-if="c.key==='net'">{{ (row.gross!=null && row.tare!=null)?(Number(row.gross)-Number(row.tare)): '-' }}</template>
-            <template v-else-if="c.key==='deductions'">{{ row.deductions ?? '-' }}</template>
-            <template v-else-if="c.key==='entry_photos'">
-              <span v-if="row.entry_photos?.length">{{ row.entry_photos.length }} 张</span>
-              <span v-else>-</span>
-            </template>
-            <template v-else-if="c.key==='exit_photos'">
-              <span v-if="row.exit_photos?.length">{{ row.exit_photos.length }} 张</span>
-              <span v-else>-</span>
-            </template>
-            <template v-else-if="c.key==='weigh_ticket'">
-              <span v-if="row.weigh_ticket_url">已上传</span>
-              <span v-else>-</span>
-            </template>
-            <template v-else-if="c.key==='gross'">
-              {{ row.gross ?? '-' }}
-            </template>
-            <template v-else-if="c.key==='tare'">
-              {{ row.tare ?? '-' }}
-            </template>
-            <template v-else-if="c.key==='net'">
-              {{ (row.gross!=null && row.tare!=null) ? (Number(row.gross)-Number(row.tare)) : '-' }}
-            </template>
-            <template v-else-if="c.key==='deductions'">
-              {{ row.deductions ?? '-' }}
-            </template>
-            <template v-else-if="c.key==='goods_source'">
-              {{ row.goods_source || '司机上传磅单' }}
-            </template>
-            <template v-else-if="c.key==='source_addr'">
-              {{ row.source_address || row.factory_batch_no || '-' }}
-            </template>
-            <template v-else-if="c.key==='logistics_carrier'">
-              {{ row.logistics_carrier || '-' }}
-            </template>
-            <template v-else-if="c.key==='driver'">
-              {{ (row.vehicle_plate||'-') + ' / ' + maskDriver(row.driver_name, row.driver_phone) }}
-            </template>
-            <template v-else-if="c.key==='driver_id_card'">
-              {{ row.driver_id_card || row.driver_id_no || '-' }}
-            </template>
-            <template v-else-if="c.key==='driver_license_img'">
-              <img v-if="row.driver_license_url" :src="row.driver_license_url" class="doc-thumb" @click="uploadDriverLicense(row)" />
-              <button v-else class="link mini" @click="uploadDriverLicense(row)">上传</button>
-            </template>
-            <template v-else-if="c.key==='eta'">
-              {{ row.eta || '-' }}
-            </template>
-            <template v-else-if="c.key==='qc_result'">
-              {{ row.qc_result || '-' }}
-            </template>
-            <template v-else-if="c.key==='status'">
-              <span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span>
-            </template>
-            <template v-else-if="c.key==='created_at'">
-              {{ row.created_at || '-' }}
-            </template>
-            <template v-else-if="c.key==='warehouse_handled_at'">
-              {{ row.warehouse_handled_at || '-' }}
-            </template>
-            <template v-else-if="c.key==='platform_audited_at'">
-              {{ row.platform_audited_at || '-' }}
-            </template>
-            <template v-else-if="c.key==='actions'">
-              <template v-if="routeOfficeMode">
-                <button class="link" @click="editRow(row)">编辑</button>
-                <button class="link danger" @click="remove(row)">删除</button>
-              </template>
-              <template v-else>
-                <button class="link" @click="approve(row)">审核</button>
-                <button class="link" @click="reject(row)">驳回</button>
-                <button class="link danger" v-if="row.reservation_number" @click="cancelReservation(row)">取消预约</button>
-              </template>
-            </template>
-          </td>
-        </tr>
-        <tr v-if="!list.length">
-          <td colspan="8" class="empty">暂无数据</td>
-        </tr>
-      </tbody>
-    </table>
-    </div>
+    <FixedTable v-else :columns="ftColumns" :rows="visibleRows">
+      <template #cell-reservation_number="{row}">
+        <span class="resv-link" :title="'入库单（列表即详情）'">{{ row.reservation_number || row.order_no }}</span>
+        <div class="subops">
+          <img v-if="row.doc_url" :src="row.doc_url" alt="doc" class="doc-thumb" @click="uploadPdf(row)"/>
+          <button v-else class="link mini" @click="uploadPdf(row)">上传PDF</button>
+        </div>
+      </template>
+      <template #cell-transport_no="{row}">{{ row.transport_no || '-' }}</template>
+      <template #cell-unique_reservation_code="{row}">{{ row.unique_reservation_code || '-' }}</template>
+      <template #cell-owner_name="{row}">{{ row.owner_name || '-' }}</template>
+      <template #cell-warehouse="{row}">{{ (row.warehouse_name||'-') + ' ' + (row.warehouse_address||'') }}</template>
+      <template #cell-commodity="{row}">{{ (row.commodity_name||'-') + (row.commodity_spec?(' / '+row.commodity_spec):'') }}</template>
+      <template #cell-planned_quantity="{row}">{{ row.total_planned_quantity || row.planned_quantity }} {{ row.measurement_unit || row.unit || '' }}</template>
+      <template #cell-actual_in_weight="{row}">{{ row.actual || row.calc_weight || '-' }} {{ row.measurement_unit || row.unit || '' }}</template>
+      <template #cell-weigh_mode="{row}">{{ row.weigh_mode==='by_pack'?'按规格':'按磅重' }}</template>
+      <template #cell-goods_source="{row}">{{ row.goods_source || '司机上传磅单' }}</template>
+      <template #cell-source_addr="{row}">{{ row.source_address || row.factory_batch_no || '-' }}</template>
+      <template #cell-driver="{row}">{{ (row.vehicle_plate||'-') + ' / ' + maskDriver(row.driver_name, row.driver_phone) }}</template>
+      <template #cell-driver_id_card="{row}">{{ row.driver_id_card || row.driver_id_no || '-' }}</template>
+      <template #cell-driver_license_img="{row}">
+        <img v-if="row.driver_license_url" :src="row.driver_license_url" class="doc-thumb" @click="uploadDriverLicense(row)" />
+        <button v-else class="link mini" @click="uploadDriverLicense(row)">上传</button>
+      </template>
+      <template #cell-status="{row}"><span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span></template>
+      <template #cell-actions="{row}">
+        <template v-if="routeOfficeMode">
+          <button class="link" @click="editRow(row)">编辑</button>
+          <button class="link danger" @click="remove(row)">删除</button>
+        </template>
+        <template v-else>
+          <button class="link" @click="approve(row)">审核</button>
+          <button class="link" @click="reject(row)">驳回</button>
+          <button class="link danger" v-if="row.reservation_number" @click="cancelReservation(row)">取消预约</button>
+        </template>
+      </template>
+    </FixedTable>
 
   
 
@@ -405,6 +315,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import FixedTable from '@/components/FixedTable.vue';
 import { useRouter } from 'vue-router';
 import http from '@/api/http';
 import { listInboundOrders, uploadReservationPdf, approveInboundOrder, rejectInboundOrder, cancelReservationApi } from '@/api/depositor';
@@ -421,6 +332,17 @@ function columnStyle(key:string){
   if(key==='order_no'){ return { minWidth:'180px', width:'180px', maxWidth:'180px', whiteSpace:'nowrap' } as any; }
   return { whiteSpace:'nowrap' } as any;
 }
+
+const ftColumns = computed(()=>{
+  // 根据可见列生成 FixedTable 需要的列定义，并设置固定与宽度
+  return visibleColumns.value.map(c=>{
+    const col:any = { key:c.key, label:c.label };
+    if(c.key==='reservation_number') { col.fixed='left'; col.width=180; }
+    if(c.key==='transport_no') { col.fixed='left'; col.width=160; }
+    if(c.key==='actions') { col.fixed='right'; col.width=160; }
+    return col;
+  });
+});
 // const caps = computed(()=> (capabilities as any).value || {});
 const showCreate = ref(false);
 const showCols = ref(false);
