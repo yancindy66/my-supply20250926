@@ -13,6 +13,7 @@
                 <th>客户</th>
                 <th>商品</th>
                 <th>预计入库时间</th>
+                <th>预约量</th>
                 <th>车牌</th>
                 <th>司机</th>
                 <th>司机手机</th>
@@ -21,6 +22,7 @@
                 <th>入场时间</th>
                 <th>出场抓拍</th>
                 <th>出场时间</th>
+                <th>实际到库时间</th>
                 <th>状态</th>
                 <th>操作</th>
               </tr>
@@ -32,6 +34,7 @@
                 <td>{{ r.owner_name }}</td>
                 <td>{{ r.product_name }}</td>
                 <td>{{ r.expected_time }}</td>
+                <td>{{ r.planned_quantity || r.total_planned_quantity || '-' }}</td>
                 <td>{{ r.vehicle_plate }}</td>
                 <td>{{ r.driver_name }}</td>
                 <td>{{ r.driver_phone || '-' }}</td>
@@ -40,6 +43,7 @@
                 <td>{{ r.entry_time || '-' }}</td>
                 <td>{{ r.exit_capture || '-' }}</td>
                 <td>{{ r.exit_time || '-' }}</td>
+                <td>{{ r.actual_arrival_time || '-' }}</td>
                 <td><span class="tag">{{ r.status }}</span></td>
                 <td>
                   <button class="ghost" @click="editRow(r)">编辑</button>
@@ -164,6 +168,7 @@ async function handleCapturedPlate(capturedPlateNumber: string){
         const commodity_name = prod?.name || (targetTop?.product_name || '-');
         const commodity_spec = prod?.spec || '';
         const transport_no = targetTop?.transport_no || '-';
+        const nowStr = new Date().toISOString().slice(0,16).replace('T',' ');
         inbList.unshift({
           order_no: 'INB-'+Date.now(),
           reservation_number: rowForPersist.reservation_number,
@@ -174,8 +179,10 @@ async function handleCapturedPlate(capturedPlateNumber: string){
           vehicle_plate: plateNow,
           driver_name: rowForPersist.driver_name||'-',
           driver_phone: rowForPersist.driver_phone||'-',
+          total_planned_quantity: targetBk?.total_planned_quantity || '-',
+          actual_arrival_time: nowStr,
           status:'created',
-          created_at: new Date().toISOString().slice(0,16).replace('T',' ')
+          created_at: nowStr
         });
         localStorage.setItem('mockInboundOrders', JSON.stringify(inbList));
       }catch{}
@@ -215,7 +222,8 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     await apiCreateInboundOrder({ reservation_number: rsvNo, vehicle_plate: plateNow, goods_name: '', status:'submitted', source:'gate-unreserved' });
     if(createdId){ try{ await apiUpdateReservation(createdId, { status: 'warehouse_confirmed' }); }catch{} }
     // 更新UI
-    topRows.value.unshift({ reservation_number: rsvNo, transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', status: '车辆入库' });
+    const nowStr = new Date().toISOString().slice(0,16).replace('T',' ');
+    topRows.value.unshift({ reservation_number: rsvNo, transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', planned_quantity: rsvDetail?.total_planned_quantity || '-', actual_arrival_time: nowStr, status: '车辆入库' });
     queueRows.value.unshift({ plate: plateNow, status:'车辆入库' });
     // 同步写入本地“车辆入库”Mock（补齐运输单号/客户/商品）
     try{
