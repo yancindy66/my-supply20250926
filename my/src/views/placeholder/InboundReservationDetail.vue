@@ -72,12 +72,18 @@
               <td>{{ v.actual ?? '-' }}</td>
               <td>
                 <div class="thumbs">
-                  <img v-for="u in v.entry_photos" :key="u" :src="u" />
+                  <figure v-for="p in v.entry_photos" :key="p.url" class="thumb-fig">
+                    <img :src="p.url" />
+                    <figcaption>{{ formatCaption(v.vehicle_plate, '入场抓拍', p.time) }}</figcaption>
+                  </figure>
                 </div>
               </td>
               <td>
                 <div class="thumbs">
-                  <img v-for="u in v.exit_photos" :key="u" :src="u" />
+                  <figure v-for="p in v.exit_photos" :key="p.url" class="thumb-fig">
+                    <img :src="p.url" />
+                    <figcaption>{{ formatCaption(v.vehicle_plate, '出场抓拍', p.time) }}</figcaption>
+                  </figure>
                 </div>
               </td>
             </tr>
@@ -219,8 +225,8 @@ async function loadVehicles(){
       try{
         const ent:any = await http.get('/v1/docs/list', { params:{ scope:'gate', ref_id: v.order_no } });
         const list:any[] = ent?.data?.list || [];
-        v.entry_photos = list.filter(d=>d.doc_type==='entry_photo').map(d=>d.url);
-        v.exit_photos = list.filter(d=>d.doc_type==='exit_photo').map(d=>d.url);
+        v.entry_photos = list.filter(d=>d.doc_type==='entry_photo').map(d=>({ url:d.url, time:d.uploaded_at }));
+        v.exit_photos = list.filter(d=>d.doc_type==='exit_photo').map(d=>({ url:d.url, time:d.uploaded_at }));
       }catch{ v.entry_photos=[]; v.exit_photos=[]; }
     }
     vehicles.value = filtered;
@@ -245,6 +251,25 @@ async function onUpload(){
 }
 function mapVerify(s:string){ const m:any={ pending:'待验证', pass:'通过', fail:'不通过' }; return m[s]||s; }
 function mapQc(s:string){ const m:any={ pending:'待定', pass:'通过', fail:'不通过' }; return m[s]||s; }
+function formatCaption(plate:string|undefined, label:string, time?:string){
+  const t = time? formatMinute(time) : '';
+  return `${t} ${plate||'-'} ${label}`.trim();
+}
+function formatMinute(time:string){
+  const d = new Date(time);
+  if (isNaN(d.getTime())) {
+    // 兼容非标准字符串：尝试截取到分钟
+    const s = String(time).replace('T',' ').replace('Z','');
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})[\sT](\d{2}:\d{2})/);
+    return m? `${m[1]} ${m[2]}` : s.slice(0,16).replace('T',' ');
+  }
+  const y = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const HH = String(d.getHours()).padStart(2,'0');
+  const MI = String(d.getMinutes()).padStart(2,'0');
+  return `${y}-${mm}-${dd} ${HH}:${MI}`;
+}
 function addLocation(){
   if(!locForm.value.location_code) return alert('请填写位置编码');
   locations.value.push({ ...locForm.value });
@@ -307,7 +332,9 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .link{ background:transparent; color:#2563eb; padding:0 6px; }
 .veh-head{ color:#334155; margin-bottom:8px; }
 .thumbs{ display:flex; gap:6px; flex-wrap:wrap; }
-.thumbs img{ width:78px; height:52px; border-radius:6px; border:1px solid #e5e7eb; object-fit:cover; }
+.thumb-fig{ width:90px; }
+.thumb-fig img{ width:90px; height:60px; border-radius:6px; border:1px solid #e5e7eb; object-fit:cover; display:block; }
+.thumb-fig figcaption{ font-size:10px; color:#64748b; margin-top:4px; line-height:1.2; word-break:break-all; }
 .table{ width:100%; border-collapse:collapse; }
 .table th,.table td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
 .table .empty{ text-align:center; color:#94a3b8; }
