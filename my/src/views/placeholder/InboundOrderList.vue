@@ -225,7 +225,8 @@
     </el-dialog>
 
     <div v-if="loading">加载中...</div>
-    <table v-else class="table">
+    <div v-else class="table-wrap">
+    <table class="table">
       <thead>
         <tr>
           <th v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key" :title="c.label">{{ c.label }}</th>
@@ -347,6 +348,7 @@
         </tr>
       </tbody>
     </table>
+    </div>
 
   
 
@@ -877,6 +879,7 @@ load();
 button{ height:36px; padding:0 12px; border:none; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; box-shadow:0 6px 14px rgba(37,99,235,.18); }
 .ghost{ background:#eef2f7; color:#0f172a; }
 .table{ width:100%; border-collapse: separate; border-spacing:0; box-shadow:0 10px 24px rgba(2,6,23,.06); border-radius:12px; overflow:hidden; }
+.table-wrap{ width:100%; overflow-x:auto; }
 .table thead th{ position:sticky; top:0; background:#f8fafc; color:#0f172a; font-weight:600; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
 .table th,.table td{ border-bottom:1px solid #eef2f7; padding:10px 12px; text-align:left; }
 .table tbody tr:nth-child(odd){ background:#fcfdff; }
@@ -906,7 +909,7 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .precheck-summary{ display:flex; gap:12px; color:#334155; margin-top:6px; }
 /* 固定首列与末列 */
 .table thead th.col-reservation_number, .table tbody td.col-reservation_number{ position:sticky; left:0; z-index:2; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.03); }
-.table thead th.col-actions, .table tbody td.col-actions{ position:sticky; right:0; z-index:2; background:#f8fafc; box-shadow:-2px 0 0 rgba(0,0,0,0.03); }
+.table thead th.col-actions, .table tbody td.col-actions{ position:sticky; right:0; z-index:3; background:#f8fafc; box-shadow:-2px 0 0 rgba(0,0,0,0.03); }
 .doc-thumb{ width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; }
 /* 预约号样式：弱化但可点击 */
 .resv-link{ color:#0f172a; text-decoration:none; border-bottom:1px dashed #cbd5e1; padding-bottom:1px; }
