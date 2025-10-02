@@ -242,6 +242,9 @@
                 <button v-else class="link mini" @click="uploadPdf(row)">上传PDF</button>
               </div>
             </template>
+            <template v-else-if="c.key==='transport_no'">
+              {{ row.transport_no || '-' }}
+            </template>
             <template v-else-if="c.key==='reservation_party'">
               <span :class="['tag', partyColor(row.reservation_party)]">{{ row.reservation_party || '-' }}</span>
             </template>
@@ -497,6 +500,7 @@ const defaultColumns: Col[] = [
   { key:'order_no', label:'入库单号', visible:true },
   { key:'reservation_number', label:'预约单号', visible:true, locked:true },
   { key:'unique_reservation_code', label:'预约码', visible:true },
+  { key:'transport_no', label:'运输单号', visible:true },
   { key:'owner_name', label:'货主名称', visible:true },
   { key:'warehouse', label:'目标仓库', visible:true },
   { key:'commodity', label:'商品名称', visible:true },
