@@ -155,6 +155,12 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     };
     try{
       await persistGatePass(rowForPersist);
+      // 写入本地“车辆入库”Mock，办公室列表即刻可见
+      try{
+        const inbList = (JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')) as any[];
+        inbList.unshift({ order_no: 'INB-'+Date.now(), reservation_number: rowForPersist.reservation_number, vehicle_plate: plateNow, driver_name: rowForPersist.driver_name||'-', driver_phone: rowForPersist.driver_phone||'-', status:'created', created_at: new Date().toISOString().slice(0,16).replace('T',' ') });
+        localStorage.setItem('mockInboundOrders', JSON.stringify(inbList));
+      }catch{}
       // UI 标记入库
       if(targetTop){ targetTop.status = '车辆入库'; activeReservationNo.value = targetTop.reservation_number; }
       const qi = queueRows.value.findIndex(x=>x.plate===plateNow);

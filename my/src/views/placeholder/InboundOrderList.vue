@@ -767,7 +767,10 @@ async function load(){
   try{
     const resp: any = await listInboundOrders({ page:1, pageSize:10 });
     const rows:any[] = resp?.data?.list || [];
-    list.value = rows.map(r=>({ ...r }));
+    // 合并本地“车辆入库”Mock（门岗抓拍推送）
+    let mock:any[] = [];
+    try{ mock = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]') || []; }catch{ mock = []; }
+    list.value = [...mock, ...rows.map(r=>({ ...r }))];
   }catch{ list.value = []; }
   loading.value = false;
 }
