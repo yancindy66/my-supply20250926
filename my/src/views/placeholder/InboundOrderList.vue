@@ -229,12 +229,12 @@
     <table class="table">
       <thead>
         <tr>
-          <th v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key" :title="c.label">{{ c.label }}</th>
+          <th v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key" :title="c.label" :style="columnStyle(c.key)">{{ c.label }}</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="row in visibleRows" :key="row.reservation_number || row.order_no">
-          <td v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key">
+          <td v-for="c in visibleColumns" :key="c.key" :class="'col-'+c.key" :style="columnStyle(c.key)">
             <template v-if="c.key==='reservation_number'">
               <span class="resv-link" :title="'入库单（列表即详情）'">{{ row.reservation_number || row.order_no }}</span>
               <div class="subops">
@@ -415,6 +415,12 @@ const pageTitle = computed(()=> (router.currentRoute.value.meta as any)?.title |
 const routeOfficeMode = computed(()=> Boolean((router.currentRoute.value.meta as any)?.office) || router.currentRoute.value.path.includes('/inbound/office/list'));
 const loading = ref(false);
 const list = ref<any[]>([]);
+function columnStyle(key:string){
+  // 固定列宽度，避免 sticky 错位
+  if(key==='reservation_number' || key==='transport_no' || key==='actions'){ return { minWidth:'160px', width:'160px', maxWidth:'160px', whiteSpace:'nowrap' } as any; }
+  if(key==='order_no'){ return { minWidth:'180px', width:'180px', maxWidth:'180px', whiteSpace:'nowrap' } as any; }
+  return { whiteSpace:'nowrap' } as any;
+}
 // const caps = computed(()=> (capabilities as any).value || {});
 const showCreate = ref(false);
 const showCols = ref(false);
@@ -889,7 +895,7 @@ load();
 .col-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
 button{ height:36px; padding:0 12px; border:none; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; box-shadow:0 6px 14px rgba(37,99,235,.18); }
 .ghost{ background:#eef2f7; color:#0f172a; }
-.table{ width:100%; border-collapse: separate; border-spacing:0; box-shadow:0 10px 24px rgba(2,6,23,.06); border-radius:12px; overflow:hidden; }
+.table{ width:100%; min-width:1200px; border-collapse: separate; border-spacing:0; box-shadow:0 10px 24px rgba(2,6,23,.06); border-radius:12px; overflow:hidden; }
 .table-wrap{ width:100%; overflow-x:auto; }
 .table thead th{ position:sticky; top:0; background:#f8fafc; color:#0f172a; font-weight:600; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
 .table th,.table td{ border-bottom:1px solid #eef2f7; padding:10px 12px; text-align:left; }
