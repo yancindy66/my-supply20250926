@@ -26,7 +26,7 @@
 
       <section class="card">
         <h3>称重</h3>
-        <div class="row"><label>入库方式</label><div>{{ order?.weigh_mode==='by_pack'?'按件数':'按重量' }}</div></n></div>
+        <div class="row"><label>入库方式</label><div>{{ order?.weigh_mode==='by_pack'?'按件数':'按重量' }}</div></div>
         <div class="row"><label>毛/皮/净/扣</label><div>{{ order?.gross }}/{{ order?.tare }}/{{ net }}/{{ order?.deductions||0 }}</div></div>
         <div class="row"><label>实际重量</label><div>{{ actual }}</div></div>
         <div class="row" v-if="order?.weigh_mode==='by_pack'"><label>件数/换算</label><div>{{ order?.pack_count }} × {{ order?.convert_ratio }} = {{ order?.calc_weight }}</div></div>

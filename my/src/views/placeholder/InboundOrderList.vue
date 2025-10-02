@@ -1,18 +1,18 @@
 <template>
   <div class="page">
     <h2>入库单列表</h2>
-    <div class="toolbar">
+    <div class="toolbar" :class="{office: routeOfficeMode}">
       <!-- 入库单列表不再新建预约，入口前移至门岗核验 -->
       <button class="ghost" @click="load">刷新</button>
-      <button class="ghost" @click="downloadTemplate">下载模板</button>
-      <label class="upload-btn">
+      <button v-if="routeOfficeMode" class="ghost" @click="downloadTemplate">下载模板</button>
+      <label v-if="routeOfficeMode" class="upload-btn">
         批量导入
         <input type="file" accept=".csv" @change="onImportCsv" />
       </label>
-      <button class="ghost" @click="exportCsv">批量导出</button>
+      <button v-if="routeOfficeMode" class="ghost" @click="exportCsv">批量导出</button>
       <div class="spacer"></div>
-        <button class="ghost" @click="toggleFilter">高级筛选</button>
-        <button class="ghost" @click="toggleCols">列显示设置</button>
+        <button v-if="routeOfficeMode" class="ghost" @click="toggleFilter">高级筛选</button>
+        <button v-if="routeOfficeMode" class="ghost" @click="toggleCols">列显示设置</button>
     </div>
     <div v-if="showFilter" class="filter-panel">
       <div class="filter-row">
@@ -349,6 +349,7 @@ import { listInboundOrders, uploadReservationPdf, approveInboundOrder, rejectInb
 // import { capabilities } from '@/store/capabilities';
 
 const router = useRouter();
+const routeOfficeMode = computed(()=> Boolean((router.currentRoute.value.meta as any)?.office) || router.currentRoute.value.path.includes('/inbound/office/list'));
 const loading = ref(false);
 const list = ref<any[]>([]);
 // const caps = computed(()=> (capabilities as any).value || {});

@@ -137,6 +137,7 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
     ] },
     { title: '入库管理', link: '/inbound/manage', children: [
       { title: '门岗核验', link: '/inbound/gate/verify' },
+      { title: '入库申请列表（办公室）', link: '/inbound/office/list' },
       { title: '入库申请列表', link: '/inbound/list' }
       // 详情/审核/确认/开始/完成等动作页从列表进入
     ] },
