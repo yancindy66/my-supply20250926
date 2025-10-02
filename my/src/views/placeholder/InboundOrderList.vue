@@ -532,13 +532,24 @@ function loadCols(): Col[]{
     // merge with defaults by key, keep order of defaults
     const map:Record<string, Col> = {};
     for(const s of (saved||[])) map[s.key]=s;
-    return defaultColumns.map(d => ({...d, ...(map[d.key]||{})}));
+    const merged = defaultColumns.map(d => ({...d, ...(map[d.key]||{})}));
+    // 强制保证操作列存在且可见并锁定在右侧
+    const idx = merged.findIndex(c => c.key==='actions');
+    if(idx>=0){ merged[idx].visible = true; merged[idx].locked = true; }
+    else { merged.push({ key:'actions', label:'操作', visible:true, locked:true }); }
+    return merged;
   }catch{ return defaultColumns.map(c=>({...c})); }
 }
 function saveCols(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(columns.value)); showCols.value=false; }
 function resetCols(){ columns.value = defaultColumns.map(c=>({...c})); }
 function toggleCols(){ showCols.value = !showCols.value; }
-const visibleColumns = computed(()=> columns.value.filter(c=>c.visible));
+const visibleColumns = computed(()=> {
+  const arr = columns.value.filter(c=>c.visible);
+  // 确保 actions 列在末尾
+  const i = arr.findIndex(c=>c.key==='actions');
+  if(i>=0){ const act = arr.splice(i,1)[0]; arr.push(act); }
+  return arr;
+});
 // Filter state
 type Filters = { party:string; statuses:string[]; start:string; end:string; warehouse:string; carrier:string };
 const defaultFilters: Filters = { party:'', statuses:[], start:'', end:'', warehouse:'', carrier:'' };
