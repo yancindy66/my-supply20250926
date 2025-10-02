@@ -9,6 +9,7 @@
             <thead>
               <tr>
                 <th>预约单号</th>
+                <th>预约码</th>
                 <th>运输单号</th>
                 <th>客户</th>
                 <th>商品</th>
@@ -30,6 +31,7 @@
             <tbody>
               <tr v-for="r in topRows" :key="r.reservation_number || r.vehicle_plate" :class="{activeRow: isActive(r)}">
                 <td>{{ r.reservation_number }}</td>
+                <td>{{ r.unique_reservation_code || '-' }}</td>
                 <td>{{ r.transport_no }}</td>
                 <td>{{ r.owner_name }}</td>
                 <td>{{ r.product_name }}</td>
@@ -168,11 +170,13 @@ async function handleCapturedPlate(capturedPlateNumber: string){
         const commodity_name = prod?.name || (targetTop?.product_name || '-');
         const commodity_spec = prod?.spec || '';
         const transport_no = targetTop?.transport_no || '-';
+        const unique_reservation_code = targetBk?.unique_reservation_code || targetTop?.unique_reservation_code || '-';
         const nowStr = new Date().toISOString().slice(0,16).replace('T',' ');
         inbList.unshift({
           order_no: 'INB-'+Date.now(),
           reservation_number: rowForPersist.reservation_number,
           transport_no,
+          unique_reservation_code,
           owner_name: owner,
           commodity_name,
           commodity_spec,
@@ -223,7 +227,7 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     if(createdId){ try{ await apiUpdateReservation(createdId, { status: 'warehouse_confirmed' }); }catch{} }
     // 更新UI
     const nowStr = new Date().toISOString().slice(0,16).replace('T',' ');
-    topRows.value.unshift({ reservation_number: rsvNo, transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', planned_quantity: rsvDetail?.total_planned_quantity || '-', actual_arrival_time: nowStr, status: '车辆入库' });
+    topRows.value.unshift({ reservation_number: rsvNo, unique_reservation_code: rsvDetail?.unique_reservation_code || '-', transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', planned_quantity: rsvDetail?.total_planned_quantity || '-', actual_arrival_time: nowStr, status: '车辆入库' });
     queueRows.value.unshift({ plate: plateNow, status:'车辆入库' });
     // 同步写入本地“车辆入库”Mock（补齐运输单号/客户/商品）
     try{
@@ -235,6 +239,7 @@ async function handleCapturedPlate(capturedPlateNumber: string){
         order_no: 'INB-'+Date.now(),
         reservation_number: rsvNo,
         transport_no: '-',
+        unique_reservation_code: rsvDetail?.unique_reservation_code || '-',
         owner_name: rsvDetail?.owner_name || '临时入场',
         commodity_name,
         commodity_spec,

@@ -330,9 +330,15 @@
               {{ row.platform_audited_at || '-' }}
             </template>
             <template v-else-if="c.key==='actions'">
-              <button class="link" @click="approve(row)">审核</button>
-              <button class="link" @click="reject(row)">驳回</button>
-              <button class="link danger" v-if="row.reservation_number" @click="cancelReservation(row)">取消预约</button>
+              <template v-if="routeOfficeMode">
+                <button class="link" @click="editRow(row)">编辑</button>
+                <button class="link danger" @click="remove(row)">删除</button>
+              </template>
+              <template v-else>
+                <button class="link" @click="approve(row)">审核</button>
+                <button class="link" @click="reject(row)">驳回</button>
+                <button class="link danger" v-if="row.reservation_number" @click="cancelReservation(row)">取消预约</button>
+              </template>
             </template>
           </td>
         </tr>
@@ -798,10 +804,22 @@ async function uploadDriverLicense(row:any){
   }catch(e:any){ alert('上传失败：'+(e?.message||e)); }
 }
 // function withdraw(_row:any){ alert('撤回（占位）'); }
-// async function remove(row:any){
-//   if(!confirm('确认删除该入库单？')) return;
-//   try{ await deleteInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已删除'); }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
-// }
+function editRow(_row:any){ alert('编辑（占位）'); }
+async function remove(row:any){
+  if(!confirm('确认删除该入库单？')) return;
+  try{
+    // 优先删除本地mock
+    try{
+      const arr = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')||[];
+      const idx = arr.findIndex((x:any)=> (x.order_no||x.reservation_number) === (row.order_no||row.reservation_number));
+      if(idx>=0){ arr.splice(idx,1); localStorage.setItem('mockInboundOrders', JSON.stringify(arr)); }
+    }catch{}
+    // 后端删除（demo模式可能未实现）
+    // await deleteInboundOrder(row.order_no || row.reservation_number || row.id);
+    await load();
+    alert('已删除');
+  }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
+}
 // function roleIs(key:string){ try{ return (localStorage.getItem('role')||'')===key; }catch{return false;} }
 
 async function approve(row:any){
