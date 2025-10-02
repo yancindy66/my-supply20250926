@@ -23,6 +23,8 @@
                 <th>入场时间</th>
                 <th>出场抓拍</th>
                 <th>出场时间</th>
+                <th>入库磅单</th>
+                <th>磅单上传时间</th>
                 <th>实际到库时间</th>
                 <th>状态</th>
                 <th>操作</th>
@@ -45,6 +47,14 @@
                 <td>{{ r.entry_time || '-' }}</td>
                 <td>{{ r.exit_capture || '-' }}</td>
                 <td>{{ r.exit_time || '-' }}</td>
+                <td>
+                  <template v-if="r.weigh_ticket_urls?.length">
+                    <img :src="r.weigh_ticket_urls[0]" alt="磅单" style="width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />
+                    <span v-if="r.weigh_ticket_urls.length>1">+{{ r.weigh_ticket_urls.length-1 }}</span>
+                  </template>
+                  <span v-else>-</span>
+                </td>
+                <td>{{ r.weigh_ticket_uploaded_at || '-' }}</td>
                 <td>{{ r.actual_arrival_time || '-' }}</td>
                 <td><span class="tag">{{ r.status }}</span></td>
                 <td>
@@ -227,7 +237,7 @@ async function handleCapturedPlate(capturedPlateNumber: string){
     if(createdId){ try{ await apiUpdateReservation(createdId, { status: 'warehouse_confirmed' }); }catch{} }
     // 更新UI
     const nowStr = new Date().toISOString().slice(0,16).replace('T',' ');
-    topRows.value.unshift({ reservation_number: rsvNo, unique_reservation_code: rsvDetail?.unique_reservation_code || '-', transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', planned_quantity: rsvDetail?.total_planned_quantity || '-', actual_arrival_time: nowStr, status: '车辆入库' });
+    topRows.value.unshift({ reservation_number: rsvNo, unique_reservation_code: rsvDetail?.unique_reservation_code || '-', transport_no: '-', owner_name: rsvDetail?.owner_name || '临时入场', product_name: '-', expected_time: payload.expected_arrival_start, vehicle_plate: plateNow, driver_name: rsvDetail?.driver_name || '-', driver_phone: rsvDetail?.driver_phone || '-', driver_id_card: rsvDetail?.driver_id_no || '-', entry_capture:'-', entry_time: payload.expected_arrival_start, exit_capture:'-', exit_time:'-', weigh_ticket_urls: [], weigh_ticket_uploaded_at: '-', planned_quantity: rsvDetail?.total_planned_quantity || '-', actual_arrival_time: nowStr, status: '车辆入库' });
     queueRows.value.unshift({ plate: plateNow, status:'车辆入库' });
     // 同步写入本地“车辆入库”Mock（补齐运输单号/客户/商品）
     try{
@@ -246,6 +256,8 @@ async function handleCapturedPlate(capturedPlateNumber: string){
         vehicle_plate: plateNow,
         driver_name: rsvDetail?.driver_name || '-',
         driver_phone: rsvDetail?.driver_phone || '-',
+        weigh_ticket_urls: [],
+        weigh_ticket_uploaded_at: '-',
         status:'created',
         created_at: payload.expected_arrival_start
       });
