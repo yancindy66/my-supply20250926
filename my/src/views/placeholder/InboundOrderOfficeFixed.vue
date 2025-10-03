@@ -71,6 +71,8 @@
 import { ref, onMounted, computed } from 'vue';
 import { HotTable } from '@handsontable/vue3';
 import 'handsontable/dist/handsontable.full.min.css';
+import { registerAllModules } from 'handsontable/registry';
+registerAllModules();
 import { listInboundOrders } from '@/api/depositor';
 import * as XLSX from 'xlsx';
 const rows = ref<any[]>([]);
