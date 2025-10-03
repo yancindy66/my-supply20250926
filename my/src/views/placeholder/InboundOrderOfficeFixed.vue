@@ -8,6 +8,8 @@
         <input type="file" accept=".csv,.xlsx,.xls" @change="onImportFile" />
       </label>
       <button class="ghost" @click="exportExcel">导出</button>
+      <button class="ghost" @click="saveAsNewSheet">保存为新表</button>
+      <button class="ghost" @click="newBlankSheet">新建空白表</button>
       <button class="ghost" @click="printSheet">打印</button>
       <div class="spacer"></div>
       <input class="ghost-input" placeholder="客户/车牌/预约单号" v-model="keyword" @keyup.enter="applyFilter" />
@@ -205,7 +207,7 @@ async function renderLuckysheet(rows:any[]){
     lang:'zh',
     showtoolbar:true,
     showinfobar:false,
-    showsheetbar:false,
+    showsheetbar:true,
     row: rows.length + 1,
     column: columns.length,
     data:[{
@@ -355,6 +357,24 @@ function doValidate(rows:any[]){
 function clearImport(){ importPreview.value = []; importErrors.value = []; }
 function mergeImport(){ if(!importPreview.value.length) return; allRecords.value = [...importPreview.value, ...allRecords.value]; clearImport(); rerender(); }
 function exportErrorCsv(){ if(!importErrors.value.length) return; const lines = importErrors.value.map((e:any)=>`第${e._rowIndex+1}行,${e.messages.join('；')}`); const csv = ['行,错误', ...lines].join('\n'); const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='导入错误.csv'; a.click(); URL.revokeObjectURL(a.href); }
+
+// 保存为新表 / 新建空白表
+async function getLS(){ const any = await loadLuckysheetCDN(); return (any && typeof any.create==='function')? any : (window as any).luckysheet; }
+async function saveAsNewSheet(){
+  const ls:any = await getLS(); if(!ls) return;
+  const sheet = ls.getSheet();
+  const name = '表-' + new Date().toISOString().slice(11,19);
+  ls.insertSheet({ index: ls.getAllSheets().length, name });
+  // 将当前视图数据写入新表（仅可见列）
+  const headers = cols.value.filter(c=>c.visible).map(c=>c.name);
+  const keys = cols.value.filter(c=>c.visible).map(c=>c.key);
+  const rows = viewRecords.value.map(r=> keys.map(k=> r[k] ?? ''));
+  const celldata:any[] = [];
+  headers.forEach((h,ci)=> celldata.push({ r:0, c:ci, v:{ v:h } }));
+  rows.forEach((row,ri)=> row.forEach((v,ci)=> celldata.push({ r:ri+1, c:ci, v:{ v } })));
+  ls.setCellValue([{ index: ls.getAllSheets().length-1, celldata }]);
+}
+async function newBlankSheet(){ const ls:any = await getLS(); if(!ls) return; const idx = ls.getAllSheets().length; ls.insertSheet({ index: idx, name: '空白表-'+(idx+1) }); }
 
 // 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
 function printSheet(){
