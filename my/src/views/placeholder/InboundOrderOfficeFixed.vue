@@ -545,7 +545,7 @@ function openSaved(){
   rerender();
   showOpenPanel.value = false; closed.value = false;
 }
-function closeWithoutSave(){ showCloseDialog.value=false; hideCurrentSheet(); }
+function closeWithoutSave(){ showCloseDialog.value=false; hideCurrentSheet(); doClosePage(); }
 function prepareCloseWithSave(){
   showCloseDialog.value=false;
   // 判断当前sheet名称，未命名（如 Sheet2/sheet2）则要求命名保存
@@ -588,7 +588,7 @@ function hideCurrentSheet(){
     if(typeof ls?.deleteSheet==='function') ls.deleteSheet(order);
     else if(typeof ls?.delSheet==='function') ls.delSheet(order);
     else if(typeof ls?.setSheetHide==='function') ls.setSheetHide(order, true);
-    else { closed.value = true; }
+    else { /* no-op */ }
   }catch{}
   // 页面上不整体关闭容器，避免误关全部
 }
