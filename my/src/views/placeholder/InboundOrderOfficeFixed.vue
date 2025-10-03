@@ -12,8 +12,6 @@
       <button class="ghost" @click="newBlankSheet">新建空白表</button>
       <button class="ghost" @click="printSheet">打印</button>
       <div class="spacer"></div>
-      <input class="ghost-input" placeholder="客户/车牌/预约单号" v-model="keyword" @keyup.enter="applyFilter" />
-      <button class="ghost" @click="applyFilter">筛选</button>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
         <option :value="20">20/页</option>
         <option :value="50">50/页</option>
@@ -87,10 +85,10 @@ async function loadLuckysheetCDN(){
 const allRecords = ref<any[]>([]);
 const viewRecords = ref<any[]>([]);
 const showCols = ref(false);
-const keyword = ref('');
+// 取消顶部筛选，保留分页
 const page = ref(1);
 const pageSize = ref(50);
-const totalPages = computed(()=> Math.max(1, Math.ceil(filteredRecords().length / pageSize.value)));
+const totalPages = computed(()=> Math.max(1, Math.ceil(allRecords.value.length / pageSize.value)));
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
 // Handsontable 配置已移除，改用 Luckysheet 渲染
 
@@ -245,19 +243,8 @@ const cols = ref([
   { key:'driver_license_url', name:'司机驾驶证', visible:true }
 ]);
 
-function filteredRecords(){
-  const k = keyword.value.trim();
-  if(!k) return allRecords.value;
-  return allRecords.value.filter((r:any)=>
-    String(r.reservation_number||'').includes(k) ||
-    String(r.transport_no||'').includes(k) ||
-    String(r.owner_name||'').includes(k) ||
-    String(r.vehicle_plate||'').includes(k)
-  );
-}
-
 function pagedRecords(){
-  const list = filteredRecords();
+  const list = allRecords.value;
   const start = (page.value-1)*pageSize.value;
   return list.slice(start, start + pageSize.value);
 }
@@ -268,7 +255,6 @@ function rerender(){
   renderLuckysheet(data);
 }
 
-function applyFilter(){ page.value = 1; rerender(); }
 function applyPaging(){ page.value = 1; rerender(); }
 function prevPage(){ if(page.value>1){ page.value--; rerender(); } }
 function nextPage(){ if(page.value<totalPages.value){ page.value++; rerender(); } }
