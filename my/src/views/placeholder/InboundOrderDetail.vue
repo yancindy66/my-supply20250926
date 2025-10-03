@@ -58,15 +58,48 @@ onMounted(load);
 // Luckysheet 只读渲染
 function buildEvidence2D(){
   const o:any = order.value || {};
+  const items:any[] = Array.isArray(o.vehicleOrders) && o.vehicleOrders.length ? o.vehicleOrders : [o];
   const rows:any[] = [];
+  const header = [
+    '预约单号','运输单号','入库车单号','预计入库时间','入库状态','入库凭证',
+    '客户','商品','车牌号','预约量','已入库量（规格重量）','件数','已入库量（磅重）',
+    '毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL',
+    '司机姓名','司机手机','司机身份证','司机驾驶证'
+  ];
   rows.push(['入库单证据表']);
   rows.push([]);
-  rows.push(['预约单号','入库单号','客户','商品/规格','预约量(吨)','已入库量(吨)','件数','入库方式','入库状态','申请时间']);
-  rows.push([
-    o.reservation_number||'-', o.order_no||'-', o.owner_name||'-', `${o.commodity_name||''}${o.commodity_spec?(' / '+o.commodity_spec):''}`,
-    o.planned_quantity ?? o.total_planned_quantity ?? '', o.actual ?? o.calc_weight ?? '', o.pack_count ?? o.pieces ?? '',
-    o.weigh_mode==='by_pack'?'按规格':'按磅重', o.status || '-', o.created_at || '-'
-  ]);
+  rows.push(header);
+  for(const it of items){
+    const row = [
+      it.reservation_number || o.reservation_number || '-',
+      it.transport_no || o.transport_no || '-',
+      it.vehicleOrderNumber || it.vehicle_order_no || '-',
+      it.eta || o.eta || '-',
+      it.status || o.status || '-',
+      (Array.isArray(it.voucher_urls)? it.voucher_urls[0]: it.voucher_url) || o.voucher_url || '-',
+      it.owner_name || o.owner_name || '-',
+      `${it.commodity_name || o.commodity_name || ''}${(it.commodity_spec||o.commodity_spec)?(' / '+(it.commodity_spec||o.commodity_spec)):''}`,
+      it.vehicle_plate || o.vehicle_plate || '-',
+      it.planned_quantity || o.planned_quantity || o.total_planned_quantity || '',
+      it.calc_weight || o.calc_weight || '',
+      it.pack_count || o.pack_count || it.pieces || o.pieces || '',
+      it.actual || o.actual || '',
+      it.gross || o.gross || '',
+      it.tare || o.tare || '',
+      (it.net!=null? it.net : (it.gross!=null&&it.tare!=null? (Number(it.gross)-Number(it.tare)) : (o.net!=null?o.net:(o.gross!=null&&o.tare!=null?Number(o.gross)-Number(o.tare):'')))),
+      it.deductions || o.deductions || '',
+      (Array.isArray(it.entry_photos)? it.entry_photos[0] : (it.entry_photo || o.entry_photo)) || '-',
+      it.entry_time || o.entry_time || '-',
+      (Array.isArray(it.exit_photos)? it.exit_photos[0] : (it.exit_photo || o.exit_photo)) || '-',
+      it.exit_time || o.exit_time || '-',
+      it.qc_url || o.qualityCheckUrl || '-',
+      it.driver_name || o.driver_name || '-',
+      it.driver_phone || o.driver_phone || '-',
+      it.driver_id || it.driver_id_no || o.driver_id || o.driver_id_no || '-',
+      it.driver_license || o.driver_license_url || o.driver_license || '-'
+    ];
+    rows.push(row);
+  }
   return rows;
 }
 
@@ -134,6 +167,35 @@ async function renderSheet(){
       data:[{ name:'证据表', celldata, config:{} }]
     });
     ;(window as any).__detailData2D = data2D;
+    // 尝试插入缩略图（首张）
+    try{
+      const header = data2D[2] as any[];
+      const colIndex:Record<string,number> = {};
+      header.forEach((h,idx)=> colIndex[h]=idx);
+      const imageCols = [
+        { key:'入库凭证', w:90, h:70 },
+        { key:'入场抓拍', w:90, h:70 },
+        { key:'出场抓拍', w:90, h:70 },
+        { key:'司机驾驶证', w:90, h:70 }
+      ];
+      const startRow = 3; // 数据起始行
+      const cellW = 100, cellH = 28; // 估算
+      const imgs:any[] = [];
+      for(let r=startRow; r<data2D.length; r++){
+        for(const ic of imageCols){
+          const ci = colIndex[ic.key]; if(ci==null) continue;
+          const src = data2D[r][ci];
+          if(src && /^https?:/.test(String(src))){
+            imgs.push({
+              src: String(src),
+              originWidth: ic.w, originHeight: ic.h,
+              default: { left: ci*cellW + 10, top: (r-0)*cellH + 80, width: ic.w, height: ic.h }
+            });
+          }
+        }
+      }
+      if(imgs.length && typeof ls.insertImage==='function') ls.insertImage(imgs);
+    }catch{}
   }catch(e){ console.error(e); }
 }
 
