@@ -129,7 +129,12 @@ function genFullMock(n:number){
 }
 
 async function renderLuckysheet(rows:any[]){
-  const luckysheet = await loadLuckysheetCDN();
+  const lsAny:any = await loadLuckysheetCDN();
+  const ls = (lsAny && typeof lsAny.create==='function')
+    ? lsAny
+    : (lsAny?.default && typeof lsAny.default.create==='function')
+      ? lsAny.default
+      : (window as any).luckysheet;
   const columns = [
     '预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证'
   ];
@@ -141,8 +146,8 @@ async function renderLuckysheet(rows:any[]){
   rows.forEach((r, ri)=>{
     keys.forEach((k, ci)=>{ celldata.push({ r:ri+1, c:ci, v:{ v: r[k] ?? '' } }); });
   });
-  try{ luckysheet.destroy?.(); }catch{}
-  luckysheet.create({
+  try{ ls?.destroy?.(); }catch{}
+  ls.create({
     container:'luckysheet',
     lang:'zh',
     showtoolbar:true,
