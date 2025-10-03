@@ -3,7 +3,7 @@
     <h2 class="title-bar"><span>车辆入库（修正·Handsontable）</span></h2>
     <div class="toolbar">
       <button class="ghost" @click="toggleColsPanel">列显隐</button>
-      <label class="ghost upload-btn">
+      <label class="ghost upload-btn primary">
         批量导入
         <input type="file" accept=".csv,.xlsx,.xls" @change="onImportFile" />
       </label>
@@ -16,7 +16,7 @@
         <input type="file" accept="image/*" multiple @change="onUploadTickets" />
       </label>
       <button class="ghost" @click="previewCaptures">预览抓拍</button>
-      <button class="ghost" @click="printSheet">打印</button>
+      <button class="ghost primary" @click="printSheet">打印</button>
       <div class="spacer"></div>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
         <option :value="20">20/页</option>
@@ -655,6 +655,8 @@ function confirmInsertCapture(){
 .ghost-select{ background:#f8fafc; color:#0f172a; height:34px; padding:0 10px; border:1px solid #e2e8f0; border-radius:10px; }
 .upload-btn{ position:relative; overflow:hidden; display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:10px; background:linear-gradient(#f8fafc,#eef2f7); color:#0f172a; border:1px solid #e2e8f0; height:34px; cursor:pointer; }
 .upload-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+.primary{ background:linear-gradient(#2563eb,#1d4ed8) !important; color:#fff !important; border-color:#1e40af !important; box-shadow:0 4px 12px rgba(37,99,235,.25); }
+.primary:hover{ background:linear-gradient(#1d4ed8,#1e40af) !important; }
 .ghost-input{ background:#fff; border:1px solid #e5e7eb; height:34px; padding:0 8px; border-radius:8px; }
 .cols-panel{ display:flex; flex-wrap:wrap; gap:12px; padding:8px 12px; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:12px; margin-bottom:12px; }
 .col-item{ font-size:12px; color:#0f172a; }
