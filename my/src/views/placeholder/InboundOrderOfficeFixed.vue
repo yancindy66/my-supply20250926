@@ -46,8 +46,21 @@
         <div class="modal-body">是否保存当前表并关闭？</div>
         <div class="modal-actions">
           <button class="ghost" @click="closeWithoutSave">直接关闭</button>
-          <button class="ghost" @click="closeAndSave">保存并关闭</button>
+          <button class="ghost" @click="prepareCloseWithSave">保存并关闭</button>
           <button @click="showCloseDialog=false">取消</button>
+        </div>
+      </div>
+    </div>
+    <!-- 保存命名弹框 -->
+    <div v-if="showNameDialog" class="modal-mask">
+      <div class="modal">
+        <div class="modal-title">保存文件名</div>
+        <div class="modal-body">
+          <input class="ghost-input" v-model="nameInput" placeholder="请输入文件名" />
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" @click="confirmSaveAndClose">保存并关闭</button>
+          <button @click="showNameDialog=false">取消</button>
         </div>
       </div>
     </div>
@@ -158,6 +171,8 @@ const showOpenPanel = ref(false);
 const closed = ref(false);
 const saving = ref(false);
 const toast = ref<{show:boolean; msg:string}>({ show:false, msg:'' });
+const showNameDialog = ref(false);
+const nameInput = ref('');
 const filteredSaved = computed(()=>{
   const k = openSearch.value.trim().toLowerCase();
   if(!k) return savedList.value;
@@ -447,7 +462,7 @@ function loadSaved(){
   try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw) : []; }catch{ return []; }
 }
 function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedList.value)); }
-async function saveCurrent(){
+async function saveCurrent(customName?: string){
   saving.value = true;
   const id = String(Date.now());
   // 优先从 Luckysheet 当前网格读取（包含用户直接在表内改动的内容）
@@ -460,7 +475,7 @@ async function saveCurrent(){
   if(!data || !data.length){ data = JSON.parse(JSON.stringify(viewRecords.value)); }
   const ts = new Date();
   const time = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}`;
-  const name = `保存-${nameHint}-${time}`;
+  const name = customName ? customName : `保存-${nameHint}-${time}`;
   savedList.value = [{ id, name, data }, ...savedList.value];
   persist();
   openId.value = id;
@@ -475,8 +490,20 @@ function openSaved(){
   rerender();
   showOpenPanel.value = false; closed.value = false;
 }
-function closeWithoutSave(){ showCloseDialog.value=false; closed.value = true; }
-function closeAndSave(){ showCloseDialog.value=false; saveCurrent(); closed.value = true; }
+function closeWithoutSave(){ showCloseDialog.value=false; hideCurrentSheet(); }
+function prepareCloseWithSave(){ showCloseDialog.value=false; nameInput.value = ''; showNameDialog.value = true; }
+function confirmSaveAndClose(){ saveCurrent(nameInput.value.trim()); showNameDialog.value=false; hideCurrentSheet(); }
+
+function hideCurrentSheet(){
+  // 仅隐藏当前Luckysheet中的活动sheet，不销毁其他sheet
+  const ls:any = (window as any).luckysheet;
+  try{
+    const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
+    const sheets:any[] = ls?.getAllSheets?.() || [];
+    if(sheets[idx]){ ls?.deleteSheet?.(idx); }
+  }catch{}
+  // 页面上不整体关闭容器，避免误关全部
+}
 // 新建空白表入口已移除
 
 // 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
