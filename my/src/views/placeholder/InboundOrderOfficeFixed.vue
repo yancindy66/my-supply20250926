@@ -150,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, reactive } from 'vue';
 // 使用 CDN 动态加载 Luckysheet，避免本地打包兼容问题
 import { listInboundOrders } from '@/api/depositor';
 import * as XLSX from 'xlsx';
