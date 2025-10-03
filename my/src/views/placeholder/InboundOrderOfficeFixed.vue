@@ -7,6 +7,7 @@
       <button class="ghost" @click="appendMock10">追加10条</button>
       <button class="ghost" @click="clearMock">清空MOCK</button>
       <button class="ghost" @click="resetColWidths">重置列宽</button>
+      <button class="ghost" @click="exportExcel">导出Excel</button>
       <button class="ghost" @click="showColsPanel = !showColsPanel">列显隐</button>
       <select class="ghost-select" v-model="filterStatus" @change="applyFilters">
         <option value="">状态: 全部</option>
@@ -230,6 +231,20 @@ const hiddenIndices = ref<number[]>([]);
 const hiddenColumns = computed(()=>({ columns: hiddenIndices.value, indicators: true }));
 function applyHidden(){
   hiddenIndices.value = columnMeta.value.filter(c=>!c.visible).map(c=>c.idx);
+}
+
+function exportExcel(){
+  // 仅导出当前可见列
+  const visibleIdx = columnMeta.value.filter(c=>c.visible).map(c=>c.idx);
+  const headers = visibleIdx.map(i=>colHeaders[i]);
+  const data = rows.value.map(r => visibleIdx.map(i => {
+    const key = (hotColumns[i] as any).data;
+    return r[key];
+  }));
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '入库列表');
+  XLSX.writeFile(wb, '入库列表.xlsx');
 }
 </script>
 
