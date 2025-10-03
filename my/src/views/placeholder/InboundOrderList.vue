@@ -241,8 +241,9 @@
       <template #cell-owner_name="{row}">{{ row.owner_name || '-' }}</template>
       <template #cell-warehouse="{row}">{{ (row.warehouse_name||'-') + ' ' + (row.warehouse_address||'') }}</template>
       <template #cell-commodity="{row}">{{ (row.commodity_name||'-') + (row.commodity_spec?(' / '+row.commodity_spec):'') }}</template>
-      <template #cell-planned_quantity="{row}">{{ row.total_planned_quantity || row.planned_quantity }} {{ row.measurement_unit || row.unit || '' }}</template>
-      <template #cell-actual_in_weight="{row}">{{ row.actual || row.calc_weight || '-' }} {{ row.measurement_unit || row.unit || '' }}</template>
+      <template #cell-planned_quantity="{row}">{{ row.total_planned_quantity || row.planned_quantity }}</template>
+      <template #cell-actual_in_weight="{row}">{{ row.actual || row.calc_weight || '-' }}</template>
+      <template #cell-pieces="{row}">{{ row.pack_count || row.pieces || '-' }}</template>
       <template #cell-weigh_mode="{row}">{{ row.weigh_mode==='by_pack'?'按规格':'按磅重' }}</template>
       <template #cell-inbound_status="{row}"><span :class="['tag', inboundStatusColor(row)]">{{ inboundStatus(row) }}</span></template>
       <template #cell-goods_source="{row}">{{ row.goods_source || '司机上传磅单' }}</template>
@@ -337,16 +338,17 @@ const ftColumns = computed(()=>{
   // 根据可见列生成 FixedTable 需要的列定义，并设置固定与宽度
   return visibleColumns.value.map(c=>{
     const col:any = { key:c.key, label:c.label };
-    if(c.key==='reservation_number') { col.fixed='left'; col.width=180; }
+    if(c.key==='reservation_number') { col.fixed='left'; col.width=200; }
     if(c.key==='transport_no') { col.fixed='left'; col.width=160; }
     if(c.key==='actions') { col.fixed='right'; col.width=240; }
     // 紧凑化常用列宽
     const widthMap: Record<string, number> = {
-      order_no:160,
-      owner_name:140,
+      order_no:200,
+      owner_name:240,
       commodity:180,
-      planned_quantity:120,
-      actual_in_weight:120,
+      planned_quantity:140,
+      actual_in_weight:140,
+      pieces:100,
       weigh_mode:100,
       inbound_status:100,
       created_at:160,
@@ -444,8 +446,9 @@ const defaultColumns: Col[] = [
   { key:'owner_name', label:'货主名称', visible:true },
   { key:'warehouse', label:'目标仓库', visible:false },
   { key:'commodity', label:'商品名称', visible:true },
-  { key:'planned_quantity', label:'预约量', visible:true },
-  { key:'actual_in_weight', label:'已入库量', visible:true },
+  { key:'planned_quantity', label:'预约量（吨）', visible:true },
+  { key:'actual_in_weight', label:'已入库量（吨）', visible:true },
+  { key:'pieces', label:'件数', visible:true },
   { key:'weigh_mode', label:'入库方式', visible:true },
   { key:'inbound_status', label:'入库状态', visible:true },
   { key:'gross', label:'毛重', visible:false },
