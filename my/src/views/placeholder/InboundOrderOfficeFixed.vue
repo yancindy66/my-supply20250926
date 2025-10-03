@@ -36,7 +36,9 @@
         <input type="checkbox" v-model="c.visible" @change="rerender"/> {{ c.name }}
       </label>
     </div>
-    <div v-show="!closed" id="luckysheet" class="ls-wrap"></div>
+    <div v-show="!closed" id="luckysheet" class="ls-wrap" style="position:relative;">
+      <button class="sheet-close-btn" title="关闭当前表" @click="triggerClose">❎</button>
+    </div>
     <!-- 关闭确认弹框：页面级关闭入口（❎）触发 -->
     <div v-if="showCloseDialog" class="modal-mask">
       <div class="modal">
@@ -696,6 +698,7 @@ function confirmInsertCapture(){
 
 .basic-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); margin-top:8px; }
 .ls-wrap{ border:1px solid #e5e7eb; border-radius:12px; height:70vh; box-shadow:0 10px 24px rgba(2,6,23,.06); overflow:hidden; }
+.sheet-close-btn{ position:absolute; left:12px; bottom:8px; background:#fee2e2; color:#991b1b; border:none; padding:4px 8px; border-radius:8px; cursor:pointer; }
 .modal-mask{ position:fixed; inset:0; background:rgba(15,23,42,.35); display:flex; align-items:center; justify-content:center; z-index:50; }
 .modal{ background:#fff; border-radius:12px; padding:16px; width:520px; box-shadow:0 20px 40px rgba(0,0,0,.18); }
 .modal.large{ width:720px; }
