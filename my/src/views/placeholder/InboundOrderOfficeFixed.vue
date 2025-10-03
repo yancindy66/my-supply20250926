@@ -12,7 +12,9 @@
         :colHeaders="colHeaders"
         :columns="hotColumns"
         :fixedColumnsLeft="2"
-        :stretchH="'all'"
+        :stretchH="'none'"
+        :manualColumnResize="true"
+        :colWidths="140"
         :licenseKey="'non-commercial-and-evaluation'"
         :rowHeights="40"
         :height="'70vh'"
@@ -59,10 +61,14 @@ const hotColumns = [
 function mapStatus(s: string){ const m:Record<string,string>={ created:'已创建', receiving:'收货中', completed:'已完成', cancelled:'已取消' }; return m[s]||s||'-'; }
 
 async function load(){
-  const resp:any = await listInboundOrders({ page:1, pageSize:100 });
-  const api = resp?.data?.list || [];
+  // 先读本地 mock，再尝试请求接口；接口异常不影响展示
   let mock:any[] = [];
   try{ mock = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')||[]; }catch{}
+  let api:any[] = [];
+  try{
+    const resp:any = await listInboundOrders({ page:1, pageSize:100 });
+    api = resp?.data?.list || [];
+  }catch(e){ /* ignore */ }
   const data = [...mock, ...api].map((r:any)=>({
     reservation_number: r.reservation_number || r.order_no,
     transport_no: r.transport_no || '-',
@@ -134,6 +140,7 @@ function mock10(){
       driver_license_url: 'https://example.com/license/'+(now+i)
     };
   });
+  // 覆盖写入（若需要改为追加，可读取后 concat）
   localStorage.setItem('mockInboundOrders', JSON.stringify(data));
   load();
 }
