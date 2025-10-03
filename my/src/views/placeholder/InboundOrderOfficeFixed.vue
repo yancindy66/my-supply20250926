@@ -1,6 +1,31 @@
 <template>
   <div class="page">
     <h2>车辆入库（修正·Handsontable）</h2>
+    <div class="toolbar">
+      <button class="ghost" @click="toggleColsPanel">列显隐</button>
+      <label class="ghost upload-btn">
+        批量导入
+        <input type="file" accept=".csv" @change="onImportCsv" />
+      </label>
+      <button class="ghost" @click="exportExcel">导出</button>
+      <button class="ghost" @click="printSheet">打印</button>
+      <div class="spacer"></div>
+      <input class="ghost-input" placeholder="客户/车牌/预约单号" v-model="keyword" @keyup.enter="applyFilter" />
+      <button class="ghost" @click="applyFilter">筛选</button>
+      <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
+        <option :value="20">20/页</option>
+        <option :value="50">50/页</option>
+        <option :value="100">100/页</option>
+      </select>
+      <button class="ghost" @click="prevPage">上一页</button>
+      <span class="hint">第 {{ page }} / {{ totalPages }} 页</span>
+      <button class="ghost" @click="nextPage">下一页</button>
+    </div>
+    <div v-if="showCols" class="cols-panel">
+      <label v-for="c in cols" :key="c.key" class="col-item">
+        <input type="checkbox" v-model="c.visible" @change="rerender"/> {{ c.name }}
+      </label>
+    </div>
     <div id="luckysheet" class="ls-wrap"></div>
   </div>
 </template>
@@ -238,6 +263,49 @@ function exportExcel(){
   a.download = '入库列表.csv';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+// 批量导入（CSV）
+function parseCsv(text:string){
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if(!lines.length) return [] as any[];
+  const header = lines[0].split(',');
+  const idx:Record<string,number> = {}; header.forEach((h,i)=> idx[h]=i);
+  const keyMap:Record<string,string> = {
+    '预约单号':'reservation_number','运输单号':'transport_no','入库单号':'order_no','入库状态':'status','客户':'owner_name','车牌号':'vehicle_plate','商品':'commodity','预约量':'planned_quantity','已经入库量':'actual_in_weight','磅重（入库方式）':'weigh_mode_text','毛重':'gross','皮重':'tare','净重':'net','扣重':'deductions'
+  };
+  const arr:any[] = [];
+  for(let i=1;i<lines.length;i++){
+    const colsArr = lines[i].split(',');
+    const row:any = {};
+    for(const [cn,en] of Object.entries(keyMap)){
+      const p = idx[cn]; if(p!=null) row[en] = colsArr[p]||'';
+    }
+    arr.push(row);
+  }
+  return arr;
+}
+function onImportCsv(e: Event){
+  const input = e.target as HTMLInputElement; const file = input.files?.[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const text = String(reader.result||'');
+    const rows = parseCsv(text);
+    allRecords.value = [...rows, ...allRecords.value];
+    input.value = '';
+    rerender();
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+// 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
+function printSheet(){
+  const headers = cols.value.filter(c=>c.visible).map(c=>c.name);
+  const keys = cols.value.filter(c=>c.visible).map(c=>c.key);
+  const htmlRows = viewRecords.value.map(r=> `<tr>${keys.map(k=>`<td>${String(r[k]??'')}</td>`).join('')}</tr>`).join('');
+  const html = `<html><head><meta charset='utf-8'><title>打印</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left}</style></head><body><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${htmlRows}</tbody></table></body></html>`;
+  const w = window.open('', '_blank'); if(!w) return;
+  w.document.open(); w.document.write(html); w.document.close(); w.focus(); w.print();
 }
 </script>
 
