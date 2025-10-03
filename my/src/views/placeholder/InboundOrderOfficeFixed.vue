@@ -225,16 +225,20 @@ async function renderLuckysheet(rows:any[]){
   });
   // 注册保存所需的快捷操作：读取当前可见区域值
   (window as any).__getCurrentGridValues = function(){
-    const data = ls.getAllSheets?.()[ls.getSheetIndex?.()]?.data || [];
+    const sheets:any[] = ls.getAllSheets?.() || [];
+    let idx:any = 0;
+    try{ idx = typeof ls.getSheetIndex==='function' ? ls.getSheetIndex() : (ls.getSheet?.()?.index ?? 0); }catch{}
+    const sheet:any = sheets[idx] || sheets[0] || {};
+    const name = sheet?.name || '入库列表';
+    const data:any[] = sheet?.data || [];
     const values:any[] = [];
-    // 跳过第一行表头
     for(let r=1;r<data.length;r++){
       const row = data[r]; if(!row) continue; const obj:any = {};
       const vis = cols.value.filter(c=>c.visible);
       vis.forEach((c,ci)=>{ const cell = row[ci]; obj[c.key] = cell?.v ?? ''; });
       values.push(obj);
     }
-    return values;
+    return { name, values };
   }
 }
 
@@ -374,11 +378,15 @@ function loadSaved(){
 function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedList.value)); }
 async function saveCurrent(){
   const id = String(Date.now());
-  const name = '保存-' + new Date().toLocaleString();
   // 优先从 Luckysheet 当前网格读取（包含用户直接在表内改动的内容）
   let data:any[] = [];
-  try{ data = (window as any).__getCurrentGridValues?.() || []; }catch{}
+  let nameHint = '入库列表';
+  try{
+    const grid:any = (window as any).__getCurrentGridValues?.();
+    if(grid){ data = grid.values || []; nameHint = grid.name || nameHint; }
+  }catch{}
   if(!data || !data.length){ data = JSON.parse(JSON.stringify(viewRecords.value)); }
+  const name = '保存-' + nameHint;
   savedList.value = [{ id, name, data }, ...savedList.value];
   persist();
   openId.value = id;
