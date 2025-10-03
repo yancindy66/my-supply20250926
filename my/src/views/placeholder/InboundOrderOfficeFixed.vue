@@ -1,134 +1,20 @@
 <template>
   <div class="page">
     <h2>车辆入库（修正·Handsontable）</h2>
-    <div class="grid-wrap">
-      <hot-table
-        ref="hotRef"
-        class="grid"
-        :data="rows"
-        :colHeaders="colHeaders"
-        :columns="hotColumns"
-        :fixedColumnsLeft="2"
-        :fixedColumnsEnd="1"
-        :stretchH="'none'"
-        :manualColumnResize="true"
-        :manualColumnMove="true"
-        :rowHeaders="true"
-        :filters="true"
-        :dropdownMenu="dropdownItems"
-        :contextMenu="contextMenuItems"
-        :columnSorting="true"
-        :multiColumnSorting="true"
-        :language="zhLang"
-        :currentRowClassName="'current-row'"
-        :currentColClassName="'current-col'"
-        :colWidths="140"
-        :licenseKey="'non-commercial-and-evaluation'"
-        :rowHeights="40"
-        :height="'70vh'"
-        :fillHandle="{ autoInsertRow: true }"
-        :autoWrapRow="true"
-      />
-    </div>
+    <div id="luckysheet" class="ls-wrap"></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { HotTable } from '@handsontable/vue3';
-import 'handsontable/dist/handsontable.full.min.css';
-import { registerAllModules } from 'handsontable/registry';
-registerAllModules();
-import { registerLanguageDictionary, zhCN } from 'handsontable/i18n';
-registerLanguageDictionary(zhCN);
+import 'luckysheet/dist/plugins/css/plugins.css';
+import 'luckysheet/dist/css/luckysheet.css';
+import 'luckysheet/dist/assets/iconfont/iconfont.css';
+import luckysheet from 'luckysheet';
 import { listInboundOrders } from '@/api/depositor';
-const rows = ref<any[]>([]);
 const allRecords = ref<any[]>([]);
-const hotRef = ref<any>(null);
-const zhLang = zhCN.languageCode;
-const dropdownItems = [
-  'insert_column_left',
-  'insert_column_right',
-  'remove_column',
-  'clear_column',
-  '---------',
-  'alignment',
-  '---------',
-  'filter_by_condition',
-  'filter_operators',
-  'filter_by_value',
-  'filter_action_bar',
-  '---------',
-  'sort_ascending',
-  'sort_descending'
-];
-
-const contextMenuItems = {
-  items: {
-    row_above: { name: '在上方插入行' },
-    row_below: { name: '在下方插入行' },
-    remove_row: { name: '删除行' },
-    //-----------------
-    col_left: { name: '在左侧插入列' },
-    col_right: { name: '在右侧插入列' },
-    remove_col: { name: '删除列' },
-    //-----------------
-    clear_column: { name: '清空本列' },
-    undo: { name: '撤销' },
-    redo: { name: '重做' },
-    make_read_only: { name: '只读' },
-    alignment: { name: '对齐' },
-    copy: { name: '复制' },
-    cut: { name: '剪切' }
-  }
-};
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
-// 渲染器
-function renderTag(td:HTMLTableCellElement, text:string, cls:string){ td.innerHTML = `<span class="tag ${cls}">${text}</span>`; }
-function statusRenderer(_inst:any, td:any, _row:number, _col:number, _prop:any, value:any){
-  const map:any = { '已创建':'blue', '收货中':'amber', '已完成':'green', '已取消':'gray' };
-  renderTag(td, String(value||'-'), `tag-${map[String(value)]||'gray'}`);
-}
-function modeRenderer(_inst:any, td:any, _row:number, _col:number, _prop:any, value:any){
-  const map:any = { '按规格':'purple', '按磅重':'cyan' };
-  renderTag(td, String(value||'-'), `tag-${map[String(value)]||'gray'}`);
-}
-function linkRenderer(_inst:any, td:any, _row:number, _col:number, _prop:any, value:any){
-  if (value && String(value) !== '-') {
-    td.innerHTML = `<a class="link" href="${value}" target="_blank">查看</a>`;
-  } else { td.textContent = '-'; }
-}
-function actionRenderer(_inst:any, td:any){
-  td.innerHTML = `<button class="link">编辑</button><button class="danger">删除</button>`;
-}
-
-const hotColumns = [
-  { data:'reservation_number', width:140 },
-  { data:'transport_no', width:120 },
-  { data:'order_no', width:140 },
-  { data:'status', className:'htCenter', width:100, renderer: statusRenderer },
-  { data:'inbound_proof', className:'htCenter', width:110 },
-  { data:'owner_name', width:140 },
-  { data:'commodity', width:180 },
-  { data:'vehicle_plate', className:'htCenter', width:120 },
-  { data:'planned_quantity', className:'htRight', width:120, type:'numeric' },
-  { data:'actual_in_weight', className:'htRight', width:120, type:'numeric' },
-  { data:'weigh_mode_text', className:'htCenter', width:110, renderer: modeRenderer },
-  { data:'gross', className:'htRight', width:110, type:'numeric' },
-  { data:'tare', className:'htRight', width:110, type:'numeric' },
-  { data:'net', className:'htRight', width:110, type:'numeric' },
-  { data:'deductions', className:'htRight', width:100, type:'numeric' },
-  { data:'entry_photos_count', className:'htCenter', width:120 },
-  { data:'entry_time', width:160 },
-  { data:'exit_photos_count', className:'htCenter', width:120 },
-  { data:'exit_time', width:160 },
-  { data:'qc_url', width:120, renderer: linkRenderer },
-  { data:'driver_name', className:'htCenter', width:110 },
-  { data:'driver_phone', width:140 },
-  { data:'driver_id_card', width:180 },
-  { data:'driver_license_url', width:120, renderer: linkRenderer },
-  { data:'_act', className:'htCenter', width:160, renderer: actionRenderer }
-];
+// Handsontable 配置已移除，改用 Luckysheet 渲染
 
 function mapStatus(s: string){ const m:Record<string,string>={ created:'已创建', receiving:'收货中', completed:'已完成', cancelled:'已取消' }; return m[s]||s||'-'; }
 
@@ -174,7 +60,7 @@ async function load(){
     _act: '编辑 删除'
   }));
   allRecords.value = data;
-  rows.value = data;
+  renderLuckysheet(data);
 }
 
 onMounted(load);
@@ -222,6 +108,35 @@ function genFullMock(n:number){
   }
   return arr;
 }
+
+function renderLuckysheet(rows:any[]){
+  const columns = [
+    '预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证'
+  ];
+  const keys = [
+    'reservation_number','transport_no','order_no','status','inbound_proof','owner_name','commodity','vehicle_plate','planned_quantity','actual_in_weight','weigh_mode_text','gross','tare','net','deductions','entry_photos_count','entry_time','exit_photos_count','exit_time','qc_url','driver_name','driver_phone','driver_id_card','driver_license_url'
+  ];
+  const celldata:any[] = [];
+  columns.forEach((name, ci)=>{ celldata.push({ r:0, c:ci, v:{ v:name, ct:{ fa:'@'} } }); });
+  rows.forEach((r, ri)=>{
+    keys.forEach((k, ci)=>{ celldata.push({ r:ri+1, c:ci, v:{ v: r[k] ?? '' } }); });
+  });
+  try{ (luckysheet as any).destroy?.(); }catch{}
+  luckysheet.create({
+    container:'luckysheet',
+    lang:'zh',
+    showtoolbar:true,
+    showinfobar:false,
+    showsheetbar:false,
+    row: rows.length + 1,
+    column: columns.length,
+    data:[{
+      name:'入库列表',
+      celldata,
+      config:{ frozen:{ type:'rangeBoth', range:{ row_focus:0, column_focus:2 } } }
+    }]
+  });
+}
 </script>
 
 <style scoped>
@@ -254,6 +169,7 @@ function genFullMock(n:number){
 .tag.tag-cyan{ background:#cffafe; color:#155e75; }
 
 .basic-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); margin-top:8px; }
+.ls-wrap{ border:1px solid #e5e7eb; border-radius:12px; height:70vh; box-shadow:0 10px 24px rgba(2,6,23,.06); overflow:hidden; }
 </style>
 
 
