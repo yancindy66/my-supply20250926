@@ -227,11 +227,14 @@
     <div v-if="loading">加载中...</div>
     <FixedTable v-else :columns="ftColumns" :rows="visibleRows" :default-fix="true">
       <template #cell-reservation_number="{row}">
-        <span class="resv-link" :title="'入库单（列表即详情）'">{{ row.reservation_number || row.order_no }}</span>
+        <span class="resv-link" :title="'跳转入库单详情'" @click="viewDetail(row)">{{ row.reservation_number || row.order_no }}</span>
         <div class="subops">
           <img v-if="row.doc_url" :src="row.doc_url" alt="doc" class="doc-thumb" @click="uploadPdf(row)"/>
           <button v-else class="link mini" @click="uploadPdf(row)">上传PDF</button>
         </div>
+      </template>
+      <template #cell-order_no="{row}">
+        <span class="resv-link" :title="'跳转入库单详情'" @click="viewDetail(row)">{{ row.order_no || row.reservation_number }}</span>
       </template>
       <template #cell-transport_no="{row}">{{ row.transport_no || '-' }}</template>
       <template #cell-unique_reservation_code="{row}">{{ row.unique_reservation_code || '-' }}</template>
@@ -253,8 +256,6 @@
       <template #cell-status="{row}"><span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span></template>
       <template #cell-actions="{row}">
         <div class="ops compact">
-          <button class="op" title="详情" @click="viewDetail(row)">详情</button>
-          <span class="dot">|</span>
           <button class="op" title="撤回" @click="withdraw(row)">撤回</button>
           <span class="dot">|</span>
           <button class="op" title="垛位卡" @click="addStackCard(row)">垛位卡</button>
@@ -848,8 +849,8 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .table thead th.col-actions, .table tbody td.col-actions{ position:sticky; right:0; z-index:4; background:#f8fafc; box-shadow:-2px 0 0 rgba(0,0,0,0.03); min-width:140px; }
 .doc-thumb{ width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; }
 /* 预约号样式：弱化但可点击 */
-.resv-link{ color:#0f172a; text-decoration:none; border-bottom:1px dashed #cbd5e1; padding-bottom:1px; }
-.resv-link:hover{ color:#1d4ed8; border-color:#93c5fd; }
+.resv-link{ color:#2563eb; text-decoration:underline; cursor:pointer; }
+.resv-link:hover{ color:#1d4ed8; }
 .subops{ margin-top:6px; }
 .link.mini{ font-size:12px; color:#3b82f6; }
 .footer-actions{ margin-top:12px; display:flex; justify-content:flex-end; }
