@@ -4,6 +4,9 @@
     <div class="toolbar" :class="{office: routeOfficeMode}">
       <!-- 入库单列表不再新建预约，入口前移至门岗核验 -->
       <button class="ghost" @click="load">刷新</button>
+      <button class="ghost" :disabled="!selectedCount" @click="batchWithdraw">批量撤回</button>
+      <button class="ghost" :disabled="!selectedCount" @click="batchRedFlush">批量红冲</button>
+      <button class="ghost" @click="batchImportStackCard">批量导入垛位卡</button>
       <button v-if="routeOfficeMode" class="ghost" @click="downloadTemplate">下载模板</button>
       <label v-if="routeOfficeMode" class="upload-btn">
         批量导入
@@ -226,6 +229,12 @@
 
     <div v-if="loading">加载中...</div>
     <FixedTable v-else :columns="ftColumns" :rows="visibleRows" :default-fix="true">
+      <template #cell-sel="{row}">
+        <input type="checkbox" v-model="selection[rowKey(row)]" />
+      </template>
+      <template #cell-seq="{row}">
+        {{ rowIndex(row) + 1 }}
+      </template>
       <template #cell-reservation_number="{row}">
         <span class="resv-link" :title="'跳转入库单详情'" @click="viewDetail(row)">{{ row.reservation_number || row.order_no }}</span>
         <div class="subops">
@@ -257,12 +266,6 @@
       <template #cell-status="{row}"><span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span></template>
       <template #cell-actions="{row}">
         <div class="ops compact">
-          <button class="op" title="撤回" @click="withdraw(row)">撤回</button>
-          <span class="dot">|</span>
-          <button class="op danger" title="红冲" @click="redFlush(row)">红冲</button>
-          <span class="dot">|</span>
-          <button class="op" title="垛位卡" @click="addStackCard(row)">垛位卡</button>
-          <span class="dot">|</span>
           <button class="op" title="台账" @click="addLedger(row)">台账</button>
           <span class="dot">|</span>
           <button class="op primary" title="注册仓单" @click="registerWarehouseReceipt(row)">注册</button>
@@ -338,6 +341,8 @@ const ftColumns = computed(()=>{
   // 根据可见列生成 FixedTable 需要的列定义，并设置固定与宽度
   return visibleColumns.value.map(c=>{
     const col:any = { key:c.key, label:c.label };
+    if(c.key==='sel') { col.fixed='left'; col.width=50; }
+    if(c.key==='seq') { col.fixed='left'; col.width=64; }
     if(c.key==='reservation_number') { col.fixed='left'; col.width=200; }
     if(c.key==='transport_no') { col.fixed='left'; col.width=160; }
     if(c.key==='actions') { col.fixed='right'; col.width=240; }
@@ -439,6 +444,8 @@ type Col = { key:string; label:string; visible:boolean; locked?:boolean };
 const STORAGE_KEY = 'inboundOrderList.columns.v1';
 const FILTER_KEY = 'inboundOrderList.filters.v1';
 const defaultColumns: Col[] = [
+  { key:'sel', label:'', visible:true, locked:true },
+  { key:'seq', label:'序号', visible:true, locked:true },
   { key:'order_no', label:'入库单号', visible:true },
   { key:'reservation_number', label:'预约单号', visible:true, locked:true },
   { key:'unique_reservation_code', label:'预约单号', visible:false },
@@ -495,8 +502,8 @@ function resetCols(){ columns.value = defaultColumns.map(c=>({...c})); }
 function toggleCols(){ showCols.value = !showCols.value; }
 const visibleColumns = computed(()=> {
   const arr = columns.value.filter(c=>c.visible);
-  // 确保左侧两列顺序固定：预约单号、运输单号
-  const desiredLeft = ['reservation_number','transport_no'];
+  // 确保左侧首列选择框、序号、预约单号、运输单号的顺序
+  const desiredLeft = ['sel','seq','reservation_number','transport_no'];
   const leftFixed: any[] = [];
   for(const k of desiredLeft){ const idx = arr.findIndex(c=>c.key===k); if(idx>=0){ leftFixed.push(arr.splice(idx,1)[0]); } }
   // 确保 actions 列在末尾
@@ -550,6 +557,16 @@ const visibleRows = computed(()=>{
     return true;
   });
 });
+
+// 选择与序号
+const selection = ref<Record<string, boolean>>({});
+function rowKey(row:any){ return String(row.order_no || row.reservation_number || row.id || Math.random()); }
+function rowIndex(row:any){ return visibleRows.value.findIndex(r => rowKey(r)===rowKey(row)); }
+const selectedCount = computed(()=> Object.values(selection.value).filter(Boolean).length);
+
+function batchWithdraw(){ if(!selectedCount.value) return; alert(`批量撤回 ${selectedCount.value} 条（占位）`); }
+function batchRedFlush(){ if(!selectedCount.value) return; if(!confirm(`确认对 ${selectedCount.value} 条执行红冲？`)) return; alert('批量红冲（占位）'); }
+function batchImportStackCard(){ alert('批量导入垛位卡（占位）'); }
 
 // CSV import/export helpers
 const CSV_HEADERS = [
@@ -781,12 +798,7 @@ function viewDetail(row:any){
   if(!id) return alert('缺少入库单标识');
   router.push(`/inbound/detail/${encodeURIComponent(id)}`);
 }
-function withdraw(_row:any){ alert('撤回（占位）'); }
-function redFlush(_row:any){
-  if(!confirm('确认对该入库单执行红冲？')) return;
-  alert('红冲（占位）');
-}
-function addStackCard(_row:any){ alert('添加垛位卡（占位）'); }
+// 撤回/红冲/垛位卡按新需求移除，仅保留批量入口与台账/注册
 function addLedger(_row:any){ alert('添加台账（占位）'); }
 async function registerWarehouseReceipt(row:any){
   try{
