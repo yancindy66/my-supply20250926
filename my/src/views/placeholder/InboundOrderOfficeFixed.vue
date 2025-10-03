@@ -8,7 +8,13 @@
         <input type="file" accept=".csv,.xlsx,.xls" @change="onImportFile" />
       </label>
       <button class="ghost" @click="exportExcel">导出</button>
-      <button class="ghost" @click="saveAsNewSheet">保存为新表</button>
+      <button class="ghost" @click="saveCurrent">保存</button>
+      <select class="ghost-select" v-model="openId">
+        <option value="">打开...</option>
+        <option v-for="f in savedList" :key="f.id" :value="f.id">{{ f.name }}</option>
+      </select>
+      <button class="ghost" @click="openSaved" :disabled="!openId">打开</button>
+      <button class="ghost" @click="deleteSaved" :disabled="!openId">删除</button>
       <button class="ghost" @click="newBlankSheet">新建空白表</button>
       <button class="ghost" @click="printSheet">打印</button>
       <div class="spacer"></div>
@@ -84,6 +90,9 @@ async function loadLuckysheetCDN(){
 }
 const allRecords = ref<any[]>([]);
 const viewRecords = ref<any[]>([]);
+const STORAGE_KEY = 'inbound_saved_sheets.v1';
+const savedList = ref<{id:string; name:string; data:any[]}[]>(loadSaved());
+const openId = ref<string>('');
 const showCols = ref(false);
 // 取消顶部筛选，保留分页
 const page = ref(1);
@@ -344,21 +353,30 @@ function clearImport(){ importPreview.value = []; importErrors.value = []; }
 function mergeImport(){ if(!importPreview.value.length) return; allRecords.value = [...importPreview.value, ...allRecords.value]; clearImport(); rerender(); }
 function exportErrorCsv(){ if(!importErrors.value.length) return; const lines = importErrors.value.map((e:any)=>`第${e._rowIndex+1}行,${e.messages.join('；')}`); const csv = ['行,错误', ...lines].join('\n'); const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='导入错误.csv'; a.click(); URL.revokeObjectURL(a.href); }
 
-// 保存为新表 / 新建空白表
+// 保存/打开（持久化到localStorage）与新建空白表
 async function getLS(){ const any = await loadLuckysheetCDN(); return (any && typeof any.create==='function')? any : (window as any).luckysheet; }
-async function saveAsNewSheet(){
-  const ls:any = await getLS(); if(!ls) return;
-  const sheet = ls.getSheet();
-  const name = '表-' + new Date().toISOString().slice(11,19);
-  ls.insertSheet({ index: ls.getAllSheets().length, name });
-  // 将当前视图数据写入新表（仅可见列）
-  const headers = cols.value.filter(c=>c.visible).map(c=>c.name);
-  const keys = cols.value.filter(c=>c.visible).map(c=>c.key);
-  const rows = viewRecords.value.map(r=> keys.map(k=> r[k] ?? ''));
-  const celldata:any[] = [];
-  headers.forEach((h,ci)=> celldata.push({ r:0, c:ci, v:{ v:h } }));
-  rows.forEach((row,ri)=> row.forEach((v,ci)=> celldata.push({ r:ri+1, c:ci, v:{ v } })));
-  ls.setCellValue([{ index: ls.getAllSheets().length-1, celldata }]);
+function loadSaved(){
+  try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw) : []; }catch{ return []; }
+}
+function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedList.value)); }
+async function saveCurrent(){
+  const id = String(Date.now());
+  const name = '保存-' + new Date().toLocaleString();
+  const data = JSON.parse(JSON.stringify(viewRecords.value));
+  savedList.value = [{ id, name, data }, ...savedList.value];
+  persist();
+  openId.value = id;
+}
+function openSaved(){
+  const it = savedList.value.find(x=>x.id===openId.value); if(!it) return;
+  allRecords.value = [...it.data];
+  page.value = 1;
+  rerender();
+}
+function deleteSaved(){
+  savedList.value = savedList.value.filter(x=>x.id!==openId.value);
+  persist();
+  openId.value = '';
 }
 async function newBlankSheet(){ const ls:any = await getLS(); if(!ls) return; const idx = ls.getAllSheets().length; ls.insertSheet({ index: idx, name: '空白表-'+(idx+1) }); }
 
@@ -378,6 +396,7 @@ function printSheet(){
 .toolbar{ margin:12px 0; display:flex; gap:8px; }
 .ghost{ background:#eef2f7; color:#0f172a; height:36px; padding:0 12px; border:none; border-radius:10px; }
 .ghost-select{ background:#eef2f7; color:#0f172a; height:36px; padding:0 8px; border:none; border-radius:10px; }
+.ghost-input{ background:#fff; border:1px solid #e5e7eb; height:34px; padding:0 8px; border-radius:8px; }
 .cols-panel{ display:flex; flex-wrap:wrap; gap:12px; padding:8px 12px; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:12px; margin-bottom:12px; }
 .col-item{ font-size:12px; color:#0f172a; }
 .grid-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); height:70vh; }
