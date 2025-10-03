@@ -10,7 +10,7 @@
       <button class="ghost" @click="syncGate">同步门岗</button>
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost primary" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
-      <button class="ghost icon-btn" title="打开保存的文件" @click="showFolder=true">📁</button>
+      <button class="ghost icon-btn" title="打开保存的文件" @click="openFolder">📁</button>
       <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
       <label class="ghost upload-btn">
         上传磅单(多张)
@@ -195,6 +195,11 @@ const filteredSaved = computed(()=>{
   const k = openSearch.value.trim().toLowerCase();
   return savedList.value.filter(x=> x.name.toLowerCase().includes(k));
 });
+function openFolder(){
+  // 每次打开先从本地加载一次，避免旧的内存列表
+  try{ const raw = localStorage.getItem(STORAGE_KEY); if(raw){ savedList.value = JSON.parse(raw)||[]; } }catch{}
+  showFolder.value = true;
+}
 function formatTime(ts?: number){ if(!ts) return ''; const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 const showCols = ref(false);
 // 取消顶部筛选，保留分页
@@ -515,7 +520,19 @@ async function saveCurrent(customName?: string){
   saving.value = false;
   showToast('已保存：'+name);
 }
-// openSaved 移除
+function openSaved(id?: string){
+  try{
+    const targetId = id || '';
+    const it = savedList.value.find(x=> x.id === targetId);
+    if(!it) return;
+    allRecords.value = Array.isArray(it.data) ? [...it.data] : [];
+    page.value = 1;
+    rerender();
+    showFolder.value = false;
+    closed.value = false;
+    showToast('已打开：'+ (it.name||''));
+  }catch{}
+}
 function closeWithoutSave(){ showCloseDialog.value=false; hideCurrentSheet(); doClosePage(); }
 function prepareCloseWithSave(){
   showCloseDialog.value=false;
