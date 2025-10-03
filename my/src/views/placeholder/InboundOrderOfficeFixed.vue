@@ -9,7 +9,31 @@
         <span class="resv-link">{{ row.reservation_number || row.order_no }}</span>
       </template>
       <template #cell-commodity="{row}">{{ (row.commodity_name||'-') + (row.commodity_spec?(' / '+row.commodity_spec):'') }}</template>
+      <template #cell-vehicle_plate="{row}">{{ row.vehicle_plate || '-' }}</template>
       <template #cell-planned_quantity="{row}">{{ row.total_planned_quantity || row.planned_quantity }} {{ row.measurement_unit || row.unit || '' }}</template>
+      <template #cell-actual_in_weight="{row}">{{ row.actual || row.calc_weight || '-' }} {{ row.measurement_unit || row.unit || '' }}</template>
+      <template #cell-weigh_mode="{row}">{{ row.weigh_mode==='by_pack'?'按规格':'按磅重' }}</template>
+      <template #cell-gross="{row}">{{ row.gross ?? '-' }}</template>
+      <template #cell-tare="{row}">{{ row.tare ?? '-' }}</template>
+      <template #cell-net="{row}">{{ (row.gross!=null && row.tare!=null) ? (Number(row.gross)-Number(row.tare)) : '-' }}</template>
+      <template #cell-deductions="{row}">{{ row.deductions ?? '-' }}</template>
+      <template #cell-entry_photos="{row}"><span v-if="row.entry_photos?.length">{{ row.entry_photos.length }} 张</span><span v-else>-</span></template>
+      <template #cell-exit_photos="{row}"><span v-if="row.exit_photos?.length">{{ row.exit_photos.length }} 张</span><span v-else>-</span></template>
+      <template #cell-inbound_proof="{row}">
+        <span v-if="row.weigh_ticket_urls?.length">磅单{{ row.weigh_ticket_urls.length }}张</span>
+        <span v-else-if="row.weigh_ticket_url">磅单1张</span>
+        <span v-else-if="row.doc_url">附件</span>
+        <span v-else>-</span>
+      </template>
+      <template #cell-qc_url="{row}">
+        <a v-if="row.qc_url" :href="row.qc_url" target="_blank">查看</a>
+        <span v-else>-</span>
+      </template>
+      <template #cell-driver_id_card="{row}">{{ row.driver_id_card || row.driver_id_no || '-' }}</template>
+      <template #cell-driver_license_url="{row}">
+        <img v-if="row.driver_license_url" :src="row.driver_license_url" class="doc-thumb" />
+        <span v-else>-</span>
+      </template>
       <template #cell-status="{row}"><span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span></template>
       <template #cell-actions="{row}">
         <button class="link" @click="editRow(row)">编辑</button>
@@ -29,12 +53,28 @@ type Col = { key:string; label:string; width?:number };
 const columns: Col[] = [
   { key:'reservation_number', label:'预约单号', width:180 },
   { key:'transport_no', label:'运输单号', width:160 },
+  { key:'order_no', label:'入库单号', width:180 },
+  { key:'status', label:'入库状态', width:120 },
+  { key:'inbound_proof', label:'入库凭证+', width:140 },
   { key:'owner_name', label:'客户', width:160 },
   { key:'commodity', label:'商品', width:220 },
+  { key:'vehicle_plate', label:'车牌号', width:140 },
   { key:'planned_quantity', label:'预约量', width:140 },
-  { key:'eta', label:'预计入库时间', width:180 },
-  { key:'status', label:'状态', width:120 },
-  { key:'created_at', label:'申请入库时间', width:180 },
+  { key:'actual_in_weight', label:'已经入库量', width:160 },
+  { key:'weigh_mode', label:'磅重', width:120 },
+  { key:'gross', label:'毛重', width:120 },
+  { key:'tare', label:'皮重', width:120 },
+  { key:'net', label:'净重', width:120 },
+  { key:'deductions', label:'扣重', width:120 },
+  { key:'entry_photos', label:'入场抓拍', width:140 },
+  { key:'entry_time', label:'入场抓拍时间', width:180 },
+  { key:'exit_photos', label:'出场抓拍', width:140 },
+  { key:'exit_time', label:'出场抓拍时间', width:180 },
+  { key:'qc_url', label:'质检URL', width:140 },
+  { key:'driver_name', label:'司机姓名', width:140 },
+  { key:'driver_phone', label:'司机手机', width:140 },
+  { key:'driver_id_card', label:'司机身份证', width:180 },
+  { key:'driver_license_url', label:'司机驾驶证', width:160 },
   { key:'actions', label:'操作', width:180 }
 ];
 
@@ -49,7 +89,13 @@ async function load(){
     const api = resp?.data?.list || [];
     let mock:any[] = [];
     try{ mock = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')||[]; }catch{}
-    rows.value = [...mock, ...api];
+    // 兼容：若无 net，按 gross/tare 计算；若无 inbound_proof 字段，透传 weigh_ticket_urls/doc_url
+    const patched = [...mock, ...api].map((r:any)=>{
+      const net = (r.gross!=null && r.tare!=null) ? (Number(r.gross)-Number(r.tare)) : r.net;
+      const inbound_proof = r.weigh_ticket_urls?.length? '磅单' : (r.weigh_ticket_url||r.doc_url)? '附件' : '';
+      return { net, inbound_proof, ...r };
+    });
+    rows.value = patched;
   }catch{ rows.value = []; }
 }
 load();
