@@ -344,11 +344,15 @@ async function renderLuckysheet(rows:any[]){
     }
     return { name, values };
   }
-  // 在第一个sheet标签上绘制关闭按钮
-  try{
-    const sheetBar = document.querySelector('#luckysheet .luckysheet-sheet-area .luckysheet-sheets-item');
-    if(sheetBar && !document.getElementById('sheet-close-inline')){
-      const btn = document.createElement('button');
+  // 将关闭按钮挂到当前激活的sheet标签，并随着切换移动
+  function attachCloseToActive(){
+    const area = document.querySelector('#luckysheet .luckysheet-sheet-area');
+    if(!area) return;
+    const active = area.querySelector('.luckysheetsheets-selected, .luckysheet-sheets-item-active, .luckysheet-sheets-item[isactive="1"], .luckysheet-sheets-item.luckysheet-sheets-item-active') || area.querySelector('.luckysheet-sheets-item');
+    if(!active) return;
+    let btn = document.getElementById('sheet-close-inline');
+    if(!btn){
+      btn = document.createElement('button');
       btn.id = 'sheet-close-inline';
       btn.textContent = '❎';
       btn.title = '关闭当前表';
@@ -360,7 +364,19 @@ async function renderLuckysheet(rows:any[]){
       btn.style.cursor = 'pointer';
       btn.style.padding = '2px 6px';
       btn.onclick = () => triggerClose();
-      sheetBar.appendChild(btn);
+    }
+    if(btn.parentElement !== active) active.appendChild(btn);
+  }
+  try{
+    attachCloseToActive();
+    if(!(window as any).__lsCloseHooked){
+      const area = document.querySelector('#luckysheet .luckysheet-sheet-area');
+      if(area){
+        area.addEventListener('click', () => setTimeout(attachCloseToActive, 0), { passive:true });
+        const mo = new MutationObserver(() => setTimeout(attachCloseToActive, 0));
+        mo.observe(area, { attributes:true, childList:true, subtree:true });
+        (window as any).__lsCloseHooked = true;
+      }
     }
   }catch{}
 }
