@@ -1,6 +1,9 @@
 <template>
   <div class="page">
-    <h2>车辆入库（修正·Handsontable）</h2>
+    <h2 class="title-bar">
+      <span>车辆入库（修正·Handsontable）</span>
+      <button class="close-btn" title="关闭表格" @click="showCloseDialog=true">×</button>
+    </h2>
     <div class="toolbar">
       <button class="ghost" @click="toggleColsPanel">列显隐</button>
       <label class="ghost upload-btn">
@@ -9,11 +12,7 @@
       </label>
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost" @click="saveCurrent">保存</button>
-      <select class="ghost-select" v-model="openId">
-        <option value="">打开...</option>
-        <option v-for="f in savedList" :key="f.id" :value="f.id">{{ f.name }}</option>
-      </select>
-      <button class="ghost" @click="openSaved" :disabled="!openId">打开</button>
+      <button class="ghost" @click="showOpenPanel=true">打开</button>
       <button class="ghost" @click="printSheet">打印</button>
       <div class="spacer"></div>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
@@ -25,12 +24,44 @@
       <span class="hint">第 {{ page }} / {{ totalPages }} 页</span>
       <button class="ghost" @click="nextPage">下一页</button>
     </div>
+    <div v-if="closed" class="closed-hint">表格已关闭。可点击“打开”选择已保存的表恢复。</div>
     <div v-if="showCols" class="cols-panel">
       <label v-for="c in cols" :key="c.key" class="col-item">
         <input type="checkbox" v-model="c.visible" @change="rerender"/> {{ c.name }}
       </label>
     </div>
-    <div id="luckysheet" class="ls-wrap"></div>
+    <div v-show="!closed" id="luckysheet" class="ls-wrap"></div>
+    <!-- 关闭确认弹框 -->
+    <div v-if="showCloseDialog" class="modal-mask">
+      <div class="modal">
+        <div class="modal-title">关闭表格</div>
+        <div class="modal-body">是否保存当前表并关闭？</div>
+        <div class="modal-actions">
+          <button class="ghost" @click="closeWithoutSave">直接关闭</button>
+          <button class="ghost" @click="closeAndSave">保存并关闭</button>
+          <button @click="showCloseDialog=false">取消</button>
+        </div>
+      </div>
+    </div>
+    <!-- 打开面板（搜索+列表） -->
+    <div v-if="showOpenPanel" class="modal-mask">
+      <div class="modal large">
+        <div class="modal-title">打开保存的表</div>
+        <div class="modal-body">
+          <input class="ghost-input" placeholder="搜索文件名..." v-model="openSearch" />
+          <div class="file-list">
+            <div class="file-item" v-for="f in filteredSaved" :key="f.id" @click="openSaved(f.id)">
+              <div class="fname">{{ f.name }}</div>
+              <div class="ftime">{{ formatTime(f.ts) }}</div>
+            </div>
+            <div v-if="!filteredSaved.length" class="empty">无匹配结果</div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" @click="showOpenPanel=false">关闭</button>
+        </div>
+      </div>
+    </div>
     <div v-if="importPreview.length || importErrors.length" class="import-panel">
       <div class="import-head">
         <b>导入结果</b>
@@ -91,6 +122,16 @@ const viewRecords = ref<any[]>([]);
 const STORAGE_KEY = 'inbound_saved_sheets.v1';
 const savedList = ref<{id:string; name:string; data:any[]}[]>(loadSaved());
 const openId = ref<string>('');
+const openSearch = ref('');
+const showCloseDialog = ref(false);
+const showOpenPanel = ref(false);
+const closed = ref(false);
+const filteredSaved = computed(()=>{
+  const k = openSearch.value.trim().toLowerCase();
+  if(!k) return savedList.value;
+  return savedList.value.filter(x=> x.name.toLowerCase().includes(k));
+});
+function formatTime(ts?: number){ if(!ts) return ''; const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 const showCols = ref(false);
 // 取消顶部筛选，保留分页
 const page = ref(1);
@@ -392,16 +433,15 @@ async function saveCurrent(){
   openId.value = id;
 }
 function openSaved(){
-  const it = savedList.value.find(x=>x.id===openId.value); if(!it) return;
+  const id = typeof arguments[0]==='string' ? arguments[0] : openId.value;
+  const it = savedList.value.find(x=>x.id===id); if(!it) return;
   allRecords.value = [...it.data];
   page.value = 1;
   rerender();
+  showOpenPanel.value = false; closed.value = false;
 }
-function deleteSaved(){
-  savedList.value = savedList.value.filter(x=>x.id!==openId.value);
-  persist();
-  openId.value = '';
-}
+function closeWithoutSave(){ showCloseDialog.value=false; closed.value = true; }
+function closeAndSave(){ showCloseDialog.value=false; saveCurrent(); closed.value = true; }
 // 新建空白表入口已移除
 
 // 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
@@ -417,6 +457,8 @@ function printSheet(){
 
 <style scoped>
 .page{ padding:16px; }
+.title-bar{ display:flex; align-items:center; justify-content:space-between; margin:0; }
+.close-btn{ background:#fee2e2; color:#991b1b; border:none; width:28px; height:28px; border-radius:6px; cursor:pointer; }
 .toolbar{ margin:12px 0; display:flex; gap:8px; }
 .toolbar{ position:relative; z-index:10; }
 .ghost{ background:#eef2f7; color:#0f172a; height:36px; padding:0 12px; border:none; border-radius:10px; cursor:pointer; }
@@ -448,6 +490,17 @@ function printSheet(){
 
 .basic-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); margin-top:8px; }
 .ls-wrap{ border:1px solid #e5e7eb; border-radius:12px; height:70vh; box-shadow:0 10px 24px rgba(2,6,23,.06); overflow:hidden; }
+.modal-mask{ position:fixed; inset:0; background:rgba(15,23,42,.35); display:flex; align-items:center; justify-content:center; z-index:50; }
+.modal{ background:#fff; border-radius:12px; padding:16px; width:520px; box-shadow:0 20px 40px rgba(0,0,0,.18); }
+.modal.large{ width:720px; }
+.modal-title{ font-weight:700; font-size:16px; margin-bottom:8px; }
+.modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+.file-list{ max-height:360px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; padding:6px; }
+.file-item{ display:flex; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+.file-item:hover{ background:#f8fafc; }
+.fname{ color:#0f172a; }
+.ftime{ color:#64748b; font-size:12px; }
+.closed-hint{ padding:8px 12px; border:1px dashed #e5e7eb; border-radius:10px; background:#f8fafc; color:#334155; margin-bottom:8px; }
 .import-panel{ border:1px solid #e5e7eb; background:#fff; padding:10px; border-radius:10px; margin-top:12px; box-shadow:0 6px 16px rgba(2,6,23,.06); }
 .import-head{ display:flex; align-items:center; gap:10px; }
 .import-body{ margin-top:8px; }
