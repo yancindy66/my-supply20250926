@@ -1,9 +1,6 @@
 <template>
   <div class="page">
-    <h2 class="title-bar">
-      <span>车辆入库（修正·Handsontable）</span>
-      <button class="close-btn" title="关闭表格" @click="showCloseDialog=true">×</button>
-    </h2>
+    <h2 class="title-bar"><span>车辆入库（修正·Handsontable）</span></h2>
     <div class="toolbar">
       <button class="ghost" @click="toggleColsPanel">列显隐</button>
       <label class="ghost upload-btn">
@@ -21,6 +18,7 @@
       </label>
       <button class="ghost" @click="previewCaptures">预览抓拍</button>
       <button class="ghost" @click="printSheet">打印</button>
+      <button class="ghost" title="关闭页面" @click="triggerClose">❎ 关闭</button>
       <div class="spacer"></div>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
         <option :value="20">20/页</option>
@@ -39,11 +37,11 @@
       </label>
     </div>
     <div v-show="!closed" id="luckysheet" class="ls-wrap"></div>
-    <!-- 关闭确认弹框 -->
+    <!-- 关闭确认弹框：页面级关闭入口（❎）触发 -->
     <div v-if="showCloseDialog" class="modal-mask">
       <div class="modal">
         <div class="modal-title">关闭表格</div>
-        <div class="modal-body">是否保存当前表并关闭？</div>
+        <div class="modal-body">是否保存当前表并关闭页面？</div>
         <div class="modal-actions">
           <button class="ghost" @click="closeWithoutSave">直接关闭</button>
           <button class="ghost" @click="prepareCloseWithSave">保存并关闭</button>
@@ -538,6 +536,8 @@ function confirmSaveAndClose(){
   saveCurrent(custom);
   showNameDialog.value=false;
   hideCurrentSheet();
+  // 页面级“关闭”需真正跳转离开本页
+  doClosePage();
 }
 
 function hideCurrentSheet(){
@@ -555,6 +555,12 @@ function hideCurrentSheet(){
   }catch{}
   // 页面上不整体关闭容器，避免误关全部
 }
+
+function doClosePage(){
+  try{ history.length>1 ? history.back() : (location.href='/inbound/order/list'); }catch{ location.href='/inbound/order/list'; }
+}
+
+function triggerClose(){ showCloseDialog.value = true; }
 // 新建空白表入口已移除
 
 // 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
