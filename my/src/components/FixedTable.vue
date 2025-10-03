@@ -6,7 +6,9 @@
         <tr>
           <th v-for="(col,ci) in normColumns" :key="col.key"
               :style="thStyle(col)"
-              :class="cellClass(col)">{{ col.label }}</th>
+              :class="cellClass(col)">
+            <slot :name="`head-${col.key}`" :col="col">{{ col.label }}</slot>
+          </th>
         </tr>
       </thead>
       <tbody>

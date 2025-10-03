@@ -229,6 +229,9 @@
 
     <div v-if="loading">加载中...</div>
     <FixedTable v-else :columns="ftColumns" :rows="visibleRows" :default-fix="true">
+      <template #head-sel>
+        <input type="checkbox" :checked="allSelected" @change="toggleSelectAll($event)" />
+      </template>
       <template #cell-sel="{row}">
         <input type="checkbox" v-model="selection[rowKey(row)]" />
       </template>
@@ -563,6 +566,13 @@ const selection = ref<Record<string, boolean>>({});
 function rowKey(row:any){ return String(row.order_no || row.reservation_number || row.id || Math.random()); }
 function rowIndex(row:any){ return visibleRows.value.findIndex(r => rowKey(r)===rowKey(row)); }
 const selectedCount = computed(()=> Object.values(selection.value).filter(Boolean).length);
+const allSelected = computed(()=> visibleRows.value.length>0 && visibleRows.value.every(r => selection.value[rowKey(r)]));
+function toggleSelectAll(e: Event){
+  const checked = (e.target as HTMLInputElement).checked;
+  const map: Record<string, boolean> = { ...selection.value };
+  for(const r of visibleRows.value){ map[rowKey(r)] = checked; }
+  selection.value = map;
+}
 
 function batchWithdraw(){ if(!selectedCount.value) return; alert(`批量撤回 ${selectedCount.value} 条（占位）`); }
 function batchRedFlush(){ if(!selectedCount.value) return; if(!confirm(`确认对 ${selectedCount.value} 条执行红冲？`)) return; alert('批量红冲（占位）'); }
