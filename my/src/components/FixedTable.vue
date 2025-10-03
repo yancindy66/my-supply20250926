@@ -1,5 +1,6 @@
 <template>
-  <div class="ft-wrap">
+  <div class="ft-scroll-top" ref="topRef"><div :style="{ width: ftWidth + 'px', height: '1px' }"></div></div>
+  <div class="ft-wrap" ref="wrapRef">
     <table class="ft-table" :style="{ width: ftWidth + 'px' }">
       <thead>
         <tr>
@@ -21,10 +22,11 @@
       </tbody>
     </table>
   </div>
+  
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 
 type Col = { key:string; label:string; width?:number; fixed?: 'left'|'right' };
 const props = defineProps<{ columns: Col[]; rows: any[]; defaultFix?: boolean }>();
@@ -89,9 +91,31 @@ function tdStyle(col: Col){
 function cellClass(col: Col){
   return [ col.fixed?`fixed-${col.fixed}`:'' ];
 }
+
+// 顶部与底部横向滚动同步
+const topRef = ref<HTMLDivElement|null>(null);
+const wrapRef = ref<HTMLDivElement|null>(null);
+let syncing = false;
+function onTopScroll(){
+  if(syncing) return; syncing = true;
+  try{ if(wrapRef.value) wrapRef.value.scrollLeft = topRef.value?.scrollLeft || 0; }finally{ syncing = false; }
+}
+function onWrapScroll(){
+  if(syncing) return; syncing = true;
+  try{ if(topRef.value) topRef.value.scrollLeft = wrapRef.value?.scrollLeft || 0; }finally{ syncing = false; }
+}
+onMounted(()=>{
+  topRef.value?.addEventListener('scroll', onTopScroll, { passive:true } as any);
+  wrapRef.value?.addEventListener('scroll', onWrapScroll, { passive:true } as any);
+});
+onBeforeUnmount(()=>{
+  topRef.value?.removeEventListener('scroll', onTopScroll as any);
+  wrapRef.value?.removeEventListener('scroll', onWrapScroll as any);
+});
 </script>
 
 <style scoped>
+.ft-scroll-top{ width:100%; overflow-x:auto; overflow-y:hidden; height:12px; margin-bottom:6px; }
 .ft-wrap{ width:100%; overflow-x:auto; }
 .ft-table{ width:100%; min-width: 1400px; border-collapse: separate; border-spacing:0; box-shadow:0 10px 24px rgba(2,6,23,.06); border-radius:12px; overflow:hidden; }
 .ft-table thead th{ position:relative; top:0; background:#f8fafc; color:#0f172a; font-weight:600; text-align:left; padding:10px 12px; border-bottom:1px solid #eef2f7; }

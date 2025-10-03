@@ -252,11 +252,17 @@
       </template>
       <template #cell-status="{row}"><span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span></template>
       <template #cell-actions="{row}">
-        <button class="link" @click="viewDetail(row)">查看详情</button>
-        <button class="link" @click="withdraw(row)">撤回</button>
-        <button class="link" @click="addStackCard(row)">添加垛位卡</button>
-        <button class="link" @click="addLedger(row)">添加台账</button>
-        <button class="link" @click="registerWarehouseReceipt(row)">注册仓单</button>
+        <div class="ops">
+          <button class="op" @click="viewDetail(row)">查看详情</button>
+          <span class="dot">·</span>
+          <button class="op" @click="withdraw(row)">撤回</button>
+          <span class="dot">·</span>
+          <button class="op" @click="addStackCard(row)">添加垛位卡</button>
+          <span class="dot">·</span>
+          <button class="op" @click="addLedger(row)">添加台账</button>
+          <span class="dot">·</span>
+          <button class="op primary" @click="registerWarehouseReceipt(row)">注册仓单</button>
+        </div>
       </template>
     </FixedTable>
 
@@ -810,6 +816,11 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .empty{ text-align:center; color:#6b7280; }
 .link{ background:transparent; color:#2563eb; padding:0 6px; }
 .danger{ color:#ef4444; }
+.ops{ display:flex; align-items:center; gap:6px; }
+.ops .op{ background:transparent; color:#2563eb; padding:0 6px; height:28px; line-height:28px; border-radius:6px; }
+.ops .op:hover{ background:#eef2ff; }
+.ops .op.primary{ color:#0b5cff; font-weight:600; }
+.ops .dot{ color:#94a3b8; }
 .tag{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.02em; box-shadow:0 4px 10px rgba(15,23,42,.08); }
 .blue{ background:#e0f2fe; color:#075985; }
 .indigo{ background:#e0e7ff; color:#3730a3; }
