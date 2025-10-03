@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import http from '@/api/http';
 
@@ -49,6 +49,9 @@ async function load(){
     order.value = resp?.data || null;
   }catch{ order.value=null; }
   loading.value = false;
+  try{ await nextTick(); }catch{}
+  // 无论是否拿到数据，都尝试渲染（表头可显示占位）
+  renderSheet();
 }
 onMounted(load);
 
@@ -103,11 +106,11 @@ async function renderSheet(){
       // fallback: simple HTML table
       const data2D = buildEvidence2D();
       const el = document.getElementById('luckysheet-detail');
-      if(el){
-        el.innerHTML = `<table class="fallback">${data2D.map((r:any)=>'<tr>'+r.map((c:any)=>`<td>${String(c??'')}</td>`).join('')+'</tr>').join('')}</table>`;
-      }
+      if(el){ el.innerHTML = `<table class=\"fallback\">${data2D.map((r:any)=>'<tr>'+r.map((c:any)=>`<td>${String(c??'')}</td>`).join('')+'</tr>').join('')}</table>`; }
       return;
     }
+    const mountEl = document.getElementById('luckysheet-detail');
+    if(!mountEl){ return; }
     const data2D = buildEvidence2D();
     const celldata:any[] = [];
     for(let r=0;r<data2D.length;r++){
