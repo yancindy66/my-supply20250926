@@ -344,43 +344,8 @@ async function renderLuckysheet(rows:any[]){
     }
     return { name, values };
   }
-  // 将关闭按钮挂到当前激活的sheet标签，并随着切换移动
-  function attachCloseToActive(){
-    const area = document.querySelector('#luckysheet .luckysheet-sheet-area');
-    if(!area) return;
-    const active = area.querySelector('.luckysheetsheets-selected, .luckysheet-sheets-item-active, .luckysheet-sheets-item[isactive="1"], .luckysheet-sheets-item.luckysheet-sheets-item-active') || area.querySelector('.luckysheet-sheets-item');
-    if(!active) return;
-    let btn = document.getElementById('sheet-close-inline');
-    if(!btn){
-      btn = document.createElement('button');
-      btn.id = 'sheet-close-inline';
-      btn.textContent = '❎';
-      btn.title = '关闭当前表';
-      btn.style.marginLeft = '6px';
-      btn.style.background = '#fee2e2';
-      btn.style.color = '#991b1b';
-      btn.style.border = 'none';
-      btn.style.borderRadius = '6px';
-      btn.style.cursor = 'pointer';
-      btn.style.padding = '2px 6px';
-      btn.onclick = () => triggerClose();
-    }
-    if(btn.parentElement !== active) active.appendChild(btn);
-  }
-  try{
-    // 初次与延迟附着，确保sheet栏渲染完成
-    setTimeout(attachCloseToActive, 50);
-    attachCloseToActive();
-    if(!(window as any).__lsCloseHooked){
-      const area = document.querySelector('#luckysheet .luckysheet-sheet-area');
-      if(area){
-        area.addEventListener('click', () => setTimeout(attachCloseToActive, 0), { passive:true });
-        const mo = new MutationObserver(() => setTimeout(attachCloseToActive, 0));
-        mo.observe(area, { attributes:true, childList:true, subtree:true });
-        (window as any).__lsCloseHooked = true;
-      }
-    }
-  }catch{}
+  // 移除任何自定义“关闭”图标，统一使用右键菜单或顶部操作
+  try{ const old = document.getElementById('sheet-close-inline'); old?.parentElement?.removeChild(old); }catch{}
 }
 
 const cols = ref([
@@ -517,6 +482,20 @@ function loadSaved(){
   try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw) : []; }catch{ return []; }
 }
 function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedList.value)); }
+function persistWorkbook(){
+  try{
+    const grid:any = (window as any).__getCurrentGridValues?.();
+    const id = 'AUTO_LAST';
+    if(grid && Array.isArray(grid.values)){
+      const ts = Date.now();
+      const name = `自动保存-${grid.name}-${new Date(ts).toLocaleTimeString()}`;
+      const index = savedList.value.findIndex(x=>x.id===id);
+      const entry = { id, name, data: grid.values } as any;
+      if(index>=0) savedList.value[index] = entry; else savedList.value.unshift(entry);
+      persist();
+    }
+  }catch{}
+}
 async function saveCurrent(customName?: string){
   saving.value = true;
   const id = String(Date.now());
@@ -584,11 +563,10 @@ function hideCurrentSheet(){
     if(!items.length) return;
     const active = document.querySelector('#luckysheet .luckysheet-sheet-area .luckysheetsheets-selected, #luckysheet .luckysheet-sheet-area .luckysheet-sheets-item-active, #luckysheet .luckysheet-sheet-area .luckysheet-sheets-item[isactive="1"], #luckysheet .luckysheet-sheet-area .luckysheet-sheets-item.luckysheet-sheets-item-active') as HTMLElement || items[0];
     const order = Math.max(0, items.indexOf(active));
-    // 兼容多版本：优先deleteSheet/delSheet（均使用order下标），否则隐藏
-    if(typeof ls?.deleteSheet==='function') ls.deleteSheet(order);
-    else if(typeof ls?.delSheet==='function') ls.delSheet(order);
-    else if(typeof ls?.setSheetHide==='function') ls.setSheetHide(order, true);
-    else { /* no-op */ }
+    // 临时关闭：采用隐藏而非删除
+    if(typeof ls?.setSheetHide==='function') ls.setSheetHide(order, true);
+    else if(typeof ls?.deleteSheet==='function') ls.deleteSheet(order); // 旧版本无隐藏时退化
+    persistWorkbook();
   }catch{}
   // 页面上不整体关闭容器，避免误关全部
 }
