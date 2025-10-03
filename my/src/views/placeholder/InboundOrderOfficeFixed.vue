@@ -223,6 +223,19 @@ async function renderLuckysheet(rows:any[]){
       config: {}
     }]
   });
+  // 注册保存所需的快捷操作：读取当前可见区域值
+  (window as any).__getCurrentGridValues = function(){
+    const data = ls.getAllSheets?.()[ls.getSheetIndex?.()]?.data || [];
+    const values:any[] = [];
+    // 跳过第一行表头
+    for(let r=1;r<data.length;r++){
+      const row = data[r]; if(!row) continue; const obj:any = {};
+      const vis = cols.value.filter(c=>c.visible);
+      vis.forEach((c,ci)=>{ const cell = row[ci]; obj[c.key] = cell?.v ?? ''; });
+      values.push(obj);
+    }
+    return values;
+  }
 }
 
 const cols = ref([
@@ -362,7 +375,10 @@ function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedList.v
 async function saveCurrent(){
   const id = String(Date.now());
   const name = '保存-' + new Date().toLocaleString();
-  const data = JSON.parse(JSON.stringify(viewRecords.value));
+  // 优先从 Luckysheet 当前网格读取（包含用户直接在表内改动的内容）
+  let data:any[] = [];
+  try{ data = (window as any).__getCurrentGridValues?.() || []; }catch{}
+  if(!data || !data.length){ data = JSON.parse(JSON.stringify(viewRecords.value)); }
   savedList.value = [{ id, name, data }, ...savedList.value];
   persist();
   openId.value = id;
@@ -394,7 +410,8 @@ function printSheet(){
 <style scoped>
 .page{ padding:16px; }
 .toolbar{ margin:12px 0; display:flex; gap:8px; }
-.ghost{ background:#eef2f7; color:#0f172a; height:36px; padding:0 12px; border:none; border-radius:10px; }
+.toolbar{ position:relative; z-index:10; }
+.ghost{ background:#eef2f7; color:#0f172a; height:36px; padding:0 12px; border:none; border-radius:10px; cursor:pointer; }
 .ghost-select{ background:#eef2f7; color:#0f172a; height:36px; padding:0 8px; border:none; border-radius:10px; }
 .ghost-input{ background:#fff; border:1px solid #e5e7eb; height:34px; padding:0 8px; border-radius:8px; }
 .cols-panel{ display:flex; flex-wrap:wrap; gap:12px; padding:8px 12px; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:12px; margin-bottom:12px; }
