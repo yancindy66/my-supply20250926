@@ -646,10 +646,15 @@ function confirmInsertCapture(){
 .page{ padding:16px; }
 .title-bar{ display:flex; align-items:center; justify-content:space-between; margin:0; }
 .close-btn{ background:#fee2e2; color:#991b1b; border:none; width:28px; height:28px; border-radius:6px; cursor:pointer; }
-.toolbar{ margin:12px 0; display:flex; gap:8px; }
-.toolbar{ position:relative; z-index:10; }
-.ghost{ background:#eef2f7; color:#0f172a; height:36px; padding:0 12px; border:none; border-radius:10px; cursor:pointer; }
-.ghost-select{ background:#eef2f7; color:#0f172a; height:36px; padding:0 8px; border:none; border-radius:10px; }
+.toolbar{ margin:12px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.toolbar{ position:relative; z-index:10; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; padding:8px; box-shadow:0 6px 16px rgba(2,6,23,.06); }
+.ghost{ background:linear-gradient(#f8fafc,#eef2f7); color:#0f172a; height:34px; padding:0 12px; border:1px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all .15s ease; box-shadow:0 1px 0 rgba(255,255,255,.6) inset; }
+.ghost:hover{ background:linear-gradient(#f1f5f9,#e2e8f0); border-color:#cbd5e1; transform:translateY(-1px); }
+.ghost:active{ transform:translateY(0); }
+.ghost:disabled{ opacity:.6; cursor:not-allowed; }
+.ghost-select{ background:#f8fafc; color:#0f172a; height:34px; padding:0 10px; border:1px solid #e2e8f0; border-radius:10px; }
+.upload-btn{ position:relative; overflow:hidden; display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:10px; background:linear-gradient(#f8fafc,#eef2f7); color:#0f172a; border:1px solid #e2e8f0; height:34px; cursor:pointer; }
+.upload-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 .ghost-input{ background:#fff; border:1px solid #e5e7eb; height:34px; padding:0 8px; border-radius:8px; }
 .cols-panel{ display:flex; flex-wrap:wrap; gap:12px; padding:8px 12px; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:12px; margin-bottom:12px; }
 .col-item{ font-size:12px; color:#0f172a; }
