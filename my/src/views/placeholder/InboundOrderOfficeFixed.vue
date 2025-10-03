@@ -22,14 +22,18 @@ async function loadLuckysheetCDN(){
       link.rel='stylesheet'; link.href=href; document.head.appendChild(link);
     }
   }
-  const js = 'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js';
-  if(!(window as any).luckysheet){
-    await new Promise((resolve, reject)=>{
-      const s = document.createElement('script'); s.src = js; s.async = true;
-      s.onload = ()=> resolve(null); s.onerror = reject; document.body.appendChild(s);
-    });
-  }
-  return (window as any).luckysheet;
+  // 先加载插件脚本，再加载主库
+  const loadScript = (src:string)=> new Promise((resolve, reject)=>{
+    const exists = Array.from(document.scripts).some(sc=>sc.src===src);
+    if(exists) return resolve(null);
+    const s = document.createElement('script'); s.src = src; s.async = true;
+    s.onload = ()=> resolve(null); s.onerror = reject; document.body.appendChild(s);
+  });
+  await loadScript('https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/js/plugin.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js');
+  // 等待全局对象就绪
+  const ls:any = (window as any).luckysheet || (window as any).Luckysheet;
+  return ls;
 }
 const allRecords = ref<any[]>([]);
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
@@ -130,11 +134,11 @@ function genFullMock(n:number){
 
 async function renderLuckysheet(rows:any[]){
   const lsAny:any = await loadLuckysheetCDN();
-  const ls = (lsAny && typeof lsAny.create==='function')
-    ? lsAny
-    : (lsAny?.default && typeof lsAny.default.create==='function')
-      ? lsAny.default
-      : (window as any).luckysheet;
+  const ls = (lsAny && typeof lsAny.create==='function') ? lsAny : (window as any).luckysheet;
+  if(!ls || typeof ls.create!=='function'){
+    console.error('Luckysheet未就绪', lsAny);
+    return;
+  }
   const columns = [
     '预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证'
   ];
