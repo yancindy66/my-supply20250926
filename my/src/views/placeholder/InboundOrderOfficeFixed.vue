@@ -10,7 +10,6 @@
       <button class="ghost" @click="syncGate">同步门岗</button>
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost primary" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
-      <button class="ghost icon-btn" title="打开保存的文件" @click="openFolder" @dblclick="openFolder">📁</button>
       <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
       <label class="ghost upload-btn">
         上传磅单(多张)
@@ -28,7 +27,7 @@
       <span class="hint">第 {{ page }} / {{ totalPages }} 页</span>
       <button class="ghost" @click="nextPage">下一页</button>
     </div>
-    <div v-if="closed" class="closed-hint">表格已关闭。可点击“打开”选择已保存的表恢复。</div>
+    <div v-if="closed" class="closed-hint">表格已关闭。</div>
     <div v-if="toast.show" class="toast" role="status" aria-live="polite">{{ toast.msg }}</div>
     <div v-if="showCols" class="cols-panel">
       <label v-for="c in cols" :key="c.key" class="col-item">
@@ -58,25 +57,6 @@
         <div class="modal-actions">
           <button class="ghost" @click="confirmSaveAndClose">保存并关闭</button>
           <button @click="showNameDialog=false">取消</button>
-        </div>
-      </div>
-    </div>
-    <!-- 保存文件夹弹窗 -->
-    <div v-if="showFolder" class="modal-mask">
-      <div class="modal large">
-        <div class="modal-title">我的保存</div>
-        <div class="modal-body">
-          <input class="ghost-input" placeholder="搜索文件名..." v-model="openSearch" />
-          <div class="file-list">
-            <div class="file-item" v-for="f in filteredSaved" :key="f.id" @dblclick="openSaved(f.id)" @click="openSaved(f.id)">
-              <div class="fname">{{ f.name }}</div>
-              <div class="ftime">{{ formatTime(f.ts) }}</div>
-            </div>
-            <div v-if="!filteredSaved.length" class="empty">暂无保存</div>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="ghost" @click="showFolder=false">关闭</button>
         </div>
       </div>
     </div>
