@@ -15,6 +15,13 @@
         :fixedColumnsEnd="1"
         :stretchH="'none'"
         :manualColumnResize="true"
+        :manualColumnMove="true"
+        :rowHeaders="true"
+        :filters="true"
+        :dropdownMenu="true"
+        :columnSorting="true"
+        :currentRowClassName="'current-row'"
+        :currentColClassName="'current-col'"
         :colWidths="140"
         :licenseKey="'non-commercial-and-evaluation'"
         :rowHeights="40"
@@ -31,32 +38,51 @@ import 'handsontable/dist/handsontable.full.min.css';
 import { listInboundOrders } from '@/api/depositor';
 const rows = ref<any[]>([]);
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
+// 渲染器
+function renderTag(td:HTMLTableCellElement, text:string, cls:string){ td.innerHTML = `<span class="tag ${cls}">${text}</span>`; }
+function statusRenderer(_inst:any, td:any, _row:number, _col:number, _prop:any, value:any){
+  const map:any = { '已创建':'blue', '收货中':'amber', '已完成':'green', '已取消':'gray' };
+  renderTag(td, String(value||'-'), `tag-${map[String(value)]||'gray'}`);
+}
+function modeRenderer(_inst:any, td:any, _row:number, _col:number, _prop:any, value:any){
+  const map:any = { '按规格':'purple', '按磅重':'cyan' };
+  renderTag(td, String(value||'-'), `tag-${map[String(value)]||'gray'}`);
+}
+function linkRenderer(_inst:any, td:any, _row:number, _col:number, _prop:any, value:any){
+  if (value && String(value) !== '-') {
+    td.innerHTML = `<a class="link" href="${value}" target="_blank">查看</a>`;
+  } else { td.textContent = '-'; }
+}
+function actionRenderer(_inst:any, td:any){
+  td.innerHTML = `<button class="link">编辑</button><button class="danger">删除</button>`;
+}
+
 const hotColumns = [
-  { data:'reservation_number' },
-  { data:'transport_no' },
-  { data:'order_no' },
-  { data:'status' },
-  { data:'inbound_proof' },
-  { data:'owner_name' },
-  { data:'commodity' },
-  { data:'vehicle_plate' },
-  { data:'planned_quantity' },
-  { data:'actual_in_weight' },
-  { data:'weigh_mode_text' },
-  { data:'gross' },
-  { data:'tare' },
-  { data:'net' },
-  { data:'deductions' },
-  { data:'entry_photos_count' },
-  { data:'entry_time' },
-  { data:'exit_photos_count' },
-  { data:'exit_time' },
-  { data:'qc_url' },
-  { data:'driver_name' },
-  { data:'driver_phone' },
-  { data:'driver_id_card' },
-  { data:'driver_license_url' },
-  { data:'_act' }
+  { data:'reservation_number', width:140 },
+  { data:'transport_no', width:120 },
+  { data:'order_no', width:140 },
+  { data:'status', className:'htCenter', width:100, renderer: statusRenderer },
+  { data:'inbound_proof', className:'htCenter', width:110 },
+  { data:'owner_name', width:140 },
+  { data:'commodity', width:180 },
+  { data:'vehicle_plate', className:'htCenter', width:120 },
+  { data:'planned_quantity', className:'htRight', width:120, type:'numeric' },
+  { data:'actual_in_weight', className:'htRight', width:120, type:'numeric' },
+  { data:'weigh_mode_text', className:'htCenter', width:110, renderer: modeRenderer },
+  { data:'gross', className:'htRight', width:110, type:'numeric' },
+  { data:'tare', className:'htRight', width:110, type:'numeric' },
+  { data:'net', className:'htRight', width:110, type:'numeric' },
+  { data:'deductions', className:'htRight', width:100, type:'numeric' },
+  { data:'entry_photos_count', className:'htCenter', width:120 },
+  { data:'entry_time', width:160 },
+  { data:'exit_photos_count', className:'htCenter', width:120 },
+  { data:'exit_time', width:160 },
+  { data:'qc_url', width:120, renderer: linkRenderer },
+  { data:'driver_name', className:'htCenter', width:110 },
+  { data:'driver_phone', width:140 },
+  { data:'driver_id_card', width:180 },
+  { data:'driver_license_url', width:120, renderer: linkRenderer },
+  { data:'_act', className:'htCenter', width:160, renderer: actionRenderer }
 ];
 
 function mapStatus(s: string){ const m:Record<string,string>={ created:'已创建', receiving:'收货中', completed:'已完成', cancelled:'已取消' }; return m[s]||s||'-'; }
@@ -159,6 +185,19 @@ function mock10(){
 
 /* 显式启用底边滚动条（部分浏览器在容器高度=视窗高度时不展示滚动条） */
 .grid-wrap{ scrollbar-gutter: stable both-edges; }
+
+/* 高亮当前行列 */
+.current-row{ background: #f8fafc; }
+.current-col{ background: #f1f5f9; }
+
+/* 标签色系 */
+.tag{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; line-height:18px; }
+.tag.tag-blue{ background:#e0f2fe; color:#075985; }
+.tag.tag-amber{ background:#fef3c7; color:#92400e; }
+.tag.tag-green{ background:#dcfce7; color:#166534; }
+.tag.tag-gray{ background:#e5e7eb; color:#374151; }
+.tag.tag-purple{ background:#ede9fe; color:#5b21b6; }
+.tag.tag-cyan{ background:#cffafe; color:#155e75; }
 </style>
 
 
