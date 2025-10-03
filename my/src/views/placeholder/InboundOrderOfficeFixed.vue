@@ -11,7 +11,7 @@
         <input type="file" accept=".csv,.xlsx,.xls" @change="onImportFile" />
       </label>
       <button class="ghost" @click="exportExcel">导出</button>
-      <button class="ghost" @click="saveCurrent">保存</button>
+      <button class="ghost" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
       <button class="ghost" @click="showOpenPanel=true">打开</button>
       <button class="ghost" @click="printSheet">打印</button>
       <div class="spacer"></div>
@@ -25,6 +25,7 @@
       <button class="ghost" @click="nextPage">下一页</button>
     </div>
     <div v-if="closed" class="closed-hint">表格已关闭。可点击“打开”选择已保存的表恢复。</div>
+    <div v-if="toast.show" class="toast" role="status" aria-live="polite">{{ toast.msg }}</div>
     <div v-if="showCols" class="cols-panel">
       <label v-for="c in cols" :key="c.key" class="col-item">
         <input type="checkbox" v-model="c.visible" @change="rerender"/> {{ c.name }}
@@ -126,6 +127,8 @@ const openSearch = ref('');
 const showCloseDialog = ref(false);
 const showOpenPanel = ref(false);
 const closed = ref(false);
+const saving = ref(false);
+const toast = ref<{show:boolean; msg:string}>({ show:false, msg:'' });
 const filteredSaved = computed(()=>{
   const k = openSearch.value.trim().toLowerCase();
   if(!k) return savedList.value;
@@ -416,6 +419,7 @@ function loadSaved(){
 }
 function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedList.value)); }
 async function saveCurrent(){
+  saving.value = true;
   const id = String(Date.now());
   // 优先从 Luckysheet 当前网格读取（包含用户直接在表内改动的内容）
   let data:any[] = [];
@@ -431,6 +435,8 @@ async function saveCurrent(){
   savedList.value = [{ id, name, data }, ...savedList.value];
   persist();
   openId.value = id;
+  saving.value = false;
+  showToast('已保存：'+name);
 }
 function openSaved(){
   const id = typeof arguments[0]==='string' ? arguments[0] : openId.value;
@@ -453,6 +459,8 @@ function printSheet(){
   const w = window.open('', '_blank'); if(!w) return;
   w.document.open(); w.document.write(html); w.document.close(); w.focus(); w.print();
 }
+
+function showToast(msg:string){ toast.value = { show:true, msg }; setTimeout(()=> toast.value.show=false, 1800); }
 </script>
 
 <style scoped>
@@ -501,6 +509,7 @@ function printSheet(){
 .fname{ color:#0f172a; }
 .ftime{ color:#64748b; font-size:12px; }
 .closed-hint{ padding:8px 12px; border:1px dashed #e5e7eb; border-radius:10px; background:#f8fafc; color:#334155; margin-bottom:8px; }
+.toast{ position:fixed; right:16px; bottom:16px; background:#0ea5e9; color:#fff; padding:8px 12px; border-radius:8px; box-shadow:0 6px 14px rgba(2,6,23,.25); z-index:60; }
 .import-panel{ border:1px solid #e5e7eb; background:#fff; padding:10px; border-radius:10px; margin-top:12px; box-shadow:0 6px 16px rgba(2,6,23,.06); }
 .import-head{ display:flex; align-items:center; gap:10px; }
 .import-body{ margin-top:8px; }
