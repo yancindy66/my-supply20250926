@@ -3,6 +3,7 @@
     <h2>车辆入库（修正·Handsontable）</h2>
     <div class="toolbar">
       <button class="ghost" @click="load">刷新</button>
+    <button class="ghost" @click="mock10">生成10条MOCK</button>
     </div>
     <div class="grid-wrap">
       <hot-table
@@ -93,6 +94,49 @@ async function load(){
 }
 
 onMounted(load);
+
+function randomPlate(){
+  const letters = 'ABCDEFGHJKLmnopqrstu'.toUpperCase();
+  const prov = ['京','津','沪','渝','冀','豫','云','辽','黑','湘','皖','鲁','新','苏','浙','赣','鄂','桂','甘','晋','蒙','陕','吉','闽','贵','粤','青','藏','川','宁','琼'];
+  const tail = Math.random().toString().slice(2,6) + letters[Math.floor(Math.random()*letters.length)];
+  return prov[Math.floor(Math.random()*prov.length)] + 'A' + tail;
+}
+
+function mock10(){
+  const now = Date.now();
+  const data = Array.from({ length:10 }).map((_,i)=>{
+    const gross = 30000 + Math.floor(Math.random()*10000);
+    const tare = 12000 + Math.floor(Math.random()*4000);
+    const net = gross - tare;
+    return {
+      reservation_number: 'YY'+(now+i),
+      transport_no: 'T'+(now+i).toString().slice(-6),
+      order_no: 'RK'+(now+i),
+      status: ['created','receiving','completed'][i%3],
+      inbound_proof: i%2===0? '磅单1张' : '-',
+      owner_name: '某客户'+(i+1),
+      commodity_name: ['铁矿','煤炭','玉米','大豆'][i%4],
+      commodity_spec: ['散装','袋装','30kg','50kg'][i%4],
+      vehicle_plate: randomPlate(),
+      planned_quantity: 32000 + i*500,
+      actual: net,
+      weigh_mode: 'by_weight',
+      gross, tare, net,
+      deductions: i%3===0? 20: 0,
+      entry_photos: new Array(i%4).fill(0),
+      entry_time: new Date(now - i*3600_000).toISOString().slice(0,19).replace('T',' '),
+      exit_photos: new Array((i+1)%4).fill(0),
+      exit_time: new Date(now - i*1800_000).toISOString().slice(0,19).replace('T',' '),
+      qc_url: 'https://example.com/qc/'+(now+i),
+      driver_name: '司机'+(i+1),
+      driver_phone: '1'+(3000000000 + Math.floor(Math.random()*999999999)).toString().slice(0,10),
+      driver_id_no: '4401011990010'+String(100+i),
+      driver_license_url: 'https://example.com/license/'+(now+i)
+    };
+  });
+  localStorage.setItem('mockInboundOrders', JSON.stringify(data));
+  load();
+}
 </script>
 
 <style scoped>
