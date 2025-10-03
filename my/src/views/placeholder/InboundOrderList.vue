@@ -339,7 +339,19 @@ const ftColumns = computed(()=>{
     const col:any = { key:c.key, label:c.label };
     if(c.key==='reservation_number') { col.fixed='left'; col.width=180; }
     if(c.key==='transport_no') { col.fixed='left'; col.width=160; }
-    if(c.key==='actions') { col.fixed='right'; col.width=200; }
+    if(c.key==='actions') { col.fixed='right'; col.width=240; }
+    // 紧凑化常用列宽
+    const widthMap: Record<string, number> = {
+      order_no:160,
+      owner_name:140,
+      commodity:180,
+      planned_quantity:120,
+      actual_in_weight:120,
+      weigh_mode:100,
+      inbound_status:100,
+      created_at:160,
+    };
+    if(col.width==null && widthMap[c.key]!=null){ col.width = widthMap[c.key]; }
     return col;
   });
 });

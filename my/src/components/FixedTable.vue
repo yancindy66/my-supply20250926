@@ -118,8 +118,8 @@ onBeforeUnmount(()=>{
 .ft-scroll-top{ width:100%; overflow-x:auto; overflow-y:hidden; height:12px; margin-bottom:6px; }
 .ft-wrap{ width:100%; overflow-x:auto; }
 .ft-table{ width:100%; min-width: 1400px; border-collapse: separate; border-spacing:0; box-shadow:0 10px 24px rgba(2,6,23,.06); border-radius:12px; overflow:hidden; }
-.ft-table thead th{ position:relative; top:0; background:#f8fafc; color:#0f172a; font-weight:600; text-align:left; padding:10px 12px; border-bottom:1px solid #eef2f7; }
-.ft-table td{ padding:10px 12px; border-bottom:1px solid #eef2f7; }
+.ft-table thead th{ position:relative; top:0; background:#f8fafc; color:#0f172a; font-weight:600; text-align:left; padding:8px 10px; border-bottom:1px solid #eef2f7; }
+.ft-table td{ padding:8px 10px; border-bottom:1px solid #eef2f7; }
 .ft-table tbody tr:nth-child(odd){ background:#fcfdff; }
 .ft-table tbody tr:hover td:not(.fixed-left):not(.fixed-right){ background:#f8fafc; }
 </style>
