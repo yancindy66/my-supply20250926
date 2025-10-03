@@ -7,11 +7,30 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import 'luckysheet/dist/plugins/css/plugins.css';
-import 'luckysheet/dist/css/luckysheet.css';
-import 'luckysheet/dist/assets/iconfont/iconfont.css';
-import luckysheet from 'luckysheet';
+// 使用 CDN 动态加载 Luckysheet，避免本地打包兼容问题
 import { listInboundOrders } from '@/api/depositor';
+
+async function loadLuckysheetCDN(){
+  const cssList = [
+    'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/css/plugins.css',
+    'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/css/luckysheet.css',
+    'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/assets/iconfont/iconfont.css'
+  ];
+  for(const href of cssList){
+    if(!document.querySelector(`link[href="${href}"]`)){
+      const link = document.createElement('link');
+      link.rel='stylesheet'; link.href=href; document.head.appendChild(link);
+    }
+  }
+  const js = 'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js';
+  if(!(window as any).luckysheet){
+    await new Promise((resolve, reject)=>{
+      const s = document.createElement('script'); s.src = js; s.async = true;
+      s.onload = ()=> resolve(null); s.onerror = reject; document.body.appendChild(s);
+    });
+  }
+  return (window as any).luckysheet;
+}
 const allRecords = ref<any[]>([]);
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
 // Handsontable 配置已移除，改用 Luckysheet 渲染
@@ -109,7 +128,8 @@ function genFullMock(n:number){
   return arr;
 }
 
-function renderLuckysheet(rows:any[]){
+async function renderLuckysheet(rows:any[]){
+  const luckysheet = await loadLuckysheetCDN();
   const columns = [
     '预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证'
   ];
@@ -121,7 +141,7 @@ function renderLuckysheet(rows:any[]){
   rows.forEach((r, ri)=>{
     keys.forEach((k, ci)=>{ celldata.push({ r:ri+1, c:ci, v:{ v: r[k] ?? '' } }); });
   });
-  try{ (luckysheet as any).destroy?.(); }catch{}
+  try{ luckysheet.destroy?.(); }catch{}
   luckysheet.create({
     container:'luckysheet',
     lang:'zh',
