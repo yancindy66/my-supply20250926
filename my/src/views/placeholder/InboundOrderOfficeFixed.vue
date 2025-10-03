@@ -512,8 +512,33 @@ function openSaved(){
   showOpenPanel.value = false; closed.value = false;
 }
 function closeWithoutSave(){ showCloseDialog.value=false; hideCurrentSheet(); }
-function prepareCloseWithSave(){ showCloseDialog.value=false; nameInput.value = ''; showNameDialog.value = true; }
-function confirmSaveAndClose(){ saveCurrent(nameInput.value.trim()); showNameDialog.value=false; hideCurrentSheet(); }
+function prepareCloseWithSave(){
+  showCloseDialog.value=false;
+  // 判断当前sheet名称，未命名（如 Sheet2/sheet2）则要求命名保存
+  const ls:any = (window as any).luckysheet;
+  let sheetName = 'Sheet';
+  try{
+    const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
+    const cur = ls?.getAllSheets?.()[idx];
+    sheetName = cur?.name || 'Sheet';
+  }catch{}
+  if(/^sheet\d+$/i.test(sheetName)){
+    nameInput.value = '';
+    showNameDialog.value = true;
+  }else{
+    // 已命名：按之前逻辑直接关闭当前sheet
+    hideCurrentSheet();
+  }
+}
+function confirmSaveAndClose(){
+  const raw = nameInput.value.trim() || '未命名';
+  const ts = new Date();
+  const time = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}`;
+  const custom = `保存-${raw}-${time}`;
+  saveCurrent(custom);
+  showNameDialog.value=false;
+  hideCurrentSheet();
+}
 
 function hideCurrentSheet(){
   // 仅隐藏当前Luckysheet中的活动sheet，不销毁其他sheet
@@ -521,7 +546,12 @@ function hideCurrentSheet(){
   try{
     const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
     const sheets:any[] = ls?.getAllSheets?.() || [];
-    if(sheets[idx]){ ls?.deleteSheet?.(idx); }
+    if(!sheets.length) return;
+    // 兼容多版本：优先deleteSheet/delSheet，否则隐藏
+    if(typeof ls?.deleteSheet==='function') ls.deleteSheet(idx);
+    else if(typeof ls?.delSheet==='function') ls.delSheet(idx);
+    else if(typeof ls?.setSheetHide==='function') ls.setSheetHide(idx, true);
+    else { closed.value = true; }
   }catch{}
   // 页面上不整体关闭容器，避免误关全部
 }
