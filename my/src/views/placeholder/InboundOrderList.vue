@@ -7,17 +7,10 @@
       <button class="ghost" :disabled="!selectedCount" @click="batchWithdraw">批量撤回</button>
       <button class="ghost" :disabled="!selectedCount" @click="batchRedFlush">批量红冲</button>
       <button class="ghost" @click="batchImportStackCard">批量导入垛位卡</button>
-      <div class="searchbar">
-        <input class="ghost-input" v-model="q.owner" placeholder="客户" />
-        <input class="ghost-input" v-model="q.product" placeholder="商品" />
-        <input class="ghost-input num" v-model.number="q.wtMin" type="number" step="0.01" placeholder="磅重≥" />
-        <input class="ghost-input num" v-model.number="q.wtMax" type="number" step="0.01" placeholder="磅重≤" />
-        <label class="ghost-check"><input type="checkbox" v-model="q.doneOnly" /> 入库完成</label>
-        <input class="ghost-input" v-model="q.timeStart" type="datetime-local" />
-        <span class="dot">至</span>
-        <input class="ghost-input" v-model="q.timeEnd" type="datetime-local" />
-        <button class="ghost" @click="doQuickSearch">查询</button>
-        <button class="ghost" @click="clearQuickSearch">清空</button>
+      <div class="searchbar single">
+        <input class="ghost-input wide" v-model="qkw" placeholder="搜索：客户/商品/入库单号/预约单号" />
+        <button class="ghost" @click="doKwSearch">搜索</button>
+        <button class="ghost" @click="clearKw">清空</button>
       </div>
       <button v-if="routeOfficeMode" class="ghost" @click="downloadTemplate">下载模板</button>
       <label v-if="routeOfficeMode" class="upload-btn">
@@ -570,10 +563,11 @@ const visibleRows = computed(()=>{
     if (f.end){ const ct = new Date(row.created_at || row.eta || 0).getTime(); if (isFinite(ct) && ct > new Date(f.end).getTime()) return false; }
     if (showAbnormalOnly.value && !isAbnormal(row)) return false;
     // 快速搜索
-    if(q.value.owner && String(row.owner_name||'').indexOf(q.value.owner)===-1) return false;
-    if(q.value.product){
-      const text = `${row.commodity_name||''} ${row.commodity_spec||''}`;
-      if(text.indexOf(q.value.product)===-1) return false;
+    // 单栏关键字：客户/商品/入库单号/预约单号
+    if(qkw.value){
+      const kw = qkw.value.trim();
+      const bag = `${row.owner_name||''} ${row.commodity_name||''} ${row.commodity_spec||''} ${row.order_no||''} ${row.reservation_number||''}`;
+      if(bag.indexOf(kw)===-1) return false;
     }
     const weight = Number(row.actual || row.calc_weight || row.net || 0);
     if(q.value.wtMin!=null && q.value.wtMin!=='' && weight < Number(q.value.wtMin)) return false;
@@ -588,10 +582,11 @@ const visibleRows = computed(()=>{
   });
 });
 
-// 快速搜索状态
+// 单栏关键字搜索
 const q = ref<{ owner:string; product:string; wtMin:any; wtMax:any; doneOnly:boolean; timeStart:string; timeEnd:string }>({ owner:'', product:'', wtMin:'', wtMax:'', doneOnly:false, timeStart:'', timeEnd:'' });
-function doQuickSearch(){ /* 依赖 computed 自动响应 */ }
-function clearQuickSearch(){ q.value = { owner:'', product:'', wtMin:'', wtMax:'', doneOnly:false, timeStart:'', timeEnd:'' }; }
+const qkw = ref('');
+function doKwSearch(){ /* 由 computed 响应 */ }
+function clearKw(){ qkw.value=''; }
 
 // 选择与序号
 const selection = ref<Record<string, boolean>>({});
@@ -862,7 +857,9 @@ load();
 .toolbar.office{ background:#f8fafc; padding:8px; border-radius:10px; }
 .spacer{ flex:1; }
 .searchbar{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-left:8px; }
+.searchbar.single{ gap:8px; }
 .ghost-input{ height:32px; padding:0 8px; border:none; border-radius:8px; background:#eef2f7; color:#0f172a; }
+.ghost-input.wide{ width:360px; }
 .ghost-input.num{ width:90px; }
 .ghost-check{ display:flex; align-items:center; gap:4px; color:#0f172a; }
 .pretty-form :deep(.el-form-item){ margin-bottom:10px; }
