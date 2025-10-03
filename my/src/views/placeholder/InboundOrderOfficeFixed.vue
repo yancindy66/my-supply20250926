@@ -14,7 +14,7 @@
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
       <button class="ghost" @click="showOpenPanel=true">打开</button>
-      <button class="ghost" @click="addTestCapture">插入测试抓拍</button>
+      <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
       <label class="ghost upload-btn">
         上传磅单(多张)
         <input type="file" accept="image/*" multiple @change="onUploadTickets" />
@@ -122,6 +122,27 @@
         </div>
         <div class="modal-actions">
           <button class="ghost" @click="showCapture=false">关闭</button>
+        </div>
+      </div>
+    </div>
+    <!-- 插入抓拍信息弹框 -->
+    <div v-if="showInsertDialog" class="modal-mask">
+      <div class="modal">
+        <div class="modal-title">插入抓拍与运输信息</div>
+        <div class="modal-body">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <label style="min-width:86px;">运输单号</label>
+            <input class="ghost-input" v-model="formTransportNo" placeholder="请输入运输单号" />
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <label style="min-width:86px;">运单号</label>
+            <input class="ghost-input" v-model="formWaybillNo" placeholder="请输入运单号" />
+          </div>
+          <div style="margin-top:8px; color:#64748b; font-size:12px;">已选择磅单图片 {{ pendingTickets.length }} 张</div>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" @click="confirmInsertCapture">确定</button>
+          <button @click="showInsertDialog=false">取消</button>
         </div>
       </div>
     </div>
@@ -573,6 +594,8 @@ async function onUploadTickets(e: Event){
   rerender();
   showToast('已添加本地磅单(预览)');
   (e.target as HTMLInputElement).value = '';
+  // 将待插入的数据暂存在内存，便于“插入测试抓拍”使用
+  pendingTickets.splice(0, pendingTickets.length, ...urls);
 }
 function fileToDataUrl(file: File){
   return new Promise<string>((resolve,reject)=>{ const reader = new FileReader(); reader.onload=()=>resolve(String(reader.result||'')); reader.onerror=reject; reader.readAsDataURL(file); });
@@ -582,6 +605,24 @@ const showCapture = ref(false);
 const currentRow = ref<any>(null);
 function previewCaptures(){ const row = allRecords.value[0]; if(!row) return showToast('暂无数据行'); currentRow.value = row; showCapture.value = true; }
 function openUrl(u:string){ window.open(u, '_blank'); }
+
+// 插入抓拍对话框逻辑
+const showInsertDialog = ref(false);
+const formTransportNo = ref('');
+const formWaybillNo = ref('');
+const pendingTickets = reactive<string[]>([] as string[]);
+function openInsertDialog(){ if(!pendingTickets.length) showToast('请先上传磅单图片'); showInsertDialog.value = true; }
+function confirmInsertCapture(){
+  const row = allRecords.value[0]; if(!row) return;
+  if(formTransportNo.value) row.transport_no = formTransportNo.value;
+  if(formWaybillNo.value) row.order_no = formWaybillNo.value;
+  row.entry_photos = Array.isArray(row.entry_photos)? row.entry_photos : [];
+  row.entry_photos.push(...pendingTickets);
+  row.entry_photos_count = `${row.entry_photos.length} 张`;
+  rerender();
+  showInsertDialog.value = false;
+  showToast('已插入运输/抓拍信息');
+}
 </script>
 
 <style scoped>
