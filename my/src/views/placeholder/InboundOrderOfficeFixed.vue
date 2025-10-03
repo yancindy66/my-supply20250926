@@ -18,7 +18,6 @@
       </label>
       <button class="ghost" @click="previewCaptures">预览抓拍</button>
       <button class="ghost" @click="printSheet">打印</button>
-      <button class="ghost" title="关闭页面" @click="triggerClose">❎ 关闭</button>
       <div class="spacer"></div>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
         <option :value="20">20/页</option>
@@ -36,9 +35,7 @@
         <input type="checkbox" v-model="c.visible" @change="rerender"/> {{ c.name }}
       </label>
     </div>
-    <div v-show="!closed" id="luckysheet" class="ls-wrap" style="position:relative;">
-      <button class="sheet-close-btn" title="关闭当前表" @click="triggerClose">❎</button>
-    </div>
+    <div v-show="!closed" id="luckysheet" class="ls-wrap" style="position:relative;"></div>
     <!-- 关闭确认弹框：页面级关闭入口（❎）触发 -->
     <div v-if="showCloseDialog" class="modal-mask">
       <div class="modal">
@@ -347,6 +344,25 @@ async function renderLuckysheet(rows:any[]){
     }
     return { name, values };
   }
+  // 在第一个sheet标签上绘制关闭按钮
+  try{
+    const sheetBar = document.querySelector('#luckysheet .luckysheet-sheet-area .luckysheet-sheets-item');
+    if(sheetBar && !document.getElementById('sheet-close-inline')){
+      const btn = document.createElement('button');
+      btn.id = 'sheet-close-inline';
+      btn.textContent = '❎';
+      btn.title = '关闭当前表';
+      btn.style.marginLeft = '6px';
+      btn.style.background = '#fee2e2';
+      btn.style.color = '#991b1b';
+      btn.style.border = 'none';
+      btn.style.borderRadius = '6px';
+      btn.style.cursor = 'pointer';
+      btn.style.padding = '2px 6px';
+      btn.onclick = () => triggerClose();
+      sheetBar.appendChild(btn);
+    }
+  }catch{}
 }
 
 const cols = ref([
