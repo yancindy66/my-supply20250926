@@ -5,11 +5,11 @@
       <!-- 入库单列表不再新建预约，入口前移至门岗核验 -->
       <button class="ghost" @click="load">刷新</button>
       <button class="ghost" :disabled="!selectedCount" @click="batchWithdraw">批量撤回</button>
-      <button class="ghost" :disabled="!selectedCount" @click="batchRedFlush">批量红冲</button>
+      <button class="danger-btn" :disabled="!selectedCount" @click="batchRedFlush">批量红冲</button>
       <button class="ghost" @click="batchImportStackCard">批量导入垛位卡</button>
       <div class="searchbar single">
         <input class="ghost-input wide" v-model="qkw" placeholder="搜索：客户/商品/入库单号/预约单号" />
-        <button class="ghost" @click="doKwSearch">搜索</button>
+        <button class="primary" @click="doKwSearch">搜索</button>
         <button class="ghost" @click="clearKw">清空</button>
       </div>
       <button v-if="routeOfficeMode" class="ghost" @click="downloadTemplate">下载模板</button>
@@ -275,6 +275,8 @@
       <template #cell-actions="{row}">
         <div class="ops compact">
           <button class="op" title="添加台账" @click="addLedger(row)">添加台账</button>
+          <span class="dot">|</span>
+          <button class="op" title="移库" @click="transferMove(row)">移库</button>
           <span class="dot">|</span>
           <button class="op primary" title="注册仓单" @click="registerWarehouseReceipt(row)">注册仓单</button>
         </div>
@@ -844,6 +846,7 @@ async function registerWarehouseReceipt(row:any){
     alert('已注册仓单（demo）');
   }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
 }
+function transferMove(_row:any){ alert('移库（占位）'); }
 // 占位编辑入口已不在列表展示，保留需求时再启用
 // 精简：删除、审核、驳回、取消预约等方法移除，按新操作栏逻辑保留“注册仓单”演示
 
@@ -854,6 +857,8 @@ load();
 .page{ padding:16px; }
 .toolbar{ margin:12px 0; display:flex; gap:8px; }
 .toolbar .ghost{ background:#f1f5f9; }
+.toolbar .primary{ background:#2563eb; color:#fff; box-shadow:0 6px 14px rgba(37,99,235,.18); }
+.toolbar .danger-btn{ background:#fee2e2; color:#b91c1c; }
 .toolbar.office{ background:#f8fafc; padding:8px; border-radius:10px; }
 .spacer{ flex:1; }
 .searchbar{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-left:8px; }
