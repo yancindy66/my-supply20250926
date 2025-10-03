@@ -14,6 +14,12 @@
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
       <button class="ghost" @click="showOpenPanel=true">打开</button>
+      <button class="ghost" @click="addTestCapture">插入测试抓拍</button>
+      <label class="ghost upload-btn">
+        上传磅单(多张)
+        <input type="file" accept="image/*" multiple @change="onUploadTickets" />
+      </label>
+      <button class="ghost" @click="previewCaptures">预览抓拍</button>
       <button class="ghost" @click="printSheet">打印</button>
       <div class="spacer"></div>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
@@ -82,6 +88,27 @@
               <li v-for="(m,mi) in e.messages" :key="mi">{{ m }}</li>
             </ul>
           </div>
+        </div>
+      </div>
+    </div>
+    <!-- 抓拍预览弹窗 -->
+    <div v-if="showCapture" class="modal-mask">
+      <div class="modal large">
+        <div class="modal-title">抓拍预览（{{ currentRow?.reservation_number || '-' }}）</div>
+        <div class="modal-body">
+          <div class="gallery">
+            <figure v-for="(u,i) in (currentRow?.entry_photos||[])" :key="'en'+i" class="thumb">
+              <img :src="u" @click="openUrl(u)" />
+              <figcaption>入场 {{ i+1 }}</figcaption>
+            </figure>
+            <figure v-for="(u,i) in (currentRow?.exit_photos||[])" :key="'ex'+i" class="thumb">
+              <img :src="u" @click="openUrl(u)" />
+              <figcaption>出场 {{ i+1 }}</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" @click="showCapture=false">关闭</button>
         </div>
       </div>
     </div>
@@ -489,6 +516,45 @@ async function syncGate(){
     showToast('门岗数据已同步');
   }catch{ showToast('门岗同步失败'); }
 }
+
+// 插入测试抓拍（使用公网测试图），并显示缩略图预览入口
+function addTestCapture(){
+  const url1 = 'https://images.unsplash.com/photo-1529078155058-5d716f45d604?w=800&q=80&auto=format&fit=crop';
+  const url2 = 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80&auto=format&fit=crop';
+  const row = allRecords.value[0];
+  if(!row) return showToast('暂无数据行');
+  row.entry_photos = Array.isArray(row.entry_photos)? row.entry_photos : [];
+  row.exit_photos = Array.isArray(row.exit_photos)? row.exit_photos : [];
+  row.entry_photos.push(url1); row.exit_photos.push(url2);
+  row.entry_photos_count = `${row.entry_photos.length} 张`;
+  row.exit_photos_count = `${row.exit_photos.length} 张`;
+  rerender();
+  currentRow.value = row; showCapture.value = true;
+}
+
+// 批量上传磅单（入库凭证），此处示例为将图片转成dataURL后暂存到本地再合并
+async function onUploadTickets(e: Event){
+  const files = (e.target as HTMLInputElement).files; if(!files || !files.length) return;
+  const row = allRecords.value[0]; if(!row) return showToast('请先确保有一条数据');
+  const urls:string[] = [];
+  for(const f of Array.from(files)){
+    const u = await fileToDataUrl(f); urls.push(u);
+  }
+  row.weigh_ticket_urls = Array.isArray(row.weigh_ticket_urls)? row.weigh_ticket_urls : [];
+  row.weigh_ticket_urls.push(...urls);
+  row.inbound_proof = `磅单${row.weigh_ticket_urls.length}张`;
+  rerender();
+  showToast('已添加本地磅单(预览)');
+  (e.target as HTMLInputElement).value = '';
+}
+function fileToDataUrl(file: File){
+  return new Promise<string>((resolve,reject)=>{ const reader = new FileReader(); reader.onload=()=>resolve(String(reader.result||'')); reader.onerror=reject; reader.readAsDataURL(file); });
+}
+
+const showCapture = ref(false);
+const currentRow = ref<any>(null);
+function previewCaptures(){ const row = allRecords.value[0]; if(!row) return showToast('暂无数据行'); currentRow.value = row; showCapture.value = true; }
+function openUrl(u:string){ window.open(u, '_blank'); }
 </script>
 
 <style scoped>
@@ -544,6 +610,10 @@ async function syncGate(){
 .err-list{ display:grid; grid-template-columns: repeat(2, minmax(240px,1fr)); gap:8px; }
 .err-item{ border:1px dashed #fecaca; background:#fff7f7; padding:8px; border-radius:8px; color:#7f1d1d; }
 .err-title{ font-weight:600; margin-bottom:6px; }
+.gallery{ display:flex; flex-wrap:wrap; gap:10px; }
+.thumb{ width:160px; }
+.thumb img{ width:160px; height:100px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; cursor:pointer; }
+.thumb figcaption{ font-size:12px; text-align:center; color:#475569; margin-top:4px; }
 </style>
 
 
