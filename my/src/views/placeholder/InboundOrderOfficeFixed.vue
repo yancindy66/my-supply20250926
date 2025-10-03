@@ -5,7 +5,7 @@
       <button class="ghost" @click="toggleColsPanel">列显隐</button>
       <label class="ghost upload-btn">
         批量导入
-        <input type="file" accept=".csv" @change="onImportCsv" />
+        <input type="file" accept=".csv,.xlsx,.xls" @change="onImportFile" />
       </label>
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost" @click="printSheet">打印</button>
@@ -27,6 +27,27 @@
       </label>
     </div>
     <div id="luckysheet" class="ls-wrap"></div>
+    <div v-if="importPreview.length || importErrors.length" class="import-panel">
+      <div class="import-head">
+        <b>导入结果</b>
+        <span>共 {{ importPreview.length + importErrors.length }} 条</span>
+        <span>｜通过 {{ passCount }} 条｜错误 {{ failCount }} 条</span>
+        <div class="spacer"></div>
+        <button class="ghost" @click="clearImport">清空</button>
+        <button class="ghost" @click="exportErrorCsv" :disabled="!importErrors.length">导出错误明细</button>
+        <button @click="mergeImport" :disabled="!passCount">仅导入通过项</button>
+      </div>
+      <div class="import-body">
+        <div v-if="importErrors.length" class="err-list">
+          <div class="err-item" v-for="(e,i) in importErrors" :key="i">
+            <div class="err-title">第 {{ e._rowIndex+1 }} 行</div>
+            <ul>
+              <li v-for="(m,mi) in e.messages" :key="mi">{{ m }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -34,6 +55,7 @@
 import { ref, onMounted, computed } from 'vue';
 // 使用 CDN 动态加载 Luckysheet，避免本地打包兼容问题
 import { listInboundOrders } from '@/api/depositor';
+import * as XLSX from 'xlsx';
 
 async function loadLuckysheetCDN(){
   const cssList = [
@@ -252,20 +274,16 @@ function toggleColsPanel(){ showCols.value = !showCols.value; }
 // 冻结交由 Luckysheet 工具栏控制
 
 function exportExcel(){
-  // 简单导出：转成 CSV 并下载（避免引入额外库）
-  const headers = cols.value.filter(c=>c.visible).map(c=>c.name).join(',');
+  const headers = cols.value.filter(c=>c.visible).map(c=>c.name);
   const keys = cols.value.filter(c=>c.visible).map(c=>c.key);
-  const lines = viewRecords.value.map(r=> keys.map(k=> String(r[k]??'').replaceAll(',', ' ')).join(','));
-  const csv = [headers, ...lines].join('\n');
-  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = '入库列表.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const data = viewRecords.value.map(r=> keys.map(k=> r[k] ?? ''));
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '入库列表');
+  XLSX.writeFile(wb, '入库列表.xlsx');
 }
 
-// 批量导入（CSV）
+// 批量导入（CSV/XLSX）
 function parseCsv(text:string){
   const lines = text.split(/\r?\n/).filter(Boolean);
   if(!lines.length) return [] as any[];
@@ -285,18 +303,58 @@ function parseCsv(text:string){
   }
   return arr;
 }
-function onImportCsv(e: Event){
+async function onImportFile(e: Event){
   const input = e.target as HTMLInputElement; const file = input.files?.[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    const text = String(reader.result||'');
-    const rows = parseCsv(text);
-    allRecords.value = [...rows, ...allRecords.value];
-    input.value = '';
-    rerender();
-  };
-  reader.readAsText(file, 'utf-8');
+  const name = (file.name||'').toLowerCase();
+  try{
+    let rows:any[] = [];
+    if(name.endsWith('.csv')){
+      const text = await file.text();
+      rows = parseCsv(text);
+    }else{
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json:any[] = XLSX.utils.sheet_to_json(ws, { defval:'' });
+      // 尝试按中文标题映射
+      const map:Record<string,string> = { '预约单号':'reservation_number','运输单号':'transport_no','入库单号':'order_no','入库状态':'status','客户':'owner_name','车牌号':'vehicle_plate','商品':'commodity','预约量':'planned_quantity','已经入库量':'actual_in_weight','磅重（入库方式）':'weigh_mode_text','毛重':'gross','皮重':'tare','净重':'net','扣重':'deductions' };
+      rows = json.map(r=>{ const o:any={}; for(const [cn,en] of Object.entries(map)) o[en]=r[cn]??''; return o; });
+    }
+    doValidate(rows);
+  }catch(err){ alert('导入失败：'+(err as any)?.message || err); }
+  input.value = '';
 }
+
+const importPreview = ref<any[]>([]);
+const importErrors = ref<any[]>([]);
+const passCount = computed(()=> importPreview.value.length);
+const failCount = computed(()=> importErrors.value.length);
+
+function doValidate(rows:any[]){
+  const ok:any[] = []; const errs:any[] = [];
+  const existed = new Set(allRecords.value.map((r:any)=> String(r.reservation_number||'').trim()));
+  const seen = new Set<string>();
+  const statusSet = new Set(['已创建','收货中','已完成','已取消']);
+  rows.forEach((r, i)=>{
+    const messages:string[] = [];
+    const id = String(r.reservation_number||'').trim();
+    if(!id) messages.push('预约单号必填');
+    if(id){
+      if(existed.has(id)) messages.push('预约单号已存在');
+      if(seen.has(id)) messages.push('文件内预约单号重复');
+    }
+    const numericKeys = ['planned_quantity','actual_in_weight','gross','tare','net','deductions'];
+    for(const k of numericKeys){ if(r[k]!=='' && r[k]!=null && isNaN(Number(r[k]))) messages.push(`${k} 必须为数字`); }
+    if(r.gross!=='' && r.tare!=='' && !isNaN(Number(r.gross)) && !isNaN(Number(r.tare))){ r.net = (Number(r.gross)-Number(r.tare)).toFixed(2); }
+    if(r.status && !statusSet.has(String(r.status))) messages.push('状态值不合法，应为：已创建/收货中/已完成/已取消');
+    if(messages.length){ errs.push({ _rowIndex:i, messages }); } else { ok.push(r); if(id) seen.add(id); }
+  });
+  importPreview.value = ok; importErrors.value = errs;
+}
+
+function clearImport(){ importPreview.value = []; importErrors.value = []; }
+function mergeImport(){ if(!importPreview.value.length) return; allRecords.value = [...importPreview.value, ...allRecords.value]; clearImport(); rerender(); }
+function exportErrorCsv(){ if(!importErrors.value.length) return; const lines = importErrors.value.map((e:any)=>`第${e._rowIndex+1}行,${e.messages.join('；')}`); const csv = ['行,错误', ...lines].join('\n'); const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='导入错误.csv'; a.click(); URL.revokeObjectURL(a.href); }
 
 // 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
 function printSheet(){
@@ -340,6 +398,12 @@ function printSheet(){
 
 .basic-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); margin-top:8px; }
 .ls-wrap{ border:1px solid #e5e7eb; border-radius:12px; height:70vh; box-shadow:0 10px 24px rgba(2,6,23,.06); overflow:hidden; }
+.import-panel{ border:1px solid #e5e7eb; background:#fff; padding:10px; border-radius:10px; margin-top:12px; box-shadow:0 6px 16px rgba(2,6,23,.06); }
+.import-head{ display:flex; align-items:center; gap:10px; }
+.import-body{ margin-top:8px; }
+.err-list{ display:grid; grid-template-columns: repeat(2, minmax(240px,1fr)); gap:8px; }
+.err-item{ border:1px dashed #fecaca; background:#fff7f7; padding:8px; border-radius:8px; color:#7f1d1d; }
+.err-title{ font-weight:600; margin-bottom:6px; }
 </style>
 
 
