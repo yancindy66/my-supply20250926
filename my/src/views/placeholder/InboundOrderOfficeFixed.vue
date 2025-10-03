@@ -1,32 +1,6 @@
 <template>
   <div class="page">
     <h2>车辆入库（修正·Handsontable）</h2>
-    <div class="toolbar">
-      <select class="ghost-select" v-model="freezeMode" @change="applyFreeze">
-        <option value="row">冻结：仅首行</option>
-        <option value="col">冻结：仅前两列</option>
-        <option value="both">冻结：首行+前两列</option>
-        <option value="none">取消冻结</option>
-      </select>
-      <button class="ghost" @click="toggleColsPanel">列显隐</button>
-      <button class="ghost" @click="exportExcel">导出Excel</button>
-      <div class="spacer"></div>
-      <input class="ghost-input" placeholder="客户/车牌/预约单号" v-model="keyword" @keyup.enter="applyFilter" />
-      <button class="ghost" @click="applyFilter">筛选</button>
-      <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
-        <option :value="20">20/页</option>
-        <option :value="50">50/页</option>
-        <option :value="100">100/页</option>
-      </select>
-      <button class="ghost" @click="prevPage">上一页</button>
-      <span class="hint">第 {{ page }} / {{ totalPages }} 页</span>
-      <button class="ghost" @click="nextPage">下一页</button>
-    </div>
-    <div v-if="showCols" class="cols-panel">
-      <label v-for="c in cols" :key="c.key" class="col-item">
-        <input type="checkbox" v-model="c.visible" @change="rerender"/> {{ c.name }}
-      </label>
-    </div>
     <div id="luckysheet" class="ls-wrap"></div>
   </div>
 </template>
@@ -63,7 +37,6 @@ async function loadLuckysheetCDN(){
 }
 const allRecords = ref<any[]>([]);
 const viewRecords = ref<any[]>([]);
-const freezeMode = ref<'row'|'col'|'both'|'none'>('both');
 const showCols = ref(false);
 const keyword = ref('');
 const page = ref(1);
@@ -191,7 +164,7 @@ async function renderLuckysheet(rows:any[]){
     data:[{
       name:'入库列表',
       celldata,
-      config:{ frozen: freezeConfig() }
+      config: {}
     }]
   });
 }
@@ -251,13 +224,7 @@ function applyPaging(){ page.value = 1; rerender(); }
 function prevPage(){ if(page.value>1){ page.value--; rerender(); } }
 function nextPage(){ if(page.value<totalPages.value){ page.value++; rerender(); } }
 function toggleColsPanel(){ showCols.value = !showCols.value; }
-function freezeConfig(){
-  if(freezeMode.value==='row') return { type:'row', range:{ row_focus:0 } };
-  if(freezeMode.value==='col') return { type:'column', range:{ column_focus:1 } };
-  if(freezeMode.value==='both') return { type:'rangeBoth', range:{ row_focus:0, column_focus:2 } };
-  return undefined as any;
-}
-function applyFreeze(){ rerender(); }
+// 冻结交由 Luckysheet 工具栏控制
 
 function exportExcel(){
   // 简单导出：转成 CSV 并下载（避免引入额外库）
