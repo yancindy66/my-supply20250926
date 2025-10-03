@@ -104,6 +104,9 @@ onMounted(load);
 .link{ color:#2563eb; }
 .danger{ color:#ef4444; margin-left:8px; }
 .ag-theme-alpine{ --ag-font-size:12px; --ag-row-height:40px; }
+
+/* 显式启用底边滚动条（部分浏览器在容器高度=视窗高度时不展示滚动条） */
+.grid-wrap{ scrollbar-gutter: stable both-edges; }
 </style>
 
 
