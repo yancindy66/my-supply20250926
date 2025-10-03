@@ -10,6 +10,7 @@
         批量导入
         <input type="file" accept=".csv,.xlsx,.xls" @change="onImportFile" />
       </label>
+      <button class="ghost" @click="syncGate">同步门岗</button>
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
       <button class="ghost" @click="showOpenPanel=true">打开</button>
@@ -92,6 +93,7 @@ import { ref, onMounted, computed } from 'vue';
 // 使用 CDN 动态加载 Luckysheet，避免本地打包兼容问题
 import { listInboundOrders } from '@/api/depositor';
 import * as XLSX from 'xlsx';
+import http from '@/api/http';
 
 async function loadLuckysheetCDN(){
   const cssList = [
@@ -461,6 +463,32 @@ function printSheet(){
 }
 
 function showToast(msg:string){ toast.value = { show:true, msg }; setTimeout(()=> toast.value.show=false, 1800); }
+
+// 同步门岗数据到表格
+async function syncGate(){
+  try{
+    // 假定后端提供门岗最新记录接口（示例：/v1/gate/entries/recent）
+    const resp:any = await http.get('/v1/gate/entries/recent');
+    const list:any[] = resp?.data?.items || [];
+    // 映射到入库列（根据已有字段做融合）
+    const mapped = list.map((g:any)=>({
+      reservation_number: g.reservation_no || g.order_no || '-',
+      transport_no: g.transport_no || '-'
+    }));
+    // 简单合并：按预约单号去重更新
+    const byId = new Map<string, any>();
+    allRecords.value.forEach(r=> byId.set(String(r.reservation_number||''), r));
+    mapped.forEach(m=>{
+      const key = String(m.reservation_number||'');
+      if(!key) return; const exist = byId.get(key);
+      if(exist){ Object.assign(exist, m); }
+      else{ byId.set(key, m); }
+    });
+    allRecords.value = Array.from(byId.values());
+    page.value = 1; rerender();
+    showToast('门岗数据已同步');
+  }catch{ showToast('门岗同步失败'); }
+}
 </script>
 
 <style scoped>
