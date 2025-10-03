@@ -9,7 +9,8 @@
       </label>
       <button class="ghost" @click="syncGate">同步门岗</button>
       <button class="ghost" @click="exportExcel">导出</button>
-      <button class="ghost" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
+      <button class="ghost primary" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
+      <button class="ghost icon-btn" title="打开保存的文件" @click="showFolder=true">📁</button>
       <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
       <label class="ghost upload-btn">
         上传磅单(多张)
@@ -57,6 +58,25 @@
         <div class="modal-actions">
           <button class="ghost" @click="confirmSaveAndClose">保存并关闭</button>
           <button @click="showNameDialog=false">取消</button>
+        </div>
+      </div>
+    </div>
+    <!-- 保存文件夹弹窗 -->
+    <div v-if="showFolder" class="modal-mask">
+      <div class="modal large">
+        <div class="modal-title">我的保存</div>
+        <div class="modal-body">
+          <input class="ghost-input" placeholder="搜索文件名..." v-model="openSearch" />
+          <div class="file-list">
+            <div class="file-item" v-for="f in filteredSaved" :key="f.id" @dblclick="openSaved(f.id)" @click="openSaved(f.id)">
+              <div class="fname">{{ f.name }}</div>
+              <div class="ftime">{{ formatTime(f.ts) }}</div>
+            </div>
+            <div v-if="!filteredSaved.length" class="empty">暂无保存</div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" @click="showFolder=false">关闭</button>
         </div>
       </div>
     </div>
@@ -162,13 +182,19 @@ const allRecords = ref<any[]>([]);
 const viewRecords = ref<any[]>([]);
 const STORAGE_KEY = 'inbound_saved_sheets.v1';
 const savedList = ref<{id:string; name:string; data:any[]}[]>(loadSaved());
-// 打开功能已移除（避免与隐藏产生冲突）
+// 文件夹面板（仅展示已保存项，不再与“隐藏”冲突）
 const showCloseDialog = ref(false);
 const closed = ref(false);
 const saving = ref(false);
 const toast = ref<{show:boolean; msg:string}>({ show:false, msg:'' });
 const showNameDialog = ref(false);
 const nameInput = ref('');
+const showFolder = ref(false);
+const openSearch = ref('');
+const filteredSaved = computed(()=>{
+  const k = openSearch.value.trim().toLowerCase();
+  return savedList.value.filter(x=> x.name.toLowerCase().includes(k));
+});
 function formatTime(ts?: number){ if(!ts) return ''; const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 const showCols = ref(false);
 // 取消顶部筛选，保留分页
@@ -483,7 +509,7 @@ async function saveCurrent(customName?: string){
   const ts = new Date();
   const time = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}`;
   const name = customName ? customName : `保存-${nameHint}-${time}`;
-  savedList.value = [{ id, name, data }, ...savedList.value];
+  savedList.value = [{ id, name, data, ts: +ts }, ...savedList.value];
   persist();
   // 打开功能已移除：保存仅用于留存版本
   saving.value = false;
