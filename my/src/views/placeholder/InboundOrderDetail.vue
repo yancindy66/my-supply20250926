@@ -3,7 +3,10 @@
     <div class="head">
       <h2>入库单详情</h2>
       <div class="spacer"></div>
-      <template v-if="caps.inbound?.edit"><button @click="edit">编辑</button></template>
+      <div class="btns">
+        <button class="ghost" @click="exportXlsx" :disabled="exporting">{{ exporting? '导出中...' : '导出XLSX' }}</button>
+        <button class="ghost" @click="printSheet">打印</button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">加载中...</div>
@@ -17,74 +20,154 @@
       </section>
 
       <section class="card">
-        <h3>抓拍/视频</h3>
-        <div class="hint">演示占位：此处展示门岗抓拍与入跺回放链接。</div>
-        <div class="gallery">
-          <div class="shot" v-for="i in 3" :key="i">抓拍{{ i }}</div>
-        </div>
-      </section>
-
-      <section class="card">
-        <h3>称重</h3>
-        <div class="row"><label>入库方式</label><div>{{ order?.weigh_mode==='by_pack'?'按件数':'按重量' }}</div></div>
-        <div class="row"><label>毛/皮/净/扣</label><div>{{ order?.gross }}/{{ order?.tare }}/{{ net }}/{{ order?.deductions||0 }}</div></div>
-        <div class="row"><label>实际重量</label><div>{{ actual }}</div></div>
-        <div class="row" v-if="order?.weigh_mode==='by_pack'"><label>件数/换算</label><div>{{ order?.pack_count }} × {{ order?.convert_ratio }} = {{ order?.calc_weight }}</div></div>
-      </section>
-
-      <section class="card">
-        <h3>单据</h3>
-        <div class="docs">
-          <div>存货人凭证：<a href="javascript:;">查看</a> <button v-if="caps.inbound?.uploadDocs" class="link" @click="upload('owner_proof')">上传</button></div>
-          <div>工厂磅单：<a href="javascript:;">查看</a> <button v-if="caps.inbound?.uploadDocs" class="link" @click="upload('factory_scale')">上传</button></div>
-        </div>
+        <h3>证据表（只读）</h3>
+        <div id="luckysheet-detail" class="sheet"></div>
       </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { listInboundOrders } from '@/api/depositor';
-import { capabilities } from '@/store/capabilities';
+import http from '@/api/http';
 
 const route = useRoute();
 const id = computed(()=> String(route.params.id||''));
-const caps = computed(()=> capabilities.value || {});
 const loading = ref(false);
 const order = ref<any>(null);
+const exporting = ref(false);
 
 const net = computed(()=> (order.value && order.value.gross!=null && order.value.tare!=null) ? (Number(order.value.gross)-Number(order.value.tare)) : null);
-const actual = computed(()=> order.value?.actual ?? (net.value!=null ? (net.value - Number(order.value?.deductions||0)) : order.value?.calc_weight) );
+// 实际重量（未显示，保留计算）
+const actual = computed(()=> order.value?.actual ?? (net.value!=null ? (net.value - Number(order.value?.deductions||0)) : order.value?.calc_weight) ); void(actual);
 
 async function load(){
   loading.value = true;
   try{
-    const resp:any = await listInboundOrders({ page:1, pageSize:50 });
-    const arr:any[] = resp?.data?.list || [];
-    order.value = arr.find((x:any)=> String(x.order_no)===id.value) || arr[0] || null;
+    const resp:any = await http.get(`/v1/inbound/orders/${encodeURIComponent(id.value)}`);
+    order.value = resp?.data || null;
   }catch{ order.value=null; }
   loading.value = false;
 }
 onMounted(load);
 
-function edit(){ alert('编辑入库单（仓库角色）'); }
-function upload(_type:string){ alert('上传单据（演示）'); }
+// Luckysheet 只读渲染
+function buildEvidence2D(){
+  const o:any = order.value || {};
+  const rows:any[] = [];
+  rows.push(['入库单证据表']);
+  rows.push([]);
+  rows.push(['预约单号','入库单号','客户','商品/规格','预约量(吨)','已入库量(吨)','件数','入库方式','入库状态','申请时间']);
+  rows.push([
+    o.reservation_number||'-', o.order_no||'-', o.owner_name||'-', `${o.commodity_name||''}${o.commodity_spec?(' / '+o.commodity_spec):''}`,
+    o.planned_quantity ?? o.total_planned_quantity ?? '', o.actual ?? o.calc_weight ?? '', o.pack_count ?? o.pieces ?? '',
+    o.weigh_mode==='by_pack'?'按规格':'按磅重', o.status || '-', o.created_at || '-'
+  ]);
+  return rows;
+}
+
+async function loadLuckysheetCDN(){
+  const cssList = [
+    'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/css/plugins.css',
+    'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/css/luckysheet.css',
+    'https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/assets/iconfont/iconfont.css'
+  ];
+  for(const href of cssList){
+    if(!document.querySelector(`link[href="${href}"]`)){
+      const link = document.createElement('link');
+      link.rel='stylesheet'; link.href=href; document.head.appendChild(link);
+    }
+  }
+  const loadScript = (src:string)=> new Promise((resolve, reject)=>{
+    const exists = Array.from(document.scripts).some(sc=>sc.src===src);
+    if(exists) return resolve(null);
+    const s = document.createElement('script'); s.src = src; s.async = true;
+    s.onload = ()=> resolve(null); s.onerror = reject; document.body.appendChild(s);
+  });
+  await loadScript('https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/js/plugin.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js');
+  const ls:any = (window as any).luckysheet || (window as any).Luckysheet;
+  return ls;
+}
+
+async function renderSheet(){
+  try{
+    const lsAny:any = await loadLuckysheetCDN();
+    const ls = (lsAny && typeof lsAny.create==='function') ? lsAny : (window as any).luckysheet;
+    if(!ls || typeof ls.create!=='function') return;
+    const data2D = buildEvidence2D();
+    const celldata:any[] = [];
+    for(let r=0;r<data2D.length;r++){
+      for(let c=0;c<data2D[r].length;c++){
+        celldata.push({ r, c, v:{ v: data2D[r][c] } });
+      }
+    }
+    try{ ls?.destroy?.(); }catch{}
+    ls.create({
+      container: 'luckysheet-detail',
+      lang:'zh',
+      allowEdit: false,
+      showinfobar:false,
+      showtoolbar:false,
+      showsheetbar:false,
+      row: Math.max(20, data2D.length),
+      column: Math.max(10, data2D[0]?.length||10),
+      data:[{ name:'证据表', celldata, config:{} }]
+    });
+    ;(window as any).__detailData2D = data2D;
+  }catch(e){ console.error(e); }
+}
+
+watch(order, (v)=>{ if(v) renderSheet(); });
+
+// 导出与打印
+async function exportXlsx(){
+  try{
+    exporting.value = true;
+    const data2D:any[] = (window as any).__detailData2D || buildEvidence2D();
+    let ok = false;
+    try{
+      const XLSX:any = await import(/* @vite-ignore */ 'xlsx');
+      const ws = XLSX.utils.aoa_to_sheet(data2D as any);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '证据表');
+      XLSX.writeFile(wb, `证据表-${order.value?.order_no||order.value?.reservation_number||'导出'}.xlsx`);
+      ok = true;
+    }catch{ ok = false; }
+    if(!ok){
+      // 退化为CSV
+  const csv = (data2D as any[]).map((r:any[])=> r.map((x:any)=> String(x??'')).join(',')).join('\n');
+      const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `证据表-${order.value?.order_no||order.value?.reservation_number||'导出'}.csv`;
+      a.click(); URL.revokeObjectURL(a.href);
+    }
+  }finally{ exporting.value = false; }
+}
+
+function printSheet(){
+  const data2D:any[] = (window as any).__detailData2D || buildEvidence2D();
+  const html = `<!doctype html><html><head><meta charset='utf-8'><title>打印</title>
+  <style>table{border-collapse:collapse;width:100%;}td,th{border:1px solid #999;padding:6px;}h3{text-align:center;margin:8px 0;}</style>
+  </head><body><h3>证据表</h3><table>${data2D.map((r:any)=>'<tr>'+r.map((c:any)=>`<td>${String(c??'')}</td>`).join('')+'</tr>').join('')}</table></body></html>`;
+  const w = window.open('', '_blank'); if(!w) return;
+  w.document.write(html); w.document.close(); w.focus(); w.print(); setTimeout(()=> w.close(), 200);
+}
 </script>
 
 <style scoped>
 .page{ padding:16px; }
 .head{ display:flex; align-items:center; gap:8px; }
 .spacer{ flex:1; }
+.btns button{ height:36px; padding:0 12px; border:none; border-radius:10px; background:#eef2f7; color:#0f172a; cursor:pointer; }
 .card{ border:1px solid #e5e7eb; background:#fff; border-radius:12px; padding:12px; margin:12px 0; box-shadow:0 6px 16px rgba(2,6,23,.06); }
 .row{ display:flex; align-items:center; gap:8px; padding:6px 0; }
 .row label{ width:120px; color:#475569; }
 .tag{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
 .gray{ background:#e2e8f0; color:#334155; }
-.gallery{ display:flex; gap:8px; }
-.shot{ width:120px; height:80px; background:#f1f5f9; border:1px dashed #cbd5e1; display:flex; align-items:center; justify-content:center; color:#64748b; border-radius:8px; }
-.docs .link{ background:transparent; color:#2563eb; padding:0 6px; }
+.sheet{ width:100%; height:600px; border:1px solid #e5e7eb; }
 </style>
 
 
