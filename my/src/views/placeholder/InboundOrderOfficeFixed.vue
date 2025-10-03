@@ -148,6 +148,11 @@ async function load(){
     const resp:any = await listInboundOrders({ page:1, pageSize:100 });
     api = resp?.data?.list || [];
   }catch(e){ /* ignore */ }
+  // 若两端都无数据，自动生成10条本地Mock并落盘，避免空白
+  if((mock?.length||0)===0 && (api?.length||0)===0){
+    mock = genFullMock(10);
+    try{ localStorage.setItem('mockInboundOrders', JSON.stringify(mock)); }catch{}
+  }
   const data = [...mock, ...api].map((r:any)=>({
     reservation_number: r.reservation_number || r.order_no,
     transport_no: r.transport_no || '-',
@@ -280,6 +285,41 @@ function genBasicMock(n:number){
       transport_no: 'T'+(now+i).toString().slice(-6),
       owner_name: '客户'+(i+1),
       status: statuses[i % statuses.length]
+    });
+  }
+  return arr;
+}
+
+function genFullMock(n:number){
+  const now = Date.now();
+  const arr:any[] = [];
+  for(let i=0;i<n;i++){
+    const gross = 30000 + Math.floor(Math.random()*10000);
+    const tare = 12000 + Math.floor(Math.random()*4000);
+    const net = gross - tare;
+    arr.push({
+      reservation_number: 'YY'+(now+i),
+      transport_no: 'T'+(now+i).toString().slice(-6),
+      order_no: 'RK'+(now+i),
+      status: ['created','receiving','completed'][i%3],
+      owner_name: '某客户'+(i+1),
+      commodity_name: ['铁矿','煤炭','玉米','大豆'][i%4],
+      commodity_spec: ['散装','袋装','30kg','50kg'][i%4],
+      vehicle_plate: randomPlate(),
+      planned_quantity: 32000 + i*500,
+      actual: net,
+      weigh_mode: 'by_weight',
+      gross, tare, net,
+      deductions: i%3===0? 20: 0,
+      entry_photos: new Array(i%4).fill(0),
+      entry_time: new Date(now - i*3600_000).toISOString().slice(0,19).replace('T',' '),
+      exit_photos: new Array((i+1)%4).fill(0),
+      exit_time: new Date(now - i*1800_000).toISOString().slice(0,19).replace('T',' '),
+      qc_url: 'https://example.com/qc/'+(now+i),
+      driver_name: '司机'+(i+1),
+      driver_phone: '1'+(3000000000 + Math.floor(Math.random()*999999999)).toString().slice(0,10),
+      driver_id_no: '4401011990010'+String(100+i),
+      driver_license_url: 'https://example.com/license/'+(now+i)
     });
   }
   return arr;
