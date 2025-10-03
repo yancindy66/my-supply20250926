@@ -1,6 +1,32 @@
 <template>
   <div class="page">
     <h2>车辆入库（修正·Handsontable）</h2>
+    <div class="toolbar">
+      <select class="ghost-select" v-model="freezeMode" @change="applyFreeze">
+        <option value="row">冻结：仅首行</option>
+        <option value="col">冻结：仅前两列</option>
+        <option value="both">冻结：首行+前两列</option>
+        <option value="none">取消冻结</option>
+      </select>
+      <button class="ghost" @click="toggleColsPanel">列显隐</button>
+      <button class="ghost" @click="exportExcel">导出Excel</button>
+      <div class="spacer"></div>
+      <input class="ghost-input" placeholder="客户/车牌/预约单号" v-model="keyword" @keyup.enter="applyFilter" />
+      <button class="ghost" @click="applyFilter">筛选</button>
+      <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
+        <option :value="20">20/页</option>
+        <option :value="50">50/页</option>
+        <option :value="100">100/页</option>
+      </select>
+      <button class="ghost" @click="prevPage">上一页</button>
+      <span class="hint">第 {{ page }} / {{ totalPages }} 页</span>
+      <button class="ghost" @click="nextPage">下一页</button>
+    </div>
+    <div v-if="showCols" class="cols-panel">
+      <label v-for="c in cols" :key="c.key" class="col-item">
+        <input type="checkbox" v-model="c.visible" @change="rerender"/> {{ c.name }}
+      </label>
+    </div>
     <div id="luckysheet" class="ls-wrap"></div>
   </div>
 </template>
@@ -36,6 +62,13 @@ async function loadLuckysheetCDN(){
   return ls;
 }
 const allRecords = ref<any[]>([]);
+const viewRecords = ref<any[]>([]);
+const freezeMode = ref<'row'|'col'|'both'|'none'>('both');
+const showCols = ref(false);
+const keyword = ref('');
+const page = ref(1);
+const pageSize = ref(50);
+const totalPages = computed(()=> Math.max(1, Math.ceil(filteredRecords().length / pageSize.value)));
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
 // Handsontable 配置已移除，改用 Luckysheet 渲染
 
@@ -83,7 +116,7 @@ async function load(){
     _act: '编辑 删除'
   }));
   allRecords.value = data;
-  renderLuckysheet(data);
+  rerender();
 }
 
 onMounted(load);
@@ -139,12 +172,8 @@ async function renderLuckysheet(rows:any[]){
     console.error('Luckysheet未就绪', lsAny);
     return;
   }
-  const columns = [
-    '预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证'
-  ];
-  const keys = [
-    'reservation_number','transport_no','order_no','status','inbound_proof','owner_name','commodity','vehicle_plate','planned_quantity','actual_in_weight','weigh_mode_text','gross','tare','net','deductions','entry_photos_count','entry_time','exit_photos_count','exit_time','qc_url','driver_name','driver_phone','driver_id_card','driver_license_url'
-  ];
+  const columns = cols.value.filter(c=>c.visible).map(c=>c.name);
+  const keys = cols.value.filter(c=>c.visible).map(c=>c.key);
   const celldata:any[] = [];
   columns.forEach((name, ci)=>{ celldata.push({ r:0, c:ci, v:{ v:name, ct:{ fa:'@'} } }); });
   rows.forEach((r, ri)=>{
@@ -162,9 +191,86 @@ async function renderLuckysheet(rows:any[]){
     data:[{
       name:'入库列表',
       celldata,
-      config:{ frozen:{ type:'rangeBoth', range:{ row_focus:0, column_focus:2 } } }
+      config:{ frozen: freezeConfig() }
     }]
   });
+}
+
+const cols = ref([
+  { key:'reservation_number', name:'预约单号', visible:true },
+  { key:'transport_no', name:'运输单号', visible:true },
+  { key:'order_no', name:'入库单号', visible:true },
+  { key:'status', name:'入库状态', visible:true },
+  { key:'inbound_proof', name:'入库凭证+', visible:true },
+  { key:'owner_name', name:'客户', visible:true },
+  { key:'commodity', name:'商品', visible:true },
+  { key:'vehicle_plate', name:'车牌号', visible:true },
+  { key:'planned_quantity', name:'预约量', visible:true },
+  { key:'actual_in_weight', name:'已经入库量', visible:true },
+  { key:'weigh_mode_text', name:'磅重（入库方式）', visible:true },
+  { key:'gross', name:'毛重', visible:true },
+  { key:'tare', name:'皮重', visible:true },
+  { key:'net', name:'净重', visible:true },
+  { key:'deductions', name:'扣重', visible:true },
+  { key:'entry_photos_count', name:'入场抓拍', visible:true },
+  { key:'entry_time', name:'入场抓拍时间', visible:true },
+  { key:'exit_photos_count', name:'出场抓拍', visible:true },
+  { key:'exit_time', name:'出场抓拍时间', visible:true },
+  { key:'qc_url', name:'质检URL', visible:true },
+  { key:'driver_name', name:'司机姓名', visible:true },
+  { key:'driver_phone', name:'司机手机', visible:true },
+  { key:'driver_id_card', name:'司机身份证', visible:true },
+  { key:'driver_license_url', name:'司机驾驶证', visible:true }
+]);
+
+function filteredRecords(){
+  const k = keyword.value.trim();
+  if(!k) return allRecords.value;
+  return allRecords.value.filter((r:any)=>
+    String(r.reservation_number||'').includes(k) ||
+    String(r.transport_no||'').includes(k) ||
+    String(r.owner_name||'').includes(k) ||
+    String(r.vehicle_plate||'').includes(k)
+  );
+}
+
+function pagedRecords(){
+  const list = filteredRecords();
+  const start = (page.value-1)*pageSize.value;
+  return list.slice(start, start + pageSize.value);
+}
+
+function rerender(){
+  const data = pagedRecords();
+  viewRecords.value = data;
+  renderLuckysheet(data);
+}
+
+function applyFilter(){ page.value = 1; rerender(); }
+function applyPaging(){ page.value = 1; rerender(); }
+function prevPage(){ if(page.value>1){ page.value--; rerender(); } }
+function nextPage(){ if(page.value<totalPages.value){ page.value++; rerender(); } }
+function toggleColsPanel(){ showCols.value = !showCols.value; }
+function freezeConfig(){
+  if(freezeMode.value==='row') return { type:'row', range:{ row_focus:0 } };
+  if(freezeMode.value==='col') return { type:'column', range:{ column_focus:1 } };
+  if(freezeMode.value==='both') return { type:'rangeBoth', range:{ row_focus:0, column_focus:2 } };
+  return undefined as any;
+}
+function applyFreeze(){ rerender(); }
+
+function exportExcel(){
+  // 简单导出：转成 CSV 并下载（避免引入额外库）
+  const headers = cols.value.filter(c=>c.visible).map(c=>c.name).join(',');
+  const keys = cols.value.filter(c=>c.visible).map(c=>c.key);
+  const lines = viewRecords.value.map(r=> keys.map(k=> String(r[k]??'').replaceAll(',', ' ')).join(','));
+  const csv = [headers, ...lines].join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '入库列表.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 </script>
 
