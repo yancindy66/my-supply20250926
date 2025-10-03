@@ -251,15 +251,11 @@
       </template>
       <template #cell-status="{row}"><span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span></template>
       <template #cell-actions="{row}">
-        <template v-if="routeOfficeMode">
-          <button class="link" @click="editRow(row)">编辑</button>
-          <button class="link danger" @click="remove(row)">删除</button>
-        </template>
-        <template v-else>
-          <button class="link" @click="approve(row)">审核</button>
-          <button class="link" @click="reject(row)">驳回</button>
-          <button class="link danger" v-if="row.reservation_number" @click="cancelReservation(row)">取消预约</button>
-        </template>
+        <button class="link" @click="viewDetail(row)">查看详情</button>
+        <button class="link" @click="withdraw(row)">撤回</button>
+        <button class="link" @click="addStackCard(row)">添加垛位卡</button>
+        <button class="link" @click="addLedger(row)">添加台账</button>
+        <button class="link" @click="registerWarehouseReceipt(row)">注册仓单</button>
       </template>
     </FixedTable>
 
@@ -318,7 +314,7 @@ import { ref, computed, watch } from 'vue';
 import FixedTable from '@/components/FixedTable.vue';
 import { useRouter } from 'vue-router';
 import http from '@/api/http';
-import { listInboundOrders, uploadReservationPdf, approveInboundOrder, rejectInboundOrder, cancelReservationApi } from '@/api/depositor';
+import { listInboundOrders, uploadReservationPdf, approveInboundOrder } from '@/api/depositor';
 // import { capabilities } from '@/store/capabilities';
 
 const router = useRouter();
@@ -326,12 +322,6 @@ const pageTitle = computed(()=> (router.currentRoute.value.meta as any)?.title |
 const routeOfficeMode = computed(()=> Boolean((router.currentRoute.value.meta as any)?.office) || router.currentRoute.value.path.includes('/inbound/office/list'));
 const loading = ref(false);
 const list = ref<any[]>([]);
-function columnStyle(key:string){
-  // 固定列宽度，避免 sticky 错位
-  if(key==='reservation_number' || key==='transport_no' || key==='actions'){ return { minWidth:'160px', width:'160px', maxWidth:'160px', whiteSpace:'nowrap' } as any; }
-  if(key==='order_no'){ return { minWidth:'180px', width:'180px', maxWidth:'180px', whiteSpace:'nowrap' } as any; }
-  return { whiteSpace:'nowrap' } as any;
-}
 
 const ftColumns = computed(()=>{
   // 根据可见列生成 FixedTable 需要的列定义，并设置固定与宽度
@@ -339,7 +329,7 @@ const ftColumns = computed(()=>{
     const col:any = { key:c.key, label:c.label };
     if(c.key==='reservation_number') { col.fixed='left'; col.width=180; }
     if(c.key==='transport_no') { col.fixed='left'; col.width=160; }
-    if(c.key==='actions') { col.fixed='right'; col.width=160; }
+    if(c.key==='actions') { col.fixed='right'; col.width=240; }
     return col;
   });
 });
@@ -427,7 +417,7 @@ const FILTER_KEY = 'inboundOrderList.filters.v1';
 const defaultColumns: Col[] = [
   { key:'order_no', label:'入库单号', visible:true },
   { key:'reservation_number', label:'预约单号', visible:true, locked:true },
-  { key:'unique_reservation_code', label:'预约码', visible:true },
+  { key:'unique_reservation_code', label:'预约单号', visible:false },
   { key:'transport_no', label:'运输单号', visible:false },
   { key:'owner_name', label:'货主名称', visible:true },
   { key:'warehouse', label:'目标仓库', visible:false },
@@ -439,7 +429,7 @@ const defaultColumns: Col[] = [
   { key:'tare', label:'皮重', visible:false },
   { key:'net', label:'净重', visible:false },
   { key:'deductions', label:'扣重', visible:false },
-  { key:'goods_source', label:'货物来源', visible:true },
+  { key:'goods_source', label:'货物来源', visible:false },
   { key:'source_addr', label:'来源地址/厂家批次', visible:false },
   { key:'logistics_carrier', label:'物流承运商', visible:false },
   { key:'driver', label:'车牌/司机', visible:false },
@@ -711,10 +701,7 @@ function statusColor(s:string){
   };
   return map[s]||'gray';
 }
-function partyColor(s:string){
-  const map:Record<string,string>={ '存货人':'green','物流方':'blue','仓库方':'purple' };
-  return map[s]||'gray';
-}
+// 预留：party颜色，如需展示可再启用
 function maskDriver(name?:string, phone?:string){
   const p = phone? String(phone).replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '';
   return (name||'-') + (p?(' '+p):'');
@@ -755,36 +742,23 @@ async function uploadDriverLicense(row:any){
     alert('已上传驾驶证图片（demo）');
   }catch(e:any){ alert('上传失败：'+(e?.message||e)); }
 }
-// function withdraw(_row:any){ alert('撤回（占位）'); }
-function editRow(_row:any){ alert('编辑（占位）'); }
-async function remove(row:any){
-  if(!confirm('确认删除该入库单？')) return;
+function viewDetail(row:any){
+  const id = row.order_no || row.reservation_number || row.id;
+  if(!id) return alert('缺少入库单标识');
+  router.push(`/inbound/detail/${encodeURIComponent(id)}`);
+}
+function withdraw(_row:any){ alert('撤回（占位）'); }
+function addStackCard(_row:any){ alert('添加垛位卡（占位）'); }
+function addLedger(_row:any){ alert('添加台账（占位）'); }
+async function registerWarehouseReceipt(row:any){
   try{
-    // 优先删除本地mock
-    try{
-      const arr = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')||[];
-      const idx = arr.findIndex((x:any)=> (x.order_no||x.reservation_number) === (row.order_no||row.reservation_number));
-      if(idx>=0){ arr.splice(idx,1); localStorage.setItem('mockInboundOrders', JSON.stringify(arr)); }
-    }catch{}
-    // 后端删除（demo模式可能未实现）
-    // await deleteInboundOrder(row.order_no || row.reservation_number || row.id);
+    await approveInboundOrder(row.order_no || row.reservation_number || row.id);
     await load();
-    alert('已删除');
-  }catch(e:any){ alert('删除失败:'+ (e?.message||e)); }
+    alert('已注册仓单（demo）');
+  }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
 }
-// function roleIs(key:string){ try{ return (localStorage.getItem('role')||'')===key; }catch{return false;} }
-
-async function approve(row:any){
-  try{ await approveInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已审核并生成仓单（demo）'); }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
-}
-async function reject(row:any){
-  try{ await rejectInboundOrder(row.order_no || row.reservation_number || row.id); await load(); alert('已驳回'); }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
-}
-async function cancelReservation(row:any){
-  if(!row.reservation_number) return;
-  if(!confirm('确认取消该预约？')) return;
-  try{ await cancelReservationApi(row.reservation_number); await load(); alert('预约已取消'); }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
-}
+// 占位编辑入口已不在列表展示，保留需求时再启用
+// 精简：删除、审核、驳回、取消预约等方法移除，按新操作栏逻辑保留“注册仓单”演示
 
 load();
 </script>
