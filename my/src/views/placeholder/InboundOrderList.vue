@@ -252,16 +252,16 @@
       </template>
       <template #cell-status="{row}"><span :class="['tag', statusColor(row.status)]">{{ mapStatus(row.status) }}</span></template>
       <template #cell-actions="{row}">
-        <div class="ops">
-          <button class="op" @click="viewDetail(row)">查看详情</button>
-          <span class="dot">·</span>
-          <button class="op" @click="withdraw(row)">撤回</button>
-          <span class="dot">·</span>
-          <button class="op" @click="addStackCard(row)">添加垛位卡</button>
-          <span class="dot">·</span>
-          <button class="op" @click="addLedger(row)">添加台账</button>
-          <span class="dot">·</span>
-          <button class="op primary" @click="registerWarehouseReceipt(row)">注册仓单</button>
+        <div class="ops compact">
+          <button class="op" title="详情" @click="viewDetail(row)">详情</button>
+          <span class="dot">|</span>
+          <button class="op" title="撤回" @click="withdraw(row)">撤回</button>
+          <span class="dot">|</span>
+          <button class="op" title="垛位卡" @click="addStackCard(row)">垛位卡</button>
+          <span class="dot">|</span>
+          <button class="op" title="台账" @click="addLedger(row)">台账</button>
+          <span class="dot">|</span>
+          <button class="op primary" title="注册仓单" @click="registerWarehouseReceipt(row)">注册</button>
         </div>
       </template>
     </FixedTable>
@@ -336,7 +336,7 @@ const ftColumns = computed(()=>{
     const col:any = { key:c.key, label:c.label };
     if(c.key==='reservation_number') { col.fixed='left'; col.width=180; }
     if(c.key==='transport_no') { col.fixed='left'; col.width=160; }
-    if(c.key==='actions') { col.fixed='right'; col.width=300; }
+    if(c.key==='actions') { col.fixed='right'; col.width=200; }
     return col;
   });
 });
@@ -816,8 +816,9 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .empty{ text-align:center; color:#6b7280; }
 .link{ background:transparent; color:#2563eb; padding:0 6px; }
 .danger{ color:#ef4444; }
-.ops{ display:flex; align-items:center; gap:6px; }
-.ops .op{ background:transparent; color:#2563eb; padding:0 6px; height:28px; line-height:28px; border-radius:6px; }
+.ops{ display:flex; align-items:center; gap:4px; }
+.ops.compact{ gap:4px; }
+.ops .op{ background:transparent; color:#2563eb; padding:0 4px; height:22px; line-height:22px; font-size:12px; border-radius:4px; }
 .ops .op:hover{ background:#eef2ff; }
 .ops .op.primary{ color:#0b5cff; font-weight:600; }
 .ops .dot{ color:#94a3b8; }
