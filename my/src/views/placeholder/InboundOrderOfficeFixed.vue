@@ -16,7 +16,9 @@
         :rowHeaders="true"
         :filters="true"
         :dropdownMenu="dropdownItems"
+        :contextMenu="contextMenuItems"
         :columnSorting="true"
+        :multiColumnSorting="true"
         :language="zhLang"
         :currentRowClassName="'current-row'"
         :currentColClassName="'current-col'"
@@ -24,6 +26,8 @@
         :licenseKey="'non-commercial-and-evaluation'"
         :rowHeights="40"
         :height="'70vh'"
+        :fillHandle="{ autoInsertRow: true }"
+        :autoWrapRow="true"
       />
     </div>
   </div>
@@ -43,15 +47,41 @@ const allRecords = ref<any[]>([]);
 const hotRef = ref<any>(null);
 const zhLang = zhCN.languageCode;
 const dropdownItems = [
+  'insert_column_left',
+  'insert_column_right',
+  'remove_column',
+  'clear_column',
+  '---------',
+  'alignment',
+  '---------',
   'filter_by_condition',
   'filter_operators',
   'filter_by_value',
   'filter_action_bar',
+  '---------',
   'sort_ascending',
-  'sort_descending',
-  'clear_column',
-  'alignment'
+  'sort_descending'
 ];
+
+const contextMenuItems = {
+  items: {
+    row_above: { name: '在上方插入行' },
+    row_below: { name: '在下方插入行' },
+    remove_row: { name: '删除行' },
+    //-----------------
+    col_left: { name: '在左侧插入列' },
+    col_right: { name: '在右侧插入列' },
+    remove_col: { name: '删除列' },
+    //-----------------
+    clear_column: { name: '清空本列' },
+    undo: { name: '撤销' },
+    redo: { name: '重做' },
+    make_read_only: { name: '只读' },
+    alignment: { name: '对齐' },
+    copy: { name: '复制' },
+    cut: { name: '剪切' }
+  }
+};
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
 // 渲染器
 function renderTag(td:HTMLTableCellElement, text:string, cls:string){ td.innerHTML = `<span class="tag ${cls}">${text}</span>`; }
