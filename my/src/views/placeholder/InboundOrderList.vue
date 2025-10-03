@@ -241,6 +241,7 @@
       <template #cell-planned_quantity="{row}">{{ row.total_planned_quantity || row.planned_quantity }} {{ row.measurement_unit || row.unit || '' }}</template>
       <template #cell-actual_in_weight="{row}">{{ row.actual || row.calc_weight || '-' }} {{ row.measurement_unit || row.unit || '' }}</template>
       <template #cell-weigh_mode="{row}">{{ row.weigh_mode==='by_pack'?'按规格':'按磅重' }}</template>
+      <template #cell-inbound_status="{row}"><span :class="['tag', inboundStatusColor(row)]">{{ inboundStatus(row) }}</span></template>
       <template #cell-goods_source="{row}">{{ row.goods_source || '司机上传磅单' }}</template>
       <template #cell-source_addr="{row}">{{ row.source_address || row.factory_batch_no || '-' }}</template>
       <template #cell-driver="{row}">{{ (row.vehicle_plate||'-') + ' / ' + maskDriver(row.driver_name, row.driver_phone) }}</template>
@@ -329,7 +330,7 @@ const ftColumns = computed(()=>{
     const col:any = { key:c.key, label:c.label };
     if(c.key==='reservation_number') { col.fixed='left'; col.width=180; }
     if(c.key==='transport_no') { col.fixed='left'; col.width=160; }
-    if(c.key==='actions') { col.fixed='right'; col.width=240; }
+    if(c.key==='actions') { col.fixed='right'; col.width=300; }
     return col;
   });
 });
@@ -425,6 +426,7 @@ const defaultColumns: Col[] = [
   { key:'planned_quantity', label:'预约量', visible:true },
   { key:'actual_in_weight', label:'已入库量', visible:true },
   { key:'weigh_mode', label:'入库方式', visible:true },
+  { key:'inbound_status', label:'入库状态', visible:true },
   { key:'gross', label:'毛重', visible:false },
   { key:'tare', label:'皮重', visible:false },
   { key:'net', label:'净重', visible:false },
@@ -691,6 +693,14 @@ function mapStatus(s: string){
   const m: Record<string,string> = { created: '已创建', receiving: '收货中', completed: '已完成', cancelled: '已取消', platform_approved:'已审核', platform_rejected:'已驳回' };
   return m[s] || s || '-';
 }
+function inboundStatus(row:any){
+  const s = String(row.status||'');
+  if(['completed','fully_delivered','platform_approved'].includes(s)) return '入库完成';
+  return '在途';
+}
+function inboundStatusColor(row:any){
+  return inboundStatus(row)==='入库完成' ? 'green' : 'orange';
+}
 function statusColor(s:string){
   const map:Record<string,string>={
     draft:'slate', created:'blue', submitted:'indigo',
@@ -795,12 +805,12 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .table-wrap{ width:100%; overflow-x:auto; }
 .table thead th{ position:sticky; top:0; background:#f8fafc; color:#0f172a; font-weight:600; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
 .table th,.table td{ border-bottom:1px solid #eef2f7; padding:10px 12px; text-align:left; }
-.table tbody tr:nth-child(odd){ background:#fcfdff; }
-.table tbody tr:hover{ background:#f1f5f9; }
+.table tbody tr:nth-child(odd){ background:#fcfdff; transition:background .2s ease; }
+.table tbody tr:hover{ background:#f1f5f9; box-shadow:inset 0 0 0 9999px rgba(2,6,23,.02); }
 .empty{ text-align:center; color:#6b7280; }
 .link{ background:transparent; color:#2563eb; padding:0 6px; }
 .danger{ color:#ef4444; }
-.tag{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.02em; }
+.tag{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.02em; box-shadow:0 4px 10px rgba(15,23,42,.08); }
 .blue{ background:#e0f2fe; color:#075985; }
 .indigo{ background:#e0e7ff; color:#3730a3; }
 .cyan{ background:#cffafe; color:#155e75; }
