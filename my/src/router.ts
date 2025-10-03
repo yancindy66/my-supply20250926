@@ -50,13 +50,13 @@ const routes = [
       { path: 'outbound/apply', component: () => import('./views/placeholder/OutboundReservation.vue'), meta: { title: '出库预约' } },
       { path: 'unfreeze/apply', component: () => import('./views/placeholder/UnfreezeApply.vue'), meta: { title: '解冻申请' } },
       { path: 'unfreeze/review', component: () => import('./views/placeholder/UnfreezeReview.vue'), meta: { title: '解冻审批' } },
-      { path: 'inbound/order/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库预约列表' } },
+      { path: 'inbound/order/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库单列表' } },
       { path: 'inbound/list', redirect: '/inbound/order/list' },
       // { path: 'inbound/office/list', component: () => import('./views/placeholder/GateOffice.vue'), meta: { title: '门岗核验（办公室）', office: true } },
       { path: 'inbound/order/office-list', component: () => import('./views/placeholder/InboundOrderOfficeFixed.vue'), meta: { title: '车辆入库（修正）', office: true } },
       { path: 'inbound/gate/verify', component: () => import('./views/placeholder/GateVerify.vue'), meta: { title: '门岗核验' } },
       { path: 'inbound/order/apply', component: () => import('./views/placeholder/InboundOrderApply.vue'), meta: { title: '新建入库预约' } },
-      { path: 'inbound/reservation/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库预约列表' } },
+      { path: 'inbound/reservation/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库单列表' } },
       { path: 'monitor/overview', component: () => import('./views/placeholder/RegulatorOverview.vue') },
 
       ...[
