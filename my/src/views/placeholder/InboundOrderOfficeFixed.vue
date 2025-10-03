@@ -67,7 +67,7 @@ async function load(){
   }));
   if(table){ table.setData(data); return; }
   try{
-    const Tabulator = (await import('https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator_esm.min.js')).default;
+    const Tabulator = (await import('tabulator-tables')).default || (await import('tabulator-tables'));
     table = new Tabulator(tabuEl.value, {
     data,
     reactiveData:true,
