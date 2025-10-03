@@ -258,6 +258,8 @@
         <div class="ops compact">
           <button class="op" title="撤回" @click="withdraw(row)">撤回</button>
           <span class="dot">|</span>
+          <button class="op danger" title="红冲" @click="redFlush(row)">红冲</button>
+          <span class="dot">|</span>
           <button class="op" title="垛位卡" @click="addStackCard(row)">垛位卡</button>
           <span class="dot">|</span>
           <button class="op" title="台账" @click="addLedger(row)">台账</button>
@@ -765,6 +767,10 @@ function viewDetail(row:any){
   router.push(`/inbound/detail/${encodeURIComponent(id)}`);
 }
 function withdraw(_row:any){ alert('撤回（占位）'); }
+function redFlush(_row:any){
+  if(!confirm('确认对该入库单执行红冲？')) return;
+  alert('红冲（占位）');
+}
 function addStackCard(_row:any){ alert('添加垛位卡（占位）'); }
 function addLedger(_row:any){ alert('添加台账（占位）'); }
 async function registerWarehouseReceipt(row:any){
@@ -822,6 +828,7 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .ops .op{ background:transparent; color:#2563eb; padding:0 4px; height:22px; line-height:22px; font-size:12px; border-radius:4px; }
 .ops .op:hover{ background:#eef2ff; }
 .ops .op.primary{ color:#0b5cff; font-weight:600; }
+.ops .op.danger{ color:#ef4444; }
 .ops .dot{ color:#94a3b8; }
 .tag{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.02em; box-shadow:0 4px 10px rgba(15,23,42,.08); }
 .blue{ background:#e0f2fe; color:#075985; }
