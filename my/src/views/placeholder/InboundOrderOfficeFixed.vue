@@ -4,9 +4,31 @@
     <div class="toolbar">
       <button class="ghost" @click="load">刷新</button>
     <button class="ghost" @click="mock10">生成10条MOCK</button>
+      <button class="ghost" @click="appendMock10">追加10条</button>
+      <button class="ghost" @click="clearMock">清空MOCK</button>
+      <button class="ghost" @click="resetColWidths">重置列宽</button>
+      <button class="ghost" @click="showColsPanel = !showColsPanel">列显隐</button>
+      <select class="ghost-select" v-model="filterStatus" @change="applyFilters">
+        <option value="">状态: 全部</option>
+        <option value="已创建">已创建</option>
+        <option value="收货中">收货中</option>
+        <option value="已完成">已完成</option>
+        <option value="已取消">已取消</option>
+      </select>
+      <select class="ghost-select" v-model="filterMode" @change="applyFilters">
+        <option value="">入库方式: 全部</option>
+        <option value="按磅重">按磅重</option>
+        <option value="按规格">按规格</option>
+      </select>
+    </div>
+    <div v-if="showColsPanel" class="cols-panel">
+      <label v-for="c in columnMeta" :key="c.idx" class="col-item">
+        <input type="checkbox" v-model="c.visible" @change="applyHidden" /> {{ c.label }}
+      </label>
     </div>
     <div class="grid-wrap">
       <hot-table
+        ref="hotRef"
         class="grid"
         :data="rows"
         :colHeaders="colHeaders"
@@ -22,6 +44,7 @@
         :columnSorting="true"
         :currentRowClassName="'current-row'"
         :currentColClassName="'current-col'"
+        :hiddenColumns="hiddenColumns"
         :colWidths="140"
         :licenseKey="'non-commercial-and-evaluation'"
         :rowHeights="40"
@@ -32,11 +55,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { HotTable } from '@handsontable/vue3';
 import 'handsontable/dist/handsontable.full.min.css';
 import { listInboundOrders } from '@/api/depositor';
+import * as XLSX from 'xlsx';
 const rows = ref<any[]>([]);
+const allRecords = ref<any[]>([]);
+const hotRef = ref<any>(null);
+const showColsPanel = ref(false);
+const filterStatus = ref('');
+const filterMode = ref('');
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
 // 渲染器
 function renderTag(td:HTMLTableCellElement, text:string, cls:string){ td.innerHTML = `<span class="tag ${cls}">${text}</span>`; }
@@ -123,7 +152,8 @@ async function load(){
     inbound_proof: (r.weigh_ticket_urls && r.weigh_ticket_urls.length) ? `磅单${r.weigh_ticket_urls.length}张` : (r.weigh_ticket_url||r.doc_url? '磅单1张':'-'),
     _act: '编辑 删除'
   }));
-  rows.value = data;
+  allRecords.value = data;
+  applyFilters();
 }
 
 onMounted(load);
@@ -171,12 +201,45 @@ function mock10(){
   localStorage.setItem('mockInboundOrders', JSON.stringify(data));
   load();
 }
+
+function appendMock10(){
+  const now = Date.now();
+  let list:any[] = [];
+  try{ list = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')||[]; }catch{}
+  const more = Array.from({ length:10 }).map((_,i)=>({ reservation_number:'YY'+(now+i), transport_no:'T'+(now+i).toString().slice(-6), order_no:'RK'+(now+i), status:['created','receiving','completed'][i%3], owner_name:'某客户'+(i+1), commodity_name:['铁矿','煤炭','玉米','大豆'][i%4], commodity_spec:['散装','袋装','30kg','50kg'][i%4], vehicle_plate: randomPlate(), planned_quantity: 32000+i*500, actual: 30000+i*123, weigh_mode:'by_weight', gross: 30000+i*100, tare: 12000+i*50, net: 18000+i*50, deductions: i%3===0? 20: 0, entry_photos: new Array(i%4).fill(0), entry_time: new Date(now - i*3600_000).toISOString().slice(0,19).replace('T',' '), exit_photos: new Array((i+1)%4).fill(0), exit_time: new Date(now - i*1800_000).toISOString().slice(0,19).replace('T',' '), qc_url:'https://example.com/qc/'+(now+i), driver_name:'司机'+(i+1), driver_phone:'1'+(3000000000 + Math.floor(Math.random()*999999999)).toString().slice(0,10), driver_id_no:'4401011990010'+String(200+i), driver_license_url:'https://example.com/license/'+(now+i) }));
+  localStorage.setItem('mockInboundOrders', JSON.stringify(list.concat(more)));
+  load();
+}
+
+function clearMock(){ localStorage.removeItem('mockInboundOrders'); load(); }
+
+function resetColWidths(){
+  const hot = hotRef.value?.hotInstance;
+  if (hot) { hot.getPlugin('manualColumnResize')?.clearManualSize?.(); hot.render(); }
+}
+
+function applyFilters(){
+  const s = filterStatus.value;
+  const m = filterMode.value;
+  rows.value = allRecords.value.filter(r => (!s || r.status===s) && (!m || r.weigh_mode_text===m));
+}
+
+// 列显隐（Handsontable HiddenColumns）
+const columnMeta = ref(colHeaders.map((label, idx)=>({ label, idx, visible: true })));
+const hiddenIndices = ref<number[]>([]);
+const hiddenColumns = computed(()=>({ columns: hiddenIndices.value, indicators: true }));
+function applyHidden(){
+  hiddenIndices.value = columnMeta.value.filter(c=>!c.visible).map(c=>c.idx);
+}
 </script>
 
 <style scoped>
 .page{ padding:16px; }
 .toolbar{ margin:12px 0; display:flex; gap:8px; }
 .ghost{ background:#eef2f7; color:#0f172a; height:36px; padding:0 12px; border:none; border-radius:10px; }
+.ghost-select{ background:#eef2f7; color:#0f172a; height:36px; padding:0 8px; border:none; border-radius:10px; }
+.cols-panel{ display:flex; flex-wrap:wrap; gap:12px; padding:8px 12px; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:12px; margin-bottom:12px; }
+.col-item{ font-size:12px; color:#0f172a; }
 .grid-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); height:70vh; }
 .grid{ width:100%; height:100%; min-width:1400px; }
 .link{ color:#2563eb; }
