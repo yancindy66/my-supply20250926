@@ -10,7 +10,7 @@
       <button class="ghost" @click="syncGate">同步门岗</button>
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost primary" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
-      <button class="ghost icon-btn" title="打开保存的文件" @click="openFolder">📁</button>
+      <button class="ghost icon-btn" title="打开保存的文件" @click="openFolder" @dblclick="openFolder">📁</button>
       <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
       <label class="ghost upload-btn">
         上传磅单(多张)
