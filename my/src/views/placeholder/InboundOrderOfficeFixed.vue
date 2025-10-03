@@ -14,8 +14,6 @@
         <option v-for="f in savedList" :key="f.id" :value="f.id">{{ f.name }}</option>
       </select>
       <button class="ghost" @click="openSaved" :disabled="!openId">打开</button>
-      <button class="ghost" @click="deleteSaved" :disabled="!openId">删除</button>
-      <button class="ghost" @click="newBlankSheet">新建空白表</button>
       <button class="ghost" @click="printSheet">打印</button>
       <div class="spacer"></div>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
@@ -386,7 +384,9 @@ async function saveCurrent(){
     if(grid){ data = grid.values || []; nameHint = grid.name || nameHint; }
   }catch{}
   if(!data || !data.length){ data = JSON.parse(JSON.stringify(viewRecords.value)); }
-  const name = '保存-' + nameHint;
+  const ts = new Date();
+  const time = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}`;
+  const name = `保存-${nameHint}-${time}`;
   savedList.value = [{ id, name, data }, ...savedList.value];
   persist();
   openId.value = id;
@@ -402,7 +402,7 @@ function deleteSaved(){
   persist();
   openId.value = '';
 }
-async function newBlankSheet(){ const ls:any = await getLS(); if(!ls) return; const idx = ls.getAllSheets().length; ls.insertSheet({ index: idx, name: '空白表-'+(idx+1) }); }
+// 新建空白表入口已移除
 
 // 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
 function printSheet(){
