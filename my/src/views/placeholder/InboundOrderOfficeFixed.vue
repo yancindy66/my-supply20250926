@@ -1,32 +1,6 @@
 <template>
   <div class="page">
     <h2>车辆入库（修正·Handsontable）</h2>
-    <div class="toolbar">
-      <button class="ghost" @click="load">刷新</button>
-    <button class="ghost" @click="mock10">生成10条MOCK</button>
-      <button class="ghost" @click="appendMock10">追加10条</button>
-      <button class="ghost" @click="clearMock">清空MOCK</button>
-      <button class="ghost" @click="resetColWidths">重置列宽</button>
-      <button class="ghost" @click="exportExcel">导出Excel</button>
-      <button class="ghost" @click="showColsPanel = !showColsPanel">列显隐</button>
-      <select class="ghost-select" v-model="filterStatus" @change="applyFilters">
-        <option value="">状态: 全部</option>
-        <option value="已创建">已创建</option>
-        <option value="收货中">收货中</option>
-        <option value="已完成">已完成</option>
-        <option value="已取消">已取消</option>
-      </select>
-      <select class="ghost-select" v-model="filterMode" @change="applyFilters">
-        <option value="">入库方式: 全部</option>
-        <option value="按磅重">按磅重</option>
-        <option value="按规格">按规格</option>
-      </select>
-    </div>
-    <div v-if="showColsPanel" class="cols-panel">
-      <label v-for="c in columnMeta" :key="c.idx" class="col-item">
-        <input type="checkbox" v-model="c.visible" @change="applyHidden" /> {{ c.label }}
-      </label>
-    </div>
     <div class="grid-wrap">
       <hot-table
         ref="hotRef"
@@ -41,27 +15,15 @@
         :manualColumnMove="true"
         :rowHeaders="true"
         :filters="true"
-        :dropdownMenu="true"
+        :dropdownMenu="dropdownItems"
         :columnSorting="true"
+        :language="zhLang"
         :currentRowClassName="'current-row'"
         :currentColClassName="'current-col'"
-        :hiddenColumns="hiddenColumns"
         :colWidths="140"
         :licenseKey="'non-commercial-and-evaluation'"
         :rowHeights="40"
         :height="'70vh'"
-      />
-    </div>
-
-    <!-- 基础版 Handsontable（仅4列，纯Mock，无固定与美化） -->
-    <h3 style="margin-top:16px;">基础表格（简洁）</h3>
-    <div class="basic-wrap">
-      <hot-table
-        :data="basicRows"
-        :colHeaders="basicHeaders"
-        :columns="basicColumns"
-        :rowHeights="36"
-        :height="320"
       />
     </div>
   </div>
@@ -73,23 +35,22 @@ import { HotTable } from '@handsontable/vue3';
 import 'handsontable/dist/handsontable.full.min.css';
 import { registerAllModules } from 'handsontable/registry';
 registerAllModules();
+import { registerLanguageDictionary, zhCN } from 'handsontable/i18n';
+registerLanguageDictionary(zhCN);
 import { listInboundOrders } from '@/api/depositor';
-import * as XLSX from 'xlsx';
 const rows = ref<any[]>([]);
 const allRecords = ref<any[]>([]);
 const hotRef = ref<any>(null);
-const showColsPanel = ref(false);
-const filterStatus = ref('');
-const filterMode = ref('');
-
-// 基础表格（仅4列）
-const basicRows = ref<any[]>([]);
-const basicHeaders = ['预约单号','运输单号','客户','状态'];
-const basicColumns = [
-  { data:'reservation_number' },
-  { data:'transport_no' },
-  { data:'owner_name' },
-  { data:'status' }
+const zhLang = zhCN.languageCode;
+const dropdownItems = [
+  'filter_by_condition',
+  'filter_operators',
+  'filter_by_value',
+  'filter_action_bar',
+  'sort_ascending',
+  'sort_descending',
+  'clear_column',
+  'alignment'
 ];
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
 // 渲染器
@@ -183,11 +144,10 @@ async function load(){
     _act: '编辑 删除'
   }));
   allRecords.value = data;
-  applyFilters();
+  rows.value = data;
 }
 
 onMounted(load);
-onMounted(()=>{ basicRows.value = genBasicMock(10); });
 
 function randomPlate(){
   const letters = 'ABCDEFGHJKLmnopqrstu'.toUpperCase();
@@ -196,101 +156,7 @@ function randomPlate(){
   return prov[Math.floor(Math.random()*prov.length)] + 'A' + tail;
 }
 
-function mock10(){
-  const now = Date.now();
-  const data = Array.from({ length:10 }).map((_,i)=>{
-    const gross = 30000 + Math.floor(Math.random()*10000);
-    const tare = 12000 + Math.floor(Math.random()*4000);
-    const net = gross - tare;
-    return {
-      reservation_number: 'YY'+(now+i),
-      transport_no: 'T'+(now+i).toString().slice(-6),
-      order_no: 'RK'+(now+i),
-      status: ['created','receiving','completed'][i%3],
-      inbound_proof: i%2===0? '磅单1张' : '-',
-      owner_name: '某客户'+(i+1),
-      commodity_name: ['铁矿','煤炭','玉米','大豆'][i%4],
-      commodity_spec: ['散装','袋装','30kg','50kg'][i%4],
-      vehicle_plate: randomPlate(),
-      planned_quantity: 32000 + i*500,
-      actual: net,
-      weigh_mode: 'by_weight',
-      gross, tare, net,
-      deductions: i%3===0? 20: 0,
-      entry_photos: new Array(i%4).fill(0),
-      entry_time: new Date(now - i*3600_000).toISOString().slice(0,19).replace('T',' '),
-      exit_photos: new Array((i+1)%4).fill(0),
-      exit_time: new Date(now - i*1800_000).toISOString().slice(0,19).replace('T',' '),
-      qc_url: 'https://example.com/qc/'+(now+i),
-      driver_name: '司机'+(i+1),
-      driver_phone: '1'+(3000000000 + Math.floor(Math.random()*999999999)).toString().slice(0,10),
-      driver_id_no: '4401011990010'+String(100+i),
-      driver_license_url: 'https://example.com/license/'+(now+i)
-    };
-  });
-  // 覆盖写入（若需要改为追加，可读取后 concat）
-  localStorage.setItem('mockInboundOrders', JSON.stringify(data));
-  load();
-}
 
-function appendMock10(){
-  const now = Date.now();
-  let list:any[] = [];
-  try{ list = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]')||[]; }catch{}
-  const more = Array.from({ length:10 }).map((_,i)=>({ reservation_number:'YY'+(now+i), transport_no:'T'+(now+i).toString().slice(-6), order_no:'RK'+(now+i), status:['created','receiving','completed'][i%3], owner_name:'某客户'+(i+1), commodity_name:['铁矿','煤炭','玉米','大豆'][i%4], commodity_spec:['散装','袋装','30kg','50kg'][i%4], vehicle_plate: randomPlate(), planned_quantity: 32000+i*500, actual: 30000+i*123, weigh_mode:'by_weight', gross: 30000+i*100, tare: 12000+i*50, net: 18000+i*50, deductions: i%3===0? 20: 0, entry_photos: new Array(i%4).fill(0), entry_time: new Date(now - i*3600_000).toISOString().slice(0,19).replace('T',' '), exit_photos: new Array((i+1)%4).fill(0), exit_time: new Date(now - i*1800_000).toISOString().slice(0,19).replace('T',' '), qc_url:'https://example.com/qc/'+(now+i), driver_name:'司机'+(i+1), driver_phone:'1'+(3000000000 + Math.floor(Math.random()*999999999)).toString().slice(0,10), driver_id_no:'4401011990010'+String(200+i), driver_license_url:'https://example.com/license/'+(now+i) }));
-  localStorage.setItem('mockInboundOrders', JSON.stringify(list.concat(more)));
-  load();
-}
-
-function clearMock(){ localStorage.removeItem('mockInboundOrders'); load(); }
-
-function resetColWidths(){
-  const hot = hotRef.value?.hotInstance;
-  if (hot) { hot.getPlugin('manualColumnResize')?.clearManualSize?.(); hot.render(); }
-}
-
-function applyFilters(){
-  const s = filterStatus.value;
-  const m = filterMode.value;
-  rows.value = allRecords.value.filter(r => (!s || r.status===s) && (!m || r.weigh_mode_text===m));
-}
-
-// 列显隐（Handsontable HiddenColumns）
-const columnMeta = ref(colHeaders.map((label, idx)=>({ label, idx, visible: true })));
-const hiddenIndices = ref<number[]>([]);
-const hiddenColumns = computed(()=>({ columns: hiddenIndices.value, indicators: true }));
-function applyHidden(){
-  hiddenIndices.value = columnMeta.value.filter(c=>!c.visible).map(c=>c.idx);
-}
-
-function exportExcel(){
-  // 仅导出当前可见列
-  const visibleIdx = columnMeta.value.filter(c=>c.visible).map(c=>c.idx);
-  const headers = visibleIdx.map(i=>colHeaders[i]);
-  const data = rows.value.map(r => visibleIdx.map(i => {
-    const key = (hotColumns[i] as any).data;
-    return r[key];
-  }));
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '入库列表');
-  XLSX.writeFile(wb, '入库列表.xlsx');
-}
-
-function genBasicMock(n:number){
-  const now = Date.now();
-  const statuses = ['已创建','收货中','已完成','已取消'];
-  const arr:any[] = [];
-  for(let i=0;i<n;i++){
-    arr.push({
-      reservation_number: 'YY'+(now+i),
-      transport_no: 'T'+(now+i).toString().slice(-6),
-      owner_name: '客户'+(i+1),
-      status: statuses[i % statuses.length]
-    });
-  }
-  return arr;
-}
 
 function genFullMock(n:number){
   const now = Date.now();
