@@ -52,6 +52,18 @@
         :height="'70vh'"
       />
     </div>
+
+    <!-- 基础版 Handsontable（仅4列，纯Mock，无固定与美化） -->
+    <h3 style="margin-top:16px;">基础表格（简洁）</h3>
+    <div class="basic-wrap">
+      <hot-table
+        :data="basicRows"
+        :colHeaders="basicHeaders"
+        :columns="basicColumns"
+        :rowHeights="36"
+        :height="320"
+      />
+    </div>
   </div>
 </template>
 
@@ -67,6 +79,16 @@ const hotRef = ref<any>(null);
 const showColsPanel = ref(false);
 const filterStatus = ref('');
 const filterMode = ref('');
+
+// 基础表格（仅4列）
+const basicRows = ref<any[]>([]);
+const basicHeaders = ['预约单号','运输单号','客户','状态'];
+const basicColumns = [
+  { data:'reservation_number' },
+  { data:'transport_no' },
+  { data:'owner_name' },
+  { data:'status' }
+];
 const colHeaders = ['预约单号','运输单号','入库单号','入库状态','入库凭证+','客户','商品','车牌号','预约量','已经入库量','磅重（入库方式）','毛重','皮重','净重','扣重','入场抓拍','入场抓拍时间','出场抓拍','出场抓拍时间','质检URL','司机姓名','司机手机','司机身份证','司机驾驶证','操作'];
 // 渲染器
 function renderTag(td:HTMLTableCellElement, text:string, cls:string){ td.innerHTML = `<span class="tag ${cls}">${text}</span>`; }
@@ -158,6 +180,7 @@ async function load(){
 }
 
 onMounted(load);
+onMounted(()=>{ basicRows.value = genBasicMock(10); });
 
 function randomPlate(){
   const letters = 'ABCDEFGHJKLmnopqrstu'.toUpperCase();
@@ -246,6 +269,21 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb, ws, '入库列表');
   XLSX.writeFile(wb, '入库列表.xlsx');
 }
+
+function genBasicMock(n:number){
+  const now = Date.now();
+  const statuses = ['已创建','收货中','已完成','已取消'];
+  const arr:any[] = [];
+  for(let i=0;i<n;i++){
+    arr.push({
+      reservation_number: 'YY'+(now+i),
+      transport_no: 'T'+(now+i).toString().slice(-6),
+      owner_name: '客户'+(i+1),
+      status: statuses[i % statuses.length]
+    });
+  }
+  return arr;
+}
 </script>
 
 <style scoped>
@@ -276,6 +314,8 @@ function exportExcel(){
 .tag.tag-gray{ background:#e5e7eb; color:#374151; }
 .tag.tag-purple{ background:#ede9fe; color:#5b21b6; }
 .tag.tag-cyan{ background:#cffafe; color:#155e75; }
+
+.basic-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); margin-top:8px; }
 </style>
 
 
