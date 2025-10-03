@@ -225,7 +225,7 @@
     </el-dialog>
 
     <div v-if="loading">加载中...</div>
-    <FixedTable v-else :columns="ftColumns" :rows="visibleRows">
+    <FixedTable v-else :columns="ftColumns" :rows="visibleRows" :default-fix="true">
       <template #cell-reservation_number="{row}">
         <span class="resv-link" :title="'入库单（列表即详情）'">{{ row.reservation_number || row.order_no }}</span>
         <div class="subops">
