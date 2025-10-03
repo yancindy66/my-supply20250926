@@ -87,15 +87,27 @@ async function loadLuckysheetCDN(){
   });
   await loadScript('https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/js/plugin.js');
   await loadScript('https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js');
-  const ls:any = (window as any).luckysheet || (window as any).Luckysheet;
-  return ls;
+  const cand:any[] = [
+    (window as any).luckysheet,
+    (window as any).Luckysheet,
+    (window as any).Luckysheet?.default
+  ];
+  for(const c of cand){ if(c && typeof c.create==='function') return c; }
+  return null as any;
 }
 
 async function renderSheet(){
   try{
-    const lsAny:any = await loadLuckysheetCDN();
-    const ls = (lsAny && typeof lsAny.create==='function') ? lsAny : (window as any).luckysheet;
-    if(!ls || typeof ls.create!=='function') return;
+    const ls:any = await loadLuckysheetCDN();
+    if(!ls || typeof ls.create!=='function'){
+      // fallback: simple HTML table
+      const data2D = buildEvidence2D();
+      const el = document.getElementById('luckysheet-detail');
+      if(el){
+        el.innerHTML = `<table class="fallback">${data2D.map((r:any)=>'<tr>'+r.map((c:any)=>`<td>${String(c??'')}</td>`).join('')+'</tr>').join('')}</table>`;
+      }
+      return;
+    }
     const data2D = buildEvidence2D();
     const celldata:any[] = [];
     for(let r=0;r<data2D.length;r++){
@@ -111,6 +123,9 @@ async function renderSheet(){
       showinfobar:false,
       showtoolbar:false,
       showsheetbar:false,
+      sheetFormulaBar:false,
+      enableAddRow:false,
+      enableAddCol:false,
       row: Math.max(20, data2D.length),
       column: Math.max(10, data2D[0]?.length||10),
       data:[{ name:'证据表', celldata, config:{} }]
@@ -153,7 +168,7 @@ function printSheet(){
   <style>table{border-collapse:collapse;width:100%;}td,th{border:1px solid #999;padding:6px;}h3{text-align:center;margin:8px 0;}</style>
   </head><body><h3>证据表</h3><table>${data2D.map((r:any)=>'<tr>'+r.map((c:any)=>`<td>${String(c??'')}</td>`).join('')+'</tr>').join('')}</table></body></html>`;
   const w = window.open('', '_blank'); if(!w) return;
-  w.document.write(html); w.document.close(); w.focus(); w.print(); setTimeout(()=> w.close(), 200);
+  w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{ try{ w.print(); }catch{} }, 50); setTimeout(()=>{ try{ w.close(); }catch{} }, 600);
 }
 </script>
 
