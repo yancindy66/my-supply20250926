@@ -12,6 +12,7 @@
         :colHeaders="colHeaders"
         :columns="hotColumns"
         :fixedColumnsLeft="2"
+        :fixedColumnsEnd="1"
         :stretchH="'none'"
         :manualColumnResize="true"
         :colWidths="140"
