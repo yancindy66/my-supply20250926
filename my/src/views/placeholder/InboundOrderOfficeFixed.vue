@@ -368,6 +368,8 @@ async function renderLuckysheet(rows:any[]){
     if(btn.parentElement !== active) active.appendChild(btn);
   }
   try{
+    // 初次与延迟附着，确保sheet栏渲染完成
+    setTimeout(attachCloseToActive, 50);
     attachCloseToActive();
     if(!(window as any).__lsCloseHooked){
       const area = document.querySelector('#luckysheet .luckysheet-sheet-area');
@@ -578,13 +580,14 @@ function hideCurrentSheet(){
   // 仅隐藏当前Luckysheet中的活动sheet，不销毁其他sheet
   const ls:any = (window as any).luckysheet;
   try{
-    const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
-    const sheets:any[] = ls?.getAllSheets?.() || [];
-    if(!sheets.length) return;
-    // 兼容多版本：优先deleteSheet/delSheet，否则隐藏
-    if(typeof ls?.deleteSheet==='function') ls.deleteSheet(idx);
-    else if(typeof ls?.delSheet==='function') ls.delSheet(idx);
-    else if(typeof ls?.setSheetHide==='function') ls.setSheetHide(idx, true);
+    const items = Array.from(document.querySelectorAll('#luckysheet .luckysheet-sheet-area .luckysheet-sheets-item')) as HTMLElement[];
+    if(!items.length) return;
+    const active = document.querySelector('#luckysheet .luckysheet-sheet-area .luckysheetsheets-selected, #luckysheet .luckysheet-sheet-area .luckysheet-sheets-item-active, #luckysheet .luckysheet-sheet-area .luckysheet-sheets-item[isactive="1"], #luckysheet .luckysheet-sheet-area .luckysheet-sheets-item.luckysheet-sheets-item-active') as HTMLElement || items[0];
+    const order = Math.max(0, items.indexOf(active));
+    // 兼容多版本：优先deleteSheet/delSheet（均使用order下标），否则隐藏
+    if(typeof ls?.deleteSheet==='function') ls.deleteSheet(order);
+    else if(typeof ls?.delSheet==='function') ls.delSheet(order);
+    else if(typeof ls?.setSheetHide==='function') ls.setSheetHide(order, true);
     else { closed.value = true; }
   }catch{}
   // 页面上不整体关闭容器，避免误关全部
