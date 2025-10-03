@@ -10,7 +10,6 @@
       <button class="ghost" @click="syncGate">同步门岗</button>
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
-      <button class="ghost" @click="showOpenPanel=true">打开</button>
       <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
       <label class="ghost upload-btn">
         上传磅单(多张)
@@ -58,25 +57,6 @@
         <div class="modal-actions">
           <button class="ghost" @click="confirmSaveAndClose">保存并关闭</button>
           <button @click="showNameDialog=false">取消</button>
-        </div>
-      </div>
-    </div>
-    <!-- 打开面板（搜索+列表） -->
-    <div v-if="showOpenPanel" class="modal-mask">
-      <div class="modal large">
-        <div class="modal-title">打开保存的表</div>
-        <div class="modal-body">
-          <input class="ghost-input" placeholder="搜索文件名..." v-model="openSearch" />
-          <div class="file-list">
-            <div class="file-item" v-for="f in filteredSaved" :key="f.id" @click="openSaved(f.id)">
-              <div class="fname">{{ f.name }}</div>
-              <div class="ftime">{{ formatTime(f.ts) }}</div>
-            </div>
-            <div v-if="!filteredSaved.length" class="empty">无匹配结果</div>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="ghost" @click="showOpenPanel=false">关闭</button>
         </div>
       </div>
     </div>
@@ -182,20 +162,13 @@ const allRecords = ref<any[]>([]);
 const viewRecords = ref<any[]>([]);
 const STORAGE_KEY = 'inbound_saved_sheets.v1';
 const savedList = ref<{id:string; name:string; data:any[]}[]>(loadSaved());
-const openId = ref<string>('');
-const openSearch = ref('');
+// 打开功能已移除（避免与隐藏产生冲突）
 const showCloseDialog = ref(false);
-const showOpenPanel = ref(false);
 const closed = ref(false);
 const saving = ref(false);
 const toast = ref<{show:boolean; msg:string}>({ show:false, msg:'' });
 const showNameDialog = ref(false);
 const nameInput = ref('');
-const filteredSaved = computed(()=>{
-  const k = openSearch.value.trim().toLowerCase();
-  if(!k) return savedList.value;
-  return savedList.value.filter(x=> x.name.toLowerCase().includes(k));
-});
 function formatTime(ts?: number){ if(!ts) return ''; const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 const showCols = ref(false);
 // 取消顶部筛选，保留分页
@@ -512,18 +485,11 @@ async function saveCurrent(customName?: string){
   const name = customName ? customName : `保存-${nameHint}-${time}`;
   savedList.value = [{ id, name, data }, ...savedList.value];
   persist();
-  openId.value = id;
+  // 打开功能已移除：保存仅用于留存版本
   saving.value = false;
   showToast('已保存：'+name);
 }
-function openSaved(){
-  const id = typeof arguments[0]==='string' ? arguments[0] : openId.value;
-  const it = savedList.value.find(x=>x.id===id); if(!it) return;
-  allRecords.value = [...it.data];
-  page.value = 1;
-  rerender();
-  showOpenPanel.value = false; closed.value = false;
-}
+// openSaved 移除
 function closeWithoutSave(){ showCloseDialog.value=false; hideCurrentSheet(); doClosePage(); }
 function prepareCloseWithSave(){
   showCloseDialog.value=false;
