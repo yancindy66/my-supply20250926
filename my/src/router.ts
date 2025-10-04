@@ -18,7 +18,7 @@ const routes = [
     path: '/',
     component: () => import('./layout/MinimalLayout.vue'),
     children: [
-      { path: 'inbound/apply', redirect: '/inbound/order/list' },
+      // 提供真实入库预约页面，去掉原有的重定向
       { path: 'dashboard', component: () => import('./views/Dashboard.vue') },
       { path: 'inventory', component: () => import('./views/商品管理/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
       { path: 'member', children: [ { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') } ] },
@@ -58,6 +58,7 @@ const routes = [
       { path: 'inventory/vehicle-inbound', component: () => import('./views/placeholder/InboundOrderOfficeFixed.vue'), meta: { title: '车辆入库（预约表）', office: true } },
       { path: 'inbound/gate/verify', component: () => import('./views/placeholder/GateVerify.vue'), meta: { title: '门岗核验' } },
       { path: 'inbound/order/apply', component: () => import('./views/placeholder/InboundOrderApply.vue'), meta: { title: '新建入库预约' } },
+      // 旧“入库预约列表”改为“入库单列表”
       { path: 'inbound/reservation/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库单列表' } },
       { path: 'monitor/overview', component: () => import('./views/placeholder/RegulatorOverview.vue') },
 
