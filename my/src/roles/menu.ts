@@ -170,11 +170,13 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
   financial: [
     { title: '融资管理', link: '/financing/manage', children: [
       { title: '融资申请列表', link: '/financing/application-list' },
+      { title: '融资信息列表', link: '/financing/info-list' },
       { title: '融资信息查看', link: '/financing/detail/:id' },
       { title: '融资信息审核', link: '/financing/review/:id' },
       { title: '还款/部分还款', link: '/financing/repayment/:id' }
     ] },
     { title: '融资风控', link: '/risk-control/dashboard', children: [
+      { title: '风险总览', link: '/risk-control/dashboard' },
       { title: '融资风险列表', link: '/risk-control/risk-list' },
       { title: '风险处置列表', link: '/risk-control/disposal-list' },
       { title: '风险处理', link: '/risk-control/handle/:id' }
@@ -192,13 +194,10 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
   guarantee: [
     { title: '担保工作台', link: '/guarantee/dashboard', children: [ { title: '业务总览', link: '/guarantee/dashboard' } ] },
     { title: '担保产品管理', link: '/guarantee/products', children: [
-      { title: '产品列表', link: '/guarantee/products' },
-      { title: '产品创建', link: '/guarantee/products/create' },
-      { title: '产品审批', link: '/guarantee/products/approval' }
+      { title: '产品列表', link: '/guarantee/products' }
     ] },
     { title: '担保申请审批', link: '/guarantee/applications', children: [
-      { title: '申请列表', link: '/guarantee/applications' },
-      { title: '待审批申请', link: '/guarantee/applications/pending' }
+      { title: '申请列表', link: '/guarantee/applications' }
     ] },
     { title: '在保项目管理', link: '/guarantee/projects/active', children: [
       { title: '在保项目列表', link: '/guarantee/projects/active' },
