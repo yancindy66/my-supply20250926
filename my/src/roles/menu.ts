@@ -131,38 +131,28 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
   // 仓储机构
   warehouse: [
     { title: '仓库管理', link: '/warehouse/manage', children: [
-      { title: '仓库列表', link: '/warehouse/list' },
       { title: '添加仓库', link: '/warehouse/add' },
-      { title: '编辑仓库', link: '/warehouse/edit/:id' }
+      { title: '编辑仓库', link: '/warehouse/edit/:id' },
+      { title: '仓库列表', link: '/warehouse/list' }
     ] },
     { title: '入库管理', link: '/inbound/manage', children: [
       { title: '门岗核验', link: '/inbound/gate/verify' },
       { title: '车辆入库', link: '/inbound/order/office-list' },
       { title: '入库单列表', link: '/inbound/list' }
-      // 详情/审核/确认/开始/完成等动作页从列表进入
     ] },
     { title: '仓单管理', link: '/warehouse-receipt/manage', children: [
       { title: '仓单列表', link: '/warehouse-receipt/list' },
-      { title: '仓单信息查看', link: '/warehouse-receipt/detail/:id' },
-      { title: '仓单验真', link: '/warehouse-receipt/verify' },
-      { title: '修改质检信息', link: '/warehouse-receipt/update-quality/:id' }
+      { title: '仓单信息查看', link: '/warehouse-receipt/detail/:id' }
     ] },
     { title: '出库管理', link: '/outbound/manage', children: [
       { title: '出库申请列表', link: '/outbound/list' },
-      { title: '出库信息查询', link: '/outbound/query' }
-      // 详情/审核/确认/完成由列表进入
+      { title: '出库信息查看', link: '/outbound/detail/:id' },
+      { title: '出库信息审核', link: '/outbound/review/:id' }
     ] },
     { title: '移库管理', link: '/transfer/manage', children: [
       { title: '移库申请列表', link: '/transfer/list' },
       { title: '移库信息查看', link: '/transfer/detail/:id' },
       { title: '移库信息审核', link: '/transfer/review/:id' }
-    ] },
-    { title: '融资管理', link: '/financing/manage', children: [
-      { title: '融资申请列表', link: '/financing/application-list' },
-      { title: '融资信息列表', link: '/financing/info-list' },
-      { title: '融资信息查看', link: '/financing/detail/:id' },
-      { title: '融资信息审核', link: '/financing/review/:id' },
-      { title: '还款/部分还款', link: '/financing/repayment/:id' }
     ] },
     { title: '仓单续期', link: '/renewal/manage', children: [
       { title: '续期申请列表', link: '/renewal/list' },
@@ -170,30 +160,9 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
       { title: '续期信息审核', link: '/renewal/review/:id' }
     ] },
     { title: '仓单过户', link: '/transfer-ownership/manage', children: [
-      { title: '过户申请列表', link: '/transfer-ownership/list' },
-      { title: '过户申请审核', link: '/transfer-ownership/review/:id' }
+      { title: '过户申请', link: '/transfer-ownership/apply' },
+      { title: '过户申请列表', link: '/transfer-ownership/list' }
     ] },
-    { title: '巡检管理', link: '/inspection/tasks', children: [
-      { title: '巡检任务', link: '/inspection/tasks' },
-      { title: '待处理任务', link: '/inspection/tasks/pending' },
-      { title: '巡检记录', link: '/inspection/records' }
-      // 审核：/inspection/review/:id
-    ] },
-    { title: '液位仪管理', link: '/tanks/monitor', children: [
-      { title: '液位监控', link: '/tanks/monitor' }
-      // 历史/快照/当前数据为详情动作页
-    ] },
-    { title: '磅重管理', link: '/weight/measurements', children: [
-      { title: '称重记录', link: '/weight/measurements' },
-      { title: '毛重录入', link: '/weight/gross' },
-      { title: '皮重录入', link: '/weight/tare' }
-    ] },
-    { title: '证据管理', link: '/evidence/requirements', children: [
-      { title: '取证要求', link: '/evidence/requirements' },
-      { title: '资料上传', link: '/evidence/upload' },
-      { title: '取证审核', link: '/evidence/audit' }
-    ] },
-    { title: '费用管理', link: '/fee/manage', children: [ { title: '费用合计报表', link: '/fee/report' } ] },
     { title: '公告管理', link: '/announcement/manage', children: [ { title: '公告列表', link: '/announcement/list' } ] }
   ],
 
