@@ -29,8 +29,10 @@ const routes = [
       { path: 'inbound/order/office-list', component: () => import('./views/warehouse/inbound/VehicleInbound.vue'), meta: { title: '车辆入库（修正）', office: true } },
       { path: 'inbound/list', component: () => import('./views/warehouse/inbound/InboundOrderList.vue'), meta: { title: '入库单列表' } },
       // 金融机构
-      { path: 'financing/application-list', component: () => import('./views/financial/financing/ApplicationList.vue'), meta: { title: '融资申请列表' } },
+      { path: 'financing/application-list', component: () => import('./views/financial/financing/ApplyList.vue'), meta: { title: '融资申请列表' } },
       { path: 'risk-control/dashboard', component: () => import('./views/financial/risk-control/RiskDashboard.vue'), meta: { title: '风险总览' } },
+      { path: 'risk-control/risk-list', component: () => import('./views/financial/risk-control/RiskList.vue'), meta: { title: '融资风险列表' } },
+      { path: 'rules/financing-rules', component: () => import('./views/financial/rules/RuleSettings.vue'), meta: { title: '融资规则设置' } },
       { path: 'rules/config', component: () => import('./views/financial/rules/RulesConfig.vue'), meta: { title: '规则配置' } },
       // 担保机构
       { path: 'guarantee/dashboard', component: () => import('./views/guarantee/dashboard/GuaranteeDashboard.vue'), meta: { title: '担保工作台' } },
