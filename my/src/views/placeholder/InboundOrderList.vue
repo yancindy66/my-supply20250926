@@ -20,6 +20,7 @@
       </label>
       <button v-if="routeOfficeMode" class="ghost" @click="exportCsv">批量导出</button>
       <div class="spacer"></div>
+        <span class="scope-hint" v-if="scopeLabel">{{ scopeLabel }}</span>
         <button v-if="routeOfficeMode" class="ghost" @click="toggleFilter">高级筛选</button>
         <button v-if="routeOfficeMode" class="ghost" @click="toggleCols">列显示设置</button>
     </div>
@@ -293,9 +294,27 @@
       <template #cell-owner_name="{row}">{{ row.owner_name || '-' }}</template>
       <template #cell-warehouse="{row}">{{ (row.warehouse_name||'-') + ' ' + (row.warehouse_address||'') }}</template>
       <template #cell-commodity="{row}">{{ (row.commodity_name||'-') + (row.commodity_spec?(' / '+row.commodity_spec):'') }}</template>
-      <template #cell-planned_quantity="{row}">{{ row.total_planned_quantity || row.planned_quantity }}</template>
-      <template #cell-actual_in_weight="{row}">{{ row.actual || row.calc_weight || '-' }}</template>
-      <template #cell-pieces="{row}">{{ row.pack_count || row.pieces || '-' }}</template>
+      <template #cell-planned_quantity="{row}">
+        <template v-if="row._partialNew && (row._partialNew.planned_quantity!=null)">
+          <span class="del-val">{{ row.total_planned_quantity || row.planned_quantity }}</span>
+          <span class="adjusted-val">{{ row._partialNew.planned_quantity }}</span>
+        </template>
+        <template v-else>{{ row.total_planned_quantity || row.planned_quantity }}</template>
+      </template>
+      <template #cell-actual_in_weight="{row}">
+        <template v-if="row._partialNew && (row._partialNew.actual!=null || row._partialNew.calc_weight!=null)">
+          <span class="del-val">{{ row.actual || row.calc_weight || '-' }}</span>
+          <span class="adjusted-val">{{ row._partialNew.actual ?? row._partialNew.calc_weight }}</span>
+        </template>
+        <template v-else>{{ row.actual || row.calc_weight || '-' }}</template>
+      </template>
+      <template #cell-pieces="{row}">
+        <template v-if="row._partialNew && (row._partialNew.pieces!=null)">
+          <span class="del-val">{{ row.pack_count || row.pieces || '-' }}</span>
+          <span class="adjusted-val">{{ row._partialNew.pieces }}</span>
+        </template>
+        <template v-else>{{ row.pack_count || row.pieces || '-' }}</template>
+      </template>
       <template #cell-weigh_mode="{row}">{{ row.weigh_mode==='by_pack'?'按规格':'按磅重' }}</template>
       <template #cell-inbound_status="{row}"><span :class="['tag', inboundStatusColor(row)]">{{ inboundStatus(row) }}</span></template>
       <template #cell-goods_source="{row}">{{ row.goods_source || '司机上传磅单' }}</template>
@@ -381,6 +400,15 @@ const pageTitle = computed(()=> (router.currentRoute.value.meta as any)?.title |
 const routeOfficeMode = computed(()=> Boolean((router.currentRoute.value.meta as any)?.office) || router.currentRoute.value.path.includes('/inbound/office/list'));
 const loading = ref(false);
 const list = ref<any[]>([]);
+const role = computed(()=> localStorage.getItem('role') || 'inventory');
+const ownerId = computed(()=> localStorage.getItem('ownerId') || '');
+const warehouseId = computed(()=> localStorage.getItem('warehouseId') || '');
+const scopeLabel = computed(()=>{
+  if(role.value==='warehouse' && warehouseId.value) return `仓库视图：${warehouseId.value}`;
+  if(role.value==='inventory' && ownerId.value) return `存货人视图：${ownerId.value}`;
+  if(role.value==='logistics') return '物流视图';
+  return '';
+});
 
 const ftColumns = computed(()=>{
   // 根据可见列生成 FixedTable 需要的列定义，并设置固定与宽度
@@ -423,8 +451,8 @@ const passCount = computed(()=> (precheckResult.value.items||[]).filter((x:any)=
 const failCount = computed(()=> (precheckResult.value.items||[]).filter((x:any)=>!x.ok).length);
 // 总览条数据（基于当前可见或全量？采用可见列表统计，和视图一致）
 const unitHint = computed(()=> '吨');
-const totalPlanned = computed(()=> visibleRows.value.reduce((s:any, r:any)=> s + Number(r.total_planned_quantity || r.planned_quantity || 0), 0));
-const totalActual = computed(()=> visibleRows.value.reduce((s:any, r:any)=> s + Number(r.actual || r.calc_weight || 0), 0));
+const totalPlanned = computed(()=> visibleRows.value.filter((r:any)=> !r._redflushed).reduce((s:any, r:any)=> s + Number(r.total_planned_quantity || r.planned_quantity || 0), 0));
+const totalActual = computed(()=> visibleRows.value.filter((r:any)=> !r._redflushed).reduce((s:any, r:any)=> s + Number(r.actual || r.calc_weight || 0), 0));
 const pendingReview = computed(()=> visibleRows.value.filter((r:any)=> !['platform_approved','platform_rejected','cancelled'].includes(r.status||'')).length);
 const showAbnormalOnly = ref(false);
 function isAbnormal(row:any){
@@ -593,6 +621,20 @@ function applyFilter(){ saveFilter(); }
 const visibleRows = computed(()=>{
   const f = filters.value;
   return (list.value||[]).filter((row:any)=>{
+    // 角色隔离：仓库只看自己仓；存货人只看自己；物流看承运为自己的
+    if(role.value==='warehouse' && warehouseId.value){
+      const wid = String(row.warehouse_id || row.target_warehouse_id || row.warehouseId || '');
+      if(!wid || wid!==String(warehouseId.value)) return false;
+    }
+    if(role.value==='inventory' && ownerId.value){
+      const oid = String(row.owner_id || row.ownerId || '');
+      if(!oid || oid!==String(ownerId.value)) return false;
+    }
+    if(role.value==='logistics'){
+      const carrier = String(row.logistics_carrier_id || row.carrier_id || '');
+      const myCar = localStorage.getItem('carrierId') || '';
+      if(myCar && carrier && carrier!==myCar) return false;
+    }
     if (f.party && row.reservation_party !== f.party) return false;
     if (f.statuses?.length && !f.statuses.includes(row.status)) return false;
     if (f.warehouse){
@@ -644,7 +686,20 @@ function toggleSelectAll(e: Event){
 }
 
 function batchWithdraw(){ if(!selectedCount.value) return; alert(`批量撤回 ${selectedCount.value} 条（占位）`); }
-function batchRedFlush(){ if(!selectedCount.value) return; if(!confirm(`确认对 ${selectedCount.value} 条执行全额红冲？`)) return; alert('全额红冲（占位）：将插入等量负数单据并划掉原记录'); }
+async function batchRedFlush(){
+  if(!selectedCount.value) return; if(!confirm(`确认对 ${selectedCount.value} 条执行全额红冲？`)) return;
+  const ids = visibleRows.value.filter(r => selection.value[rowKey(r)]).map(r => r.order_no || r.reservation_number || r.id);
+  for(const id of ids){
+    try{
+      const resp:any = await http.post(`/v1/inbound/orders/${encodeURIComponent(id)}/redflush/full`, {});
+      const { old, adjusted } = resp?.data || {};
+      if(old && adjusted){
+        const idx = list.value.findIndex(r => (r.order_no||r.reservation_number) === (old.order_no||old.reservation_number));
+        if(idx>=0){ list.value[idx]._redflushed = true; list.value.splice(idx+1, 0, adjusted); }
+      }
+    }catch{}
+  }
+}
 // 红冲后的标记辅助：可在服务端返回红冲后的新旧两条记录，前端将旧条 target._redflushed=true
 function batchImportStackCard(){ alert('批量导入垛位卡（占位）'); }
 function openPartialRed(){
@@ -657,15 +712,17 @@ function openPartialRed(){
 async function confirmPartial(){
   if(redSubmitting.value) return; redSubmitting.value = true;
   try{
-    const oldIdx = list.value.findIndex(r => (r.order_no||r.reservation_number) === (currentRow.value.order_no||currentRow.value.reservation_number));
-    if(oldIdx>=0){
-      const old = list.value[oldIdx];
-      old._redflushed = true;
-      const adjust = { ...old } as any;
-      if(redForm.value.pieces!=null){ adjust.pieces = (Number(old.pieces||0) - Number(redForm.value.pieces)); }
-      if(redForm.value.actual!=null){ adjust.actual = (Number(old.actual||0) - Number(redForm.value.actual)); }
-      adjust._adjusted = true;
-      list.value.splice(oldIdx+1, 0, adjust);
+    const id = currentRow.value.order_no || currentRow.value.reservation_number || currentRow.value.id;
+    const resp:any = await http.post(`/v1/inbound/orders/${encodeURIComponent(id)}/redflush/partial`, { pieces: redForm.value.pieces, actual: redForm.value.actual, remark: redForm.value.remark });
+    const { old, adjusted } = resp?.data || {};
+    if(old && adjusted){
+      const oldIdx = list.value.findIndex(r => (r.order_no||r.reservation_number) === (old.order_no||old.reservation_number));
+      if(oldIdx>=0){
+        list.value[oldIdx]._redflushed = true;
+        // 给旧行附上 _partialNew 以便列内显示划线+新值
+        list.value[oldIdx]._partialNew = { pieces: adjusted.pieces, actual: adjusted.actual, calc_weight: adjusted.calc_weight, planned_quantity: adjusted.planned_quantity };
+        list.value.splice(oldIdx+1, 0, adjusted);
+      }
     }
     showPartial.value = false;
   }finally{ redSubmitting.value = false; }
@@ -864,7 +921,7 @@ function maskDriver(name?:string, phone?:string){
 async function load(){
   loading.value = true;
   try{
-    const resp: any = await listInboundOrders({ page:1, pageSize:10 });
+    const resp: any = await (listInboundOrders as any)({ page:1, pageSize:10, role: role.value, ownerId: ownerId.value, warehouseId: warehouseId.value, carrierId: localStorage.getItem('carrierId')||'' });
     const rows:any[] = resp?.data?.list || [];
     // 合并本地“车辆入库”Mock（门岗抓拍推送）
     let mock:any[] = [];
@@ -972,6 +1029,7 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .redflushed td{ position:relative; }
 .redflushed td::after{ content:''; position:absolute; left:0; right:0; top:50%; height:1px; background:#ef4444; transform:translateY(-50%); opacity:.8; }
 .adjusted-val{ color:#dc2626; font-weight:700; }
+.del-val{ text-decoration: line-through; color:#ef4444; margin-right:6px; }
 .pretty-form .row{ display:flex; align-items:center; gap:8px; padding:6px 0; }
 .pretty-form .row label{ width:140px; color:#475569; }
 .tip{ font-size:12px; color:#64748b; margin-top:6px; }

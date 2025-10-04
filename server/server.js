@@ -522,8 +522,14 @@ app.get('/v1/inbound/orders', async (req, res) => {
         }
       ];
       }
-      const total = demoStore.inboundOrders.length;
-      const list = demoStore.inboundOrders.slice((page-1)*pageSize, page*pageSize);
+      // role-based filtering (demo): inventory by ownerId, warehouse by warehouseId
+      const { role='inventory', ownerId='', warehouseId='', carrierId='' } = req.query || {};
+      let rows = demoStore.inboundOrders.slice();
+      if(String(role)==='warehouse' && warehouseId){ rows = rows.filter(r => String(r.warehouse_id||r.target_warehouse_id||'')===String(warehouseId)); }
+      if(String(role)==='inventory' && ownerId){ rows = rows.filter(r => String(r.owner_id||'')===String(ownerId)); }
+      if(String(role)==='logistics' && carrierId){ rows = rows.filter(r => String(r.logistics_carrier_id||'')===String(carrierId)); }
+      const total = rows.length;
+      const list = rows.slice((page-1)*pageSize, page*pageSize);
       return res.json({ code: 0, data: { list, total } });
     }
     const page = Number(req.query.page || 1);

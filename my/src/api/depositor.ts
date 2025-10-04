@@ -128,7 +128,7 @@ export function listAlerts(){
 }
 
 // 入库单列表
-export function listInboundOrders(params: { page?: number; pageSize?: number; reservation_number?: string }) {
+export function listInboundOrders(params: { page?: number; pageSize?: number; reservation_number?: string; role?: string; ownerId?: string; warehouseId?: string; carrierId?: string }) {
   return http.get<ApiResp<{list: InboundOrder[]; total:number}>>('/v1/inbound/orders', { params });
 }
 

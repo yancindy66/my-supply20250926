@@ -54,6 +54,8 @@ const routes = [
       { path: 'inbound/list', redirect: '/inbound/order/list' },
       // { path: 'inbound/office/list', component: () => import('./views/placeholder/GateOffice.vue'), meta: { title: '门岗核验（办公室）', office: true } },
       { path: 'inbound/order/office-list', component: () => import('./views/placeholder/InboundOrderOfficeFixed.vue'), meta: { title: '车辆入库（修正）', office: true } },
+      // 存货人-车辆入库（共用预约表）
+      { path: 'inventory/vehicle-inbound', component: () => import('./views/placeholder/InboundOrderOfficeFixed.vue'), meta: { title: '车辆入库（预约表）', office: true } },
       { path: 'inbound/gate/verify', component: () => import('./views/placeholder/GateVerify.vue'), meta: { title: '门岗核验' } },
       { path: 'inbound/order/apply', component: () => import('./views/placeholder/InboundOrderApply.vue'), meta: { title: '新建入库预约' } },
       { path: 'inbound/reservation/list', component: () => import('./views/placeholder/InboundOrderList.vue'), meta: { title: '入库单列表' } },
