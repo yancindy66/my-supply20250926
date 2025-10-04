@@ -86,47 +86,46 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
 
   // 存货人（depositor）
   inventory: [
-    { title: '入库管理', link: '/inbound/order/list', children: [
-      { title: '入库预约', link: '/inbound/apply' },
+    { title: '入库管理', link: '/inbound/manage', children: [
+      { title: '入库申请', link: '/inbound/apply' },
       { title: '入库单列表', link: '/inbound/order/list' }
     ] },
-    { title: '仓单管理', link: '/warehouse-receipt/list', children: [
+    { title: '仓单管理', link: '/warehouse-receipt/manage', children: [
       { title: '仓单列表', link: '/warehouse-receipt/list' },
-      { title: '出库申请', link: '/warehouse-receipt/outbound-apply' }
+      { title: '查看详情', link: '/warehouse-receipt/detail/:id' },
+      { title: '修改质检信息', link: '/warehouse-receipt/update-quality/:id' }
     ] },
-    { title: '出库管理', link: '/outbound/list', children: [ { title: '出库申请列表', link: '/outbound/list' } ] },
-    { title: '移库管理', link: '/transfer/apply', children: [
+    { title: '出库管理', link: '/outbound/manage', children: [
+      { title: '出库申请', link: '/outbound/apply' },
+      { title: '出库单列表', link: '/outbound/list' }
+    ] },
+    { title: '移库管理', link: '/transfer/manage', children: [
       { title: '移库申请', link: '/transfer/apply' },
       { title: '移库申请列表', link: '/transfer/list' }
     ] },
-    { title: '融资管理', link: '/financing/apply', children: [
+    { title: '融资管理', link: '/financing/manage', children: [
       { title: '融资申请', link: '/financing/apply' },
       { title: '融资申请列表', link: '/financing/list' },
       { title: '融资风险列表', link: '/financing/risk' }
     ] },
-    { title: '仓单过户', link: '/transfer-ownership/apply', children: [
+    { title: '仓单过户', link: '/transfer-ownership/manage', children: [
       { title: '过户申请', link: '/transfer-ownership/apply' },
       { title: '过户申请列表', link: '/transfer-ownership/list' }
     ] },
-    { title: '仓单续期', link: '/renewal/apply', children: [
+    { title: '仓单续期', link: '/renewal/manage', children: [
       { title: '续期申请', link: '/renewal/apply' },
       { title: '续期申请列表', link: '/renewal/list' }
     ] },
-    { title: '仓单交易', link: '/trading/apply', children: [
+    { title: '仓单交易', link: '/trading/manage', children: [
       { title: '仓单交易申请', link: '/trading/apply' },
       { title: '仓单交易申请列表', link: '/trading/list' }
     ] },
-    { title: '费用管理', link: '/fee/payable', children: [
+    { title: '费用管理', link: '/fee/manage', children: [
       { title: '应缴费用列表', link: '/fee/payable' },
       { title: '退费列表', link: '/fee/refund' },
       { title: '费用合计报表', link: '/fee/report' }
     ] },
-    { title: '公告管理', link: '/announcement/list', children: [ { title: '公告列表', link: '/announcement/list' } ] },
-    { title: '人员功能', link: '/warehouse/manage', children: [
-      { title: '仓库管理', link: '/warehouse/manage' },
-      { title: '仓库列表', link: '/warehouse/list' },
-      { title: '添加仓库', link: '/warehouse/add' }
-    ] }
+    { title: '公告管理', link: '/announcement/manage', children: [ { title: '公告列表', link: '/announcement/list' } ] }
   ],
 
   // 仓储机构
