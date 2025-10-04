@@ -87,7 +87,8 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
   // 存货人（depositor）
   inventory: [
     { title: '入库管理', link: '/inbound/order/list', children: [
-      { title: '入库预约列表', link: '/inbound/order/list' }
+      { title: '入库预约', link: '/inbound/apply' },
+      { title: '入库单列表', link: '/inbound/order/list' }
     ] },
     { title: '仓单管理', link: '/warehouse-receipt/list', children: [
       { title: '仓单列表', link: '/warehouse-receipt/list' },
