@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <h2 class="title-bar"><span>车辆入库（修正·Handsontable）</span></h2>
+    <h2 class="title-bar"><span>入库预约（修正·Handsontable）</span></h2>
     <div class="toolbar">
       <button class="ghost" @click="toggleColsPanel">列显隐</button>
       <label class="ghost upload-btn primary">
