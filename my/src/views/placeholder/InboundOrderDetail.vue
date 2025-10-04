@@ -47,6 +47,13 @@ async function load(){
   try{
     const resp:any = await http.get(`/v1/inbound/orders/${encodeURIComponent(id.value)}`);
     order.value = resp?.data || null;
+    // 追加称重与单据证据
+    if(order.value){
+      await Promise.all([
+        loadScaleEvidence(order.value),
+        loadDocsEvidence(order.value)
+      ]);
+    }
   }catch{ order.value=null; }
   loading.value = false;
   try{ await nextTick(); }catch{}
@@ -56,6 +63,42 @@ async function load(){
 onMounted(load);
 
 // Luckysheet 只读渲染
+async function loadScaleEvidence(o:any){
+  try{
+    const s:any = await http.get(`/v1/scale/records?ref_type=inbound_order&ref_id=${encodeURIComponent(o.order_no||o.reservation_number||'')}`);
+    const list:any[] = s?.data?.list || [];
+    if(list.length){
+      const rec:any = list[0];
+      o.gross = rec.gross!=null ? rec.gross : o.gross;
+      o.tare = rec.tare!=null ? rec.tare : o.tare;
+      o.deductions = rec.deductions!=null ? rec.deductions : o.deductions;
+      o.actual = rec.actual!=null ? rec.actual : o.actual;
+      o.net = rec.net!=null ? rec.net : o.net;
+    }
+  }catch{}
+}
+
+async function loadDocsEvidence(o:any){
+  try{
+    const rn = o.reservation_number || o.order_no || '';
+    if(!rn) return;
+    const d:any = await http.get(`/v1/docs/list?scope=reservation&ref_id=${encodeURIComponent(rn)}`);
+    const arr:any[] = d?.data?.list || [];
+    const entry_photos:string[] = []; const exit_photos:string[] = []; const voucher_urls:string[] = [];
+    for(const doc of arr){
+      const t = String(doc.doc_type||''); const u = String(doc.url||'');
+      if(!u) continue;
+      if(t.includes('entry') && t.includes('photo')) entry_photos.push(u);
+      else if(t.includes('exit') && t.includes('photo')) exit_photos.push(u);
+      else if(t.includes('weigh') || t.includes('voucher') || t.includes('reservation') || t.includes('pdf')) voucher_urls.push(u);
+      else if(t.includes('driver_license')) o.driver_license_url = u;
+    }
+    if(entry_photos.length) o.entry_photos = entry_photos;
+    if(exit_photos.length) o.exit_photos = exit_photos;
+    if(voucher_urls.length) o.voucher_urls = voucher_urls;
+  }catch{}
+}
+
 function buildEvidence2D(){
   const o:any = order.value || {};
   const items:any[] = Array.isArray(o.vehicleOrders) && o.vehicleOrders.length ? o.vehicleOrders : [o];

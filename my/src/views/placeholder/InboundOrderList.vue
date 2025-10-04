@@ -233,7 +233,7 @@
     </el-dialog>
 
     <div v-if="loading">加载中...</div>
-    <FixedTable v-else :columns="ftColumns" :rows="visibleRows" :default-fix="true">
+    <FixedTable v-else :columns="ftColumns" :rows="visibleRows" :default-fix="true" :row-class="rowClass">
       <template #head-sel>
         <input type="checkbox" :checked="allSelected" @change="toggleSelectAll($event)" />
       </template>
@@ -595,6 +595,7 @@ const selection = ref<Record<string, boolean>>({});
 function rowKey(row:any){ return String(row.order_no || row.reservation_number || row.id || Math.random()); }
 function rowIndex(row:any){ return visibleRows.value.findIndex(r => rowKey(r)===rowKey(row)); }
 const selectedCount = computed(()=> Object.values(selection.value).filter(Boolean).length);
+function rowClass(row:any){ return row._redflushed ? 'redflushed' : ''; }
 const allSelected = computed(()=> visibleRows.value.length>0 && visibleRows.value.every(r => selection.value[rowKey(r)]));
 function toggleSelectAll(e: Event){
   const checked = (e.target as HTMLInputElement).checked;
@@ -605,6 +606,7 @@ function toggleSelectAll(e: Event){
 
 function batchWithdraw(){ if(!selectedCount.value) return; alert(`批量撤回 ${selectedCount.value} 条（占位）`); }
 function batchRedFlush(){ if(!selectedCount.value) return; if(!confirm(`确认对 ${selectedCount.value} 条执行红冲？`)) return; alert('批量红冲（占位）'); }
+// 红冲后的标记辅助：可在服务端返回红冲后的新旧两条记录，前端将旧条 target._redflushed=true
 function batchImportStackCard(){ alert('批量导入垛位卡（占位）'); }
 
 // CSV import/export helpers
@@ -905,6 +907,8 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .ops .op.primary{ color:#0b5cff; font-weight:600; }
 .ops .op.danger{ color:#ef4444; }
 .ops .dot{ color:#94a3b8; }
+.redflushed td{ position:relative; }
+.redflushed td::after{ content:''; position:absolute; left:0; right:0; top:50%; height:1px; background:#ef4444; transform:translateY(-50%); opacity:.8; }
 .tag{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.02em; box-shadow:0 4px 10px rgba(15,23,42,.08); }
 .blue{ background:#e0f2fe; color:#075985; }
 .indigo{ background:#e0e7ff; color:#3730a3; }

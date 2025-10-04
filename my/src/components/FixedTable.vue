@@ -12,7 +12,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row,ri) in rows" :key="ri">
+        <tr v-for="(row,ri) in rows" :key="ri" :class="rowClass ? rowClass(row) : ''">
           <td v-for="(col,ci) in normColumns" :key="col.key"
               :style="tdStyle(col)"
               :class="cellClass(col)">
@@ -31,7 +31,7 @@
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 
 type Col = { key:string; label:string; width?:number; fixed?: 'left'|'right' };
-const props = defineProps<{ columns: Col[]; rows: any[]; defaultFix?: boolean }>();
+const props = defineProps<{ columns: Col[]; rows: any[]; defaultFix?: boolean; rowClass?: (row:any)=>string }>();
 const ftWidth = computed(()=>{
   let sum = 0;
   for(const c of normColumns.value){ sum += (c.width || 160); }
