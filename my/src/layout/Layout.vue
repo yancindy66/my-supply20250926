@@ -91,7 +91,10 @@ const allMenus = [
     { title: '仓库列表', link: '/operation/warehouse/list' }
   ] },
   // 业务模块（按角色显示）
-  { title: '入库管理', link: '/biz/inbound', roles: ['inventory','warehouse','operation'] },
+  { title: '入库管理', icon: '📥', link: '/biz/inbound', roles: ['inventory','warehouse','operation'], children: [
+    { title: '入库预约', link: '/inbound/apply' },
+    { title: '入库单列表', link: '/inbound/order/list' }
+  ] },
   { title: '出库管理', link: '/biz/outbound', roles: ['inventory','warehouse','operation'] },
   { title: '仓单管理', link: '/biz/warrant', roles: ['inventory','warehouse','operation'] },
   { title: '移库管理', link: '/biz/relocate', roles: ['inventory','warehouse','operation'] },
