@@ -5,7 +5,8 @@
       <!-- 入库单列表不再新建预约，入口前移至门岗核验 -->
       <button class="ghost" @click="load">刷新</button>
       <button class="ghost" :disabled="!selectedCount" @click="batchWithdraw">批量撤回</button>
-      <button class="danger-btn" :disabled="!selectedCount" @click="batchRedFlush">批量红冲</button>
+      <button class="danger-btn" :disabled="!selectedCount" @click="batchRedFlush">全额红冲</button>
+      <button class="ghost" :disabled="selectedCount!==1" @click="openPartialRed">部分红冲</button>
       <button class="ghost" @click="batchImportStackCard">批量导入垛位卡</button>
       <div class="searchbar single">
         <input class="ghost-input wide" v-model="qkw" placeholder="搜索：客户/商品/入库单号/预约单号" />
@@ -22,6 +23,40 @@
         <button v-if="routeOfficeMode" class="ghost" @click="toggleFilter">高级筛选</button>
         <button v-if="routeOfficeMode" class="ghost" @click="toggleCols">列显示设置</button>
     </div>
+    <!-- 部分红冲弹窗 -->
+    <el-dialog v-model="showPartial" title="部分红冲" width="520px">
+      <div class="pretty-form">
+        <div class="row">
+          <label>原预约量(吨)</label>
+          <div>{{ currentRow?.planned_quantity ?? '-' }}</div>
+        </div>
+        <div class="row">
+          <label>原已入库量(规格)</label>
+          <div>{{ currentRow?.calc_weight ?? '-' }}</div>
+        </div>
+        <div class="row">
+          <label>原已入库量(磅重)</label>
+          <div>{{ currentRow?.actual ?? '-' }}</div>
+        </div>
+        <div class="row">
+          <label>冲销件数</label>
+          <el-input-number v-model="redForm.pieces" :min="0" :step="1" controls-position="right" />
+        </div>
+        <div class="row">
+          <label>冲销磅重(吨)</label>
+          <el-input-number v-model="redForm.actual" :min="0" :step="0.01" :precision="3" controls-position="right" />
+        </div>
+        <div class="row">
+          <label>备注</label>
+          <el-input v-model="redForm.remark" placeholder="说明本次部分红冲的原因" />
+        </div>
+        <div class="tip">说明：确认后将在原记录下方生成一条调整记录；原记录将以红线划掉，调整后数值以红色高亮显示。</div>
+      </div>
+      <template #footer>
+        <button class="ghost" @click="showPartial=false">取消</button>
+        <button class="danger" @click="confirmPartial" :disabled="redSubmitting">{{ redSubmitting? '提交中...' : '确认部分红冲' }}</button>
+      </template>
+    </el-dialog>
     <!-- 顶部总览条（办公室模式） -->
     <div v-if="routeOfficeMode" class="summary-bar">
       <div class="stat">
@@ -376,6 +411,10 @@ const ftColumns = computed(()=>{
 const showCreate = ref(false);
 const showCols = ref(false);
 const showFilter = ref(false);
+const showPartial = ref(false);
+const redSubmitting = ref(false);
+const currentRow = ref<any>(null);
+const redForm = ref<any>({ pieces: null, actual: null, remark: '' });
 const importPreview = ref<any[]>([]);
 const prechecking = ref(false);
 const precheckResult = ref<any>({ items: [] });
@@ -605,9 +644,32 @@ function toggleSelectAll(e: Event){
 }
 
 function batchWithdraw(){ if(!selectedCount.value) return; alert(`批量撤回 ${selectedCount.value} 条（占位）`); }
-function batchRedFlush(){ if(!selectedCount.value) return; if(!confirm(`确认对 ${selectedCount.value} 条执行红冲？`)) return; alert('批量红冲（占位）'); }
+function batchRedFlush(){ if(!selectedCount.value) return; if(!confirm(`确认对 ${selectedCount.value} 条执行全额红冲？`)) return; alert('全额红冲（占位）：将插入等量负数单据并划掉原记录'); }
 // 红冲后的标记辅助：可在服务端返回红冲后的新旧两条记录，前端将旧条 target._redflushed=true
 function batchImportStackCard(){ alert('批量导入垛位卡（占位）'); }
+function openPartialRed(){
+  const target = visibleRows.value.find(r => selection.value[rowKey(r)]);
+  if(!target){ alert('请先勾选一条记录'); return; }
+  currentRow.value = target;
+  redForm.value = { pieces: null, actual: null, remark: '' };
+  showPartial.value = true;
+}
+async function confirmPartial(){
+  if(redSubmitting.value) return; redSubmitting.value = true;
+  try{
+    const oldIdx = list.value.findIndex(r => (r.order_no||r.reservation_number) === (currentRow.value.order_no||currentRow.value.reservation_number));
+    if(oldIdx>=0){
+      const old = list.value[oldIdx];
+      old._redflushed = true;
+      const adjust = { ...old } as any;
+      if(redForm.value.pieces!=null){ adjust.pieces = (Number(old.pieces||0) - Number(redForm.value.pieces)); }
+      if(redForm.value.actual!=null){ adjust.actual = (Number(old.actual||0) - Number(redForm.value.actual)); }
+      adjust._adjusted = true;
+      list.value.splice(oldIdx+1, 0, adjust);
+    }
+    showPartial.value = false;
+  }finally{ redSubmitting.value = false; }
+}
 
 // CSV import/export helpers
 const CSV_HEADERS = [
@@ -909,48 +971,10 @@ button{ height:36px; padding:0 12px; border:none; border-radius:10px; background
 .ops .dot{ color:#94a3b8; }
 .redflushed td{ position:relative; }
 .redflushed td::after{ content:''; position:absolute; left:0; right:0; top:50%; height:1px; background:#ef4444; transform:translateY(-50%); opacity:.8; }
-.tag{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.02em; box-shadow:0 4px 10px rgba(15,23,42,.08); }
-.blue{ background:#e0f2fe; color:#075985; }
-.indigo{ background:#e0e7ff; color:#3730a3; }
-.cyan{ background:#cffafe; color:#155e75; }
-.orange{ background:#ffedd5; color:#9a3412; }
-.amber{ background:#fef3c7; color:#92400e; }
-.green{ background:#dcfce7; color:#166534; }
-.teal{ background:#ccfbf1; color:#115e59; }
-.rose{ background:#ffe4e6; color:#9f1239; }
-.gray{ background:#e5e7eb; color:#374151; }
-.slate{ background:#e2e8f0; color:#334155; }
-.purple{ background:#ede9fe; color:#5b21b6; }
-.upload-btn{ position:relative; overflow:hidden; display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:10px; background:#eef2f7; color:#0f172a; cursor:pointer; }
-.upload-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
-.import-panel{ border:1px solid #e5e7eb; background:#fff; padding:10px; border-radius:10px; margin:12px 0; box-shadow:0 6px 16px rgba(2,6,23,.06); }
-.import-head{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-.table.mini{ box-shadow:none; }
-.table.mini tr.bad{ background:#fef2f2; }
-.table.mini tr.warn{ background:#fff7ed; }
-.precheck-summary{ display:flex; gap:12px; color:#334155; margin-top:6px; }
-/* 固定首列与末列 */
-.table thead th.col-reservation_number, .table tbody td.col-reservation_number{ position:sticky; left:0; z-index:3; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.06); min-width:160px; }
-.table thead th.col-transport_no, .table tbody td.col-transport_no{ position:sticky; left:160px; z-index:2; background:#f8fafc; box-shadow:2px 0 0 rgba(0,0,0,0.04); min-width:160px; }
-.table thead th.col-actions, .table tbody td.col-actions{ position:sticky; right:0; z-index:4; background:#f8fafc; box-shadow:-2px 0 0 rgba(0,0,0,0.03); min-width:140px; }
-.doc-thumb{ width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; }
-/* 预约号样式：弱化但可点击 */
-.resv-link{ color:#2563eb; text-decoration:underline; cursor:pointer; }
-.resv-link:hover{ color:#1d4ed8; }
-.subops{ margin-top:6px; }
-.link.mini{ font-size:12px; color:#3b82f6; }
-.footer-actions{ margin-top:12px; display:flex; justify-content:flex-end; }
-.summary-bar{ display:flex; gap:12px; align-items:center; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:8px 12px; box-shadow:0 6px 16px rgba(2,6,23,.06); margin:10px 0; }
-.summary-bar .stat{ min-width:140px; }
-.summary-bar .stat .num{ font-size:18px; font-weight:700; color:#0f172a; }
-.summary-bar .stat .lbl{ font-size:12px; color:#64748b; }
-.summary-bar .stat.warn .num{ color:#b91c1c; }
-.abn-toggle{ font-size:13px; color:#0f172a; }
-.expand{ background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px; box-shadow:0 6px 16px rgba(2,6,23,.06); }
-.expand-title{ font-weight:600; color:#0f172a; margin-bottom:6px; }
-.thumb-fig{ width:90px; }
-.thumb-fig img{ width:90px; height:60px; border-radius:6px; border:1px solid #e5e7eb; object-fit:cover; display:block; }
-.thumb-fig figcaption{ font-size:10px; color:#64748b; margin-top:4px; line-height:1.2; word-break:break-all; }
+.adjusted-val{ color:#dc2626; font-weight:700; }
+.pretty-form .row{ display:flex; align-items:center; gap:8px; padding:6px 0; }
+.pretty-form .row label{ width:140px; color:#475569; }
+.tip{ font-size:12px; color:#64748b; margin-top:6px; }
 </style>
 
 

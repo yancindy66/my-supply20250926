@@ -770,6 +770,40 @@ app.post('/v1/inbound/orders/:id/reject', (req, res) => {
   return res.json({ code:0 });
 });
 
+// --- Redflush (demo) ---
+// Full redflush: create negative record mirroring the original; mark original as redflushed
+app.post('/v1/inbound/orders/:id/redflush/full', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  const old = { ...row, redflushed: true };
+  // create adjusted negative record
+  const neg = { ...row };
+  const numeric = ['planned_quantity','calc_weight','actual','gross','tare','net','deductions','pack_count','pieces'];
+  for(const k of numeric){ if(neg[k]!=null) neg[k] = -Number(neg[k]); }
+  neg.order_no = `${row.order_no}-RED-${Date.now()}`;
+  neg.status = 'redflushed_adjusted';
+  // insert adjusted next to original
+  const i = demoStore.inboundOrders.findIndex(o => o===row);
+  if(i>=0){ demoStore.inboundOrders.splice(i+1,0,neg); Object.assign(row, { redflushed:true }); }
+  return res.json({ code:0, data:{ old: { ...old }, adjusted: { ...neg } } });
+});
+
+// Partial redflush: subtract specified pieces/actual, keep others
+app.post('/v1/inbound/orders/:id/redflush/partial', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
+  const { pieces=null, actual=null } = req.body || {};
+  const old = { ...row, redflushed: true };
+  const adj = { ...row };
+  if(pieces!=null) adj.pieces = Number(row.pieces||0) - Number(pieces||0);
+  if(actual!=null) adj.actual = Number(row.actual||0) - Number(actual||0);
+  adj.order_no = `${row.order_no}-ADJ-${Date.now()}`;
+  adj.status = 'adjusted';
+  const i = demoStore.inboundOrders.findIndex(o => o===row);
+  if(i>=0){ demoStore.inboundOrders.splice(i+1,0,adj); Object.assign(row, { redflushed:true }); }
+  return res.json({ code:0, data:{ old, adjusted: adj } });
+});
+
 const port = Number(process.env.PORT || 8080);
 app.listen(port, () => console.log(`Backend listening on http://127.0.0.1:${port}`));
 
