@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import WarehouseForm from '@/views/仓库管理/WarehouseForm.vue';
+import WarehouseForm from '@/views/warehouse/warehouse/WarehouseForm.vue';
 </script>
 
 

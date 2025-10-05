@@ -20,7 +20,7 @@ const routes = [
     children: [
       // 提供真实入库预约页面，去掉原有的重定向
       { path: 'dashboard', component: () => import('./views/Dashboard.vue') },
-      { path: 'inventory', component: () => import('./views/商品管理/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
+      { path: 'inventory', component: () => import('./views/operation/commodity/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
       { path: 'member', children: [ { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') } ] },
 
       // 角色专用：提前声明，优先于通用占位路由
@@ -99,7 +99,7 @@ const routes = [
         'risk/dashboard','risk/reserve-funds','risk/warning-rules','risk/stress-test','analysis/business-scale','analysis/compensation-rate','analysis/customer-concentration',
         // 仓储机构新增
         'inspection/tasks','inspection/tasks/pending','inspection/records','tanks/monitor','weight/measurements','weight/gross','weight/tare','evidence/requirements','evidence/upload','evidence/audit'
-      ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } })),
+      ].map(p => ({ path: p, component: () => import('./views/warehouse/inbound/BasicStub.vue'), meta: { title: p } })),
       { path: 'inbound/apply', component: () => import('./views/inventory/inbound/InboundApply.vue'), meta: { title: '入库申请' } },
       { path: 'warehouse-receipt/list', component: () => import('./views/inventory/warehouse-receipt/ReceiptList.vue'), meta: { title: '仓单列表' } },
       { path: 'pledge/apply', component: () => import('./views/operation/transfer-ownership/List.vue'), meta: { title: '质押申请' } },
@@ -126,10 +126,10 @@ const routes = [
         'guarantee/products/edit/:id','guarantee/applications/review/:id','guarantee/projects/monitoring/:id','guarantee/compensations/apply/:id',
         // 仓储机构新增动态
         'inbound/confirm/:id','inbound/start/:id','inbound/complete/:id','outbound/confirm/:id','outbound/complete/:id','tanks/current-data/:id','tanks/snapshot/:id','tanks/history/:id','weight/verify/:id','inspection/review/:id'
-      ].map(p => ({ path: p, component: () => import('./views/placeholder/BasicStub.vue'), meta: { title: p } })),
+      ].map(p => ({ path: p, component: () => import('./views/warehouse/inbound/BasicStub.vue'), meta: { title: p } })),
       { path: 'warehouse-receipt/detail/:id', component: () => import('./views/inventory/warehouse-receipt/ReceiptDetail.vue'), meta: { title: '仓单详情' } },
       { path: 'inbound/detail/:id', component: () => import('./views/operation/inbound/InboundDetail.vue'), meta: { title: '入库单详情' } },
-      { path: 'inbound/reservation/detail/:id', component: () => import('./views/placeholder/InboundReservationDetail.vue'), meta: { title: '入库预约详情' } }
+      { path: 'inbound/reservation/detail/:id', component: () => import('./views/warehouse/inbound/InboundReservationDetail.vue'), meta: { title: '入库预约详情' } }
     ]
   }
 ];
