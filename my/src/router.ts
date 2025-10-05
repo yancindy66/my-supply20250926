@@ -81,7 +81,7 @@ const routes = [
       { path: 'system/user/list', component: () => import('./views/operation/system/UserList.vue'), meta: { title: '用户设置' } },
 
       ...[
-        'inbound/apply','warehouse-receipt/list','warehouse-receipt/outbound-apply',
+        'warehouse-receipt/list','warehouse-receipt/outbound-apply',
         'outbound/list','transfer/apply','transfer/list','financing/apply','financing/list','financing/risk',
         'transfer-ownership/apply','transfer-ownership/list','renewal/apply','renewal/list','trading/apply','trading/list',
         'fee/payable','fee/refund','fee/report','announcement/list','warehouse/manage','warehouse/list','warehouse/add',
