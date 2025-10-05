@@ -7,6 +7,7 @@ const RoleSelect = () => import('./views/RoleSelect.vue');
 
 const routes = [
   { path: '/', redirect: '/role-select' },
+  { path: '/dashboard', redirect: '/operation/dashboard' },
   { path: '/login', component: Login },
   { path: '/role-select', component: RoleSelect },
   { path: '/welcome', component: Welcome },
@@ -21,7 +22,7 @@ const routes = [
       // 提供真实入库预约页面，去掉原有的重定向
       { path: 'dashboard', component: () => import('./views/Dashboard.vue') },
       { path: 'inventory', component: () => import('./views/operation/commodity/ProductBase.vue'), meta: { roles: ['inventory','operation'] } },
-      { path: 'member', children: [ { path: 'inventory/list', component: () => import('./views/member/inventory/list.vue') } ] },
+      { path: 'member', children: [ { path: 'inventory/list', component: () => import('./views/operation/会员管理/存货人管理/list.vue') } ] },
 
       // 角色专用：提前声明，优先于通用占位路由
       // 仓储机构
@@ -34,15 +35,48 @@ const routes = [
       { path: 'risk-control/risk-list', component: () => import('./views/financial/risk-control/RiskList.vue'), meta: { title: '融资风险列表' } },
       { path: 'rules/financing-rules', component: () => import('./views/financial/rules/RuleSettings.vue'), meta: { title: '融资规则设置' } },
       { path: 'rules/config', component: () => import('./views/financial/rules/RulesConfig.vue'), meta: { title: '规则配置' } },
-      // 担保机构
-      { path: 'guarantee/dashboard', component: () => import('./views/guarantee/dashboard/GuaranteeDashboard.vue'), meta: { title: '担保工作台' } },
+      // 担保机构端路由统一使用 guarrantee 前缀（避免与平台运营混淆）
       // 平台运营
       { path: 'member/manage', component: () => import('./views/operation/management/MemberManage.vue'), meta: { title: '会员管理' } },
-      { path: 'member/depositor-list', component: () => import('./views/operation/member/DepositorList.vue'), meta: { title: '存货人管理' } },
-      { path: 'member/supervising-warehouse-list', component: () => import('./views/operation/member/SupervisingWarehouseList.vue'), meta: { title: '监管仓库管理' } },
-      { path: 'member/qc-org-list', component: () => import('./views/operation/member/QcOrgList.vue'), meta: { title: '质检机构管理' } },
-      { path: 'member/guarantee-org-list', component: () => import('./views/operation/member/GuaranteeOrgList.vue'), meta: { title: '担保机构管理' } },
-      { path: 'member/financial-org-list', component: () => import('./views/operation/member/FinancialOrgList.vue'), meta: { title: '金融机构管理' } },
+      { path: 'member/depositor-list', component: () => import('./views/operation/会员管理/存货人管理/List.vue'), meta: { title: '平台运营-存货人管理' } },
+      { path: 'member/supervising-warehouse-list', component: () => import('./views/operation/会员管理/监管仓库管理/List.vue'), meta: { title: '平台运营-监管仓库管理' } },
+      { path: 'member/qc-org-list', component: () => import('./views/operation/会员管理/质检机构管理/List.vue'), meta: { title: '平台运营-质检机构管理' } },
+      { path: 'member/guarantee-org-list', component: () => import('./views/operation/会员管理/担保机构管理/List.vue'), meta: { title: '平台运营-担保机构管理' } },
+      { path: 'member/financial-org-list', component: () => import('./views/operation/会员管理/金融机构管理/List.vue'), meta: { title: '平台运营-金融机构管理' } },
+      // 担保机构端（guarrantee）：与平台运营区分命名
+      // 移除担保端旧入口（统一到 /guarrantee/financing/*） —— 清理完成
+      // 担保机构端 Dashboard
+      { path: 'guarrantee/dashboard', component: () => import('./views/guarrantee/Dashboard.vue'), meta: { title: '担保机构端-看板' } },
+      // 担保机构端：融资管理（信息列表/查看/处理列表查看）与公告管理
+      // 金融机构端 Dashboard
+      { path: 'financial/dashboard', component: () => import('./views/financial-portal/Dashboard.vue'), meta: { title: '金融机构端-看板' } },
+      // 仓储机构端 Dashboard
+      { path: 'warehouse/dashboard', component: () => import('./views/warehouse/Dashboard.vue'), meta: { title: '仓储机构端-看板' } },
+      // 存货人端 Dashboard
+      { path: 'inventory/dashboard', component: () => import('./views/inventory/Dashboard.vue'), meta: { title: '存货人端-看板' } },
+      // 平台运营 Dashboard（别名，指向全局 Dashboard）
+      { path: 'operation/dashboard', component: () => import('./views/operation/Dashboard.vue'), meta: { title: '平台运营-看板' } },
+      { path: 'guarrantee/financing/application/list', component: () => import('./views/guarrantee/financing/申请列表.vue'), meta: { title: '担保机构端-融资申请信息列表' } },
+      { path: 'guarrantee/financing/application/detail/:id', component: () => import('./views/guarrantee/financing/申请查看.vue'), meta: { title: '担保机构端-融资申请信息查看' } },
+      { path: 'guarrantee/financing/risk/list', component: () => import('./views/guarrantee/financing/风险列表.vue'), meta: { title: '担保机构端-融资风险信息列表' } },
+      { path: 'guarrantee/financing/risk/detail/:id', component: () => import('./views/guarrantee/financing/风险查看.vue'), meta: { title: '担保机构端-融资风险信息查看' } },
+      { path: 'guarrantee/financing/risk/handle-list/:id', component: () => import('./views/guarrantee/financing/风险处理列表查看.vue'), meta: { title: '担保机构端-风险处理列表查看' } },
+      { path: 'guarrantee/announcement/list', component: () => import('./views/guarrantee/announcement/公告列表.vue'), meta: { title: '担保机构端-公告信息列表' } },
+      { path: 'guarrantee/announcement/detail/:id', component: () => import('./views/guarrantee/announcement/公告查看.vue'), meta: { title: '担保机构端-公告信息查看' } },
+      // 金融机构端：融资管理与公告管理
+      { path: 'financial/financing/application/list', component: () => import('./views/financial-portal/financing/申请列表.vue'), meta: { title: '金融机构端-融资申请信息列表' } },
+      { path: 'financial/financing/application/detail/:id', component: () => import('./views/financial-portal/financing/申请查看.vue'), meta: { title: '金融机构端-融资申请信息查看' } },
+      { path: 'financial/financing/application/review/:id', component: () => import('./views/financial-portal/financing/申请审核.vue'), meta: { title: '金融机构端-融资申请信息审核' } },
+      { path: 'financial/financing/info/list', component: () => import('./views/financial-portal/financing/信息列表.vue'), meta: { title: '金融机构端-融资信息列表' } },
+      { path: 'financial/financing/info/detail/:id', component: () => import('./views/financial-portal/financing/信息查看.vue'), meta: { title: '金融机构端-融资信息查看' } },
+      { path: 'financial/financing/info/repay/:id', component: () => import('./views/financial-portal/financing/还款.vue'), meta: { title: '金融机构端-融资还款' } },
+      { path: 'financial/financing/info/repay-partial/:id', component: () => import('./views/financial-portal/financing/部分还款.vue'), meta: { title: '金融机构端-融资部分还款' } },
+      { path: 'financial/financing/risk/list', component: () => import('./views/financial-portal/financing/风险列表.vue'), meta: { title: '金融机构端-融资风险信息列表' } },
+      { path: 'financial/financing/risk/handle/:id', component: () => import('./views/financial-portal/financing/风险处理.vue'), meta: { title: '金融机构端-融资风险处理' } },
+      { path: 'financial/financing/risk/disposal-list/:id', component: () => import('./views/financial-portal/financing/处置列表.vue'), meta: { title: '金融机构端-融资风险处置列表' } },
+      { path: 'financial/financing/rules', component: () => import('./views/financial-portal/financing/规则设置.vue'), meta: { title: '金融机构端-融资规则设置' } },
+      { path: 'financial/announcement/list', component: () => import('./views/financial-portal/announcement/公告列表.vue'), meta: { title: '金融机构端-公告信息列表' } },
+      { path: 'financial/announcement/detail/:id', component: () => import('./views/financial-portal/announcement/公告查看.vue'), meta: { title: '金融机构端-公告信息查看' } },
       { path: 'commodity/list', component: () => import('./views/operation/commodity/CommodityList.vue'), meta: { title: '商品列表' } },
       { path: 'warehouse/list', component: () => import('./views/operation/warehouse/WarehouseList.vue'), meta: { title: '仓库信息列表' } },
       { path: 'warehouse/detail/:id', component: () => import('./views/operation/warehouse/WarehouseDetail.vue'), meta: { title: '仓库信息查看' } },
@@ -93,9 +127,9 @@ const routes = [
         'log/manage','log/business','log/login','warehouse-receipt/verify','outbound/query','transfer/record-list','transfer/alert-list',
         'warehouse-receipt/alert-list','financing/risk-param-config','financing/application-list','financing/risk-list','financing/info-list','outbound/info-list',
         'judicial/manage','judicial/registration-list','judicial/disposal-list','archive/manage','archive/maintenance','archive/definition','sms/manage','sms/template','sms/record',
-        // 担保机构新增
-        'guarantee/dashboard','guarantee/products','guarantee/products/create','guarantee/products/approval','guarantee/applications','guarantee/applications/pending',
-        'guarantee/projects/active','guarantee/projects/warning','guarantee/projects/completed','guarantee/compensations','guarantee/compensations/recovery',
+        // 担保机构端（统一 guarrantee 前缀）
+        'guarrantee/dashboard','guarrantee/products','guarrantee/products/create','guarrantee/products/approval','guarrantee/applications','guarrantee/applications/pending',
+        'guarrantee/projects/active','guarrantee/projects/warning','guarrantee/projects/completed','guarrantee/compensations','guarrantee/compensations/recovery',
         'risk/dashboard','risk/reserve-funds','risk/warning-rules','risk/stress-test','analysis/business-scale','analysis/compensation-rate','analysis/customer-concentration',
         // 仓储机构新增
         'inspection/tasks','inspection/tasks/pending','inspection/records','tanks/monitor','weight/measurements','weight/gross','weight/tare','evidence/requirements','evidence/upload','evidence/audit'
@@ -122,8 +156,8 @@ const routes = [
         'outbound/detail/:id','outbound/review/:id','transfer/detail/:id','transfer/review/:id','financing/detail/:id','financing/review/:id','financing/repayment/:id',
         'transfer-ownership/detail/:id','transfer-ownership/review/:id','renewal/detail/:id','renewal/review/:id','rules/param-edit/:id','risk-control/handle/:id',
         'guarantee/review/:id','guarantee/compensate/:id','loan/application-list','loan/project-list','warehouse-receipt/update-quality/:id',
-        // 担保机构新增的动态路由
-        'guarantee/products/edit/:id','guarantee/applications/review/:id','guarantee/projects/monitoring/:id','guarantee/compensations/apply/:id',
+        // 担保机构端动态路由（统一 guarrantee 前缀）
+        'guarrantee/products/edit/:id','guarrantee/applications/review/:id','guarrantee/projects/monitoring/:id','guarrantee/compensations/apply/:id',
         // 仓储机构新增动态
         'inbound/confirm/:id','inbound/start/:id','inbound/complete/:id','outbound/confirm/:id','outbound/complete/:id','tanks/current-data/:id','tanks/snapshot/:id','tanks/history/:id','weight/verify/:id','inspection/review/:id'
       ].map(p => ({ path: p, component: () => import('./views/warehouse/inbound/BasicStub.vue'), meta: { title: p } })),
@@ -142,10 +176,10 @@ const router = createRouter({
 function roleHome(role: string): string {
   switch (role) {
     case 'operation': return '/dashboard';
-    case 'inventory': return '/inbound/order/list';
-    case 'warehouse': return '/warehouse/list';
-    case 'financial': return '/financing/list';
-    case 'guarantee': return '/guarantee/dashboard';
+    case 'inventory': return '/inventory/dashboard';
+    case 'warehouse': return '/warehouse/dashboard';
+    case 'financial': return '/financial/dashboard';
+    case 'guarantee': return '/guarrentee/dashboard';
     case 'regulator': return '/monitor/overview';
     default: return '/dashboard';
   }

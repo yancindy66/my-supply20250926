@@ -65,21 +65,29 @@ function onLogoError(){
   if(brandLogo.value !== '/vite.svg') brandLogo.value = '/vite.svg';
 }
 const topNav = [
-  { title: '看板', link: '/dashboard' },
+  { title: '看板 | Dashboard', link: '/role-dashboard' },
   { title: '会员', link: '/member/inventory-owner' },
   { title: '商品', link: '/inventory' },
   { title: '仓库', link: '/operation/warehouse/list' },
   { title: 'API', link: '/products' }
 ] as const;
+
+function roleDashboardPath(r: string): string {
+  return r === 'inventory' ? '/inventory/dashboard'
+    : r === 'warehouse' ? '/warehouse/dashboard'
+    : r === 'financial' ? '/financial/dashboard'
+    : r === 'guarantee' ? '/guarrentee/dashboard'
+    : '/operation/dashboard';
+}
 const allMenus = [
   // 汇总看板仅平台运营可见
-  { title: '汇总看板', icon: '📊', link: '/dashboard', roles: ['operation'], children: [ { title: '首页', link: '/dashboard' } ] },
-  { title: '会员管理', icon: '👥', link: '/member', roles: ['inventory','operation'], children: [
-    { title: '存货人管理', link: '/member/inventory-owner' },
-    { title: '金融机构', link: '/member/financial/list' },
-    { title: '担保机构', link: '/member/guarantee/list' },
-    { title: '质检机构', link: '/member/quality/list' },
-    { title: '监管仓库', link: '/member/warehouse/list' }
+  { title: '汇总看板 | Dashboard', icon: '📊', link: '/operation/dashboard', roles: ['operation'], children: [ { title: '首页 | Home', link: '/operation/dashboard' } ] },
+  { title: '平台运营 · 会员管理 | Operation · Members', icon: '👥', link: '/member', roles: ['operation'], children: [
+    { title: '存货人管理', link: '/member/depositor-list' },
+    { title: '金融机构管理', link: '/member/financial-org-list' },
+    { title: '担保机构管理', link: '/member/guarantee-org-list' },
+    { title: '质检机构管理', link: '/member/qc-org-list' },
+    { title: '监管仓库管理', link: '/member/supervising-warehouse-list' }
   ] },
   { title: '商品管理', icon: '📦', link: '/inventory', roles: ['inventory','operation'], children: [
     { title: '商品列表', link: '/inventory' }
@@ -98,7 +106,23 @@ const allMenus = [
   { title: '出库管理', link: '/biz/outbound', roles: ['inventory','warehouse','operation'] },
   { title: '仓单管理', link: '/biz/warrant', roles: ['inventory','warehouse','operation'] },
   { title: '移库管理', link: '/biz/relocate', roles: ['inventory','warehouse','operation'] },
-  { title: '融资管理', link: '/biz/finance', roles: ['inventory','financial','guarantee','operation'] },
+  { title: '融资管理', link: '/biz/finance', roles: ['inventory','operation'] },
+  // 担保机构端
+  { title: '担保机构端 | Guarrantee', icon: '🛡️', link: '/guarrentee', roles: ['guarantee'], children: [
+    { title: '看板 | Dashboard', link: '/guarrentee/dashboard' },
+    { title: '融资申请（信息列表） | Financing Applications (List)', link: '/guarrentee/financing/application/list' },
+    { title: '融资风险（信息列表） | Financing Risks (List)', link: '/guarrentee/financing/risk/list' },
+    { title: '公告信息列表 | Announcements', link: '/guarrantee/announcement/list' }
+  ] },
+  // 金融机构端
+  { title: '金融机构端 | Financial', icon: '🏦', link: '/financial', roles: ['financial'], children: [
+    { title: '看板 | Dashboard', link: '/financial/dashboard' },
+    { title: '融资申请（信息列表） | Financing Applications (List)', link: '/financial/financing/application/list' },
+    { title: '融资信息列表 | Financing Info (List)', link: '/financial/financing/info/list' },
+    { title: '融资风险（信息列表） | Financing Risks (List)', link: '/financial/financing/risk/list' },
+    { title: '融资规则设置 | Financing Rules', link: '/financial/financing/rules' },
+    { title: '公告信息列表 | Announcements', link: '/financial/announcement/list' }
+  ] },
   { title: '仓单过户', link: '/biz/transfer', roles: ['inventory','warehouse','operation'] },
   { title: '仓单续期', link: '/biz/renew', roles: ['inventory','warehouse','operation'] },
   { title: '仓单交易', link: '/biz/trade', roles: ['inventory','operation'] },
@@ -106,8 +130,8 @@ const allMenus = [
   { title: '公告管理', link: '/biz/notice', roles: ['inventory','warehouse','financial','guarantee','operation'] },
   { title: '日志管理', link: '/biz/log', roles: ['warehouse','operation'] },
   { title: '司法协助', link: '/biz/judicial', roles: ['operation'] },
-  { title: '资料管理', link: '/biz/document', roles: ['inventory','warehouse','financial','guarantee','operation'] },
-  { title: '短信管理', link: '/biz/sms', roles: ['inventory','warehouse','financial','guarantee','operation'] },
+  { title: '资料管理', link: '/biz/document', roles: ['inventory','warehouse','financial','guarrantee','operation'] },
+  { title: '短信管理', link: '/biz/sms', roles: ['inventory','warehouse','financial','guarrantee','operation'] },
   { title: '用户权限管理', icon: '🔑', link: '/role-select', children: [
     { title: '权限配置', link: '/role-select' }
   ] }
@@ -149,8 +173,19 @@ function doLogout(){
   try{ localStorage.removeItem('authToken'); }catch{}
   router.push('/login');
 }
-const navGo = (link: string) => { router.push(link); };
-const navActive = (link: string) => { const cur = router.currentRoute.value.path || ''; return cur === link || cur.startsWith(link + '/'); };
+const navGo = (link: string) => {
+  if (link === '/role-dashboard') {
+    const r = localStorage.getItem('role') || role;
+    router.push(roleDashboardPath(r));
+    return;
+  }
+  router.push(link);
+};
+const navActive = (link: string) => {
+  const cur = router.currentRoute.value.path || '';
+  if (link === '/role-dashboard') return /\/dashboard$/.test(cur);
+  return cur === link || cur.startsWith(link + '/');
+};
 // 保留占位：后续可接入真实登出逻辑
 onMounted(() => {
   // 手动折叠/展开：不再监听滚动自动折叠

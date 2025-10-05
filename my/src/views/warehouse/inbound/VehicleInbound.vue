@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import InboundOrderOfficeFixed from '@/views/placeholder/InboundOrderOfficeFixed.vue';
+import InboundOrderOfficeFixed from '@/views/warehouse/inbound/InboundOrderOfficeFixed.vue';
 </script>
 
 
