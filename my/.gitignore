@@ -1,0 +1,10 @@
+﻿node_modules/
+dist/
+*.log
+my/node_modules/
+server/node_modules/
+my/dist/
+server/dist/
+my/dist.zip
+.env
+server/.env
