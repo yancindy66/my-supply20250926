@@ -189,9 +189,50 @@ const syncing = ref(false);
 async function generateReservations(){
   try{
     pushing.value = true;
-    // 1) 从 Luckysheet 取当前可见区域数据
-    const grid:any = (window as any).__getCurrentGridValues?.();
-    const values:any[] = grid?.values || viewRecords.value || [];
+    // 1) 从 Luckysheet 取“选中行”的数据；若未选中则退化为当前表全部数据
+    const ls:any = (window as any).luckysheet;
+    const sheets:any[] = ls?.getAllSheets?.() || [];
+    const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
+    const sheet:any = sheets[idx] || sheets[0];
+    let values:any[] = [];
+    let selectedCount = 0;
+    try{
+      const data:any[] = sheet?.data || [];
+      const header = data[0] || [];
+      // 建立 列头名称 -> 可见列配置 的映射
+      const visCols = cols.value.filter(c=>c.visible);
+      const colIndexMap = new Map<string, number>();
+      for(let c=0;c<header.length;c++){ const name = String(header[c]?.v||''); colIndexMap.set(name, c); }
+      function rowToObj(rIndex:number){
+        const row = data[rIndex]; if(!row) return null; const obj:any = {};
+        visCols.forEach(c=>{ const ci = colIndexMap.get(c.name); obj[c.key] = (ci!=null && row[ci])? row[ci].v : ''; });
+        return obj;
+      }
+      // 读取选择区域
+      const ranges:any[] = typeof ls?.getRange==='function' ? (ls.getRange()||[]) : [];
+      const selectedRowSet = new Set<number>();
+      for(const rg of ranges){
+        const rs = Array.isArray(rg.row) ? rg.row[0] : rg.row?.startRow ?? rg.row?.[0];
+        const re = Array.isArray(rg.row) ? rg.row[1] : rg.row?.endRow ?? rg.row?.[1];
+        const start = Math.max(1, Number(rs ?? 1));
+        const end = Math.max(start, Number(re ?? start));
+        for(let r=start; r<=end; r++){ selectedRowSet.add(r); }
+      }
+      if(selectedRowSet.size>0){
+        values = Array.from(selectedRowSet.values()).map(r=> rowToObj(r)).filter(Boolean) as any[];
+        selectedCount = selectedRowSet.size;
+      }
+      if(!values.length){
+        // 退化：整表（跳过表头）
+        for(let r=1;r<data.length;r++){ const obj = rowToObj(r); if(obj) values.push(obj); }
+        selectedCount = values.length;
+      }
+    }catch{
+      // 最后退化：旧逻辑
+      const grid:any = (window as any).__getCurrentGridValues?.();
+      values = grid?.values || viewRecords.value || [];
+      selectedCount = values.length;
+    }
     if(!values.length){ showToast('没有可推送的数据'); return; }
     // 2) 按“货物批次号/客户批次号”分组：一批生成一个预约
     // 客户批次号来源优先级：client_batch_no(首列) > client_reservation_no > batch_no
@@ -221,6 +262,7 @@ async function generateReservations(){
     const data = await resp.json();
     if(!resp.ok || data.code){ throw new Error(data.message||'推送失败'); }
     const created = data?.data?.created || [];
+    const summary = data?.data?.summary || {};
     // 4) 写回预约号至“预约单号”列；首列“货物批次号”仅保留原值（不写RSV）
     try{
       const ls:any = (window as any).luckysheet;
@@ -255,7 +297,8 @@ async function generateReservations(){
       });
       ls?.refresh?.();
     }catch{}
-    showToast(`已推送到仓库端待审核：${created.length} 条`);
+    const batchCount = groupMap.size;
+    showToast(`已选中 ${selectedCount} 行，生成 ${batchCount} 条预约单（按货物批次号聚合）`);
   }catch(e:any){
     showToast('推送失败：'+(e?.message||e));
   }finally{ pushing.value=false; }
