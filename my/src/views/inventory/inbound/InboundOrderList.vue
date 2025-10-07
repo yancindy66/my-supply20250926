@@ -333,6 +333,8 @@
           <button class="op" title="移库" @click="transferMove(row)">移库</button>
           <span class="dot">|</span>
           <button class="op primary" title="注册仓单" @click="registerWarehouseReceipt(row)">注册仓单</button>
+          <span class="dot">|</span>
+          <button class="op" v-if="canSubmit(row)" @click="submitApply(row)">申请入库</button>
         </div>
       </template>
     </FixedTable>
@@ -550,7 +552,7 @@ const defaultColumns: Col[] = [
   { key:'weigh_ticket', label:'磅单', visible:false },
   { key:'eta', label:'预计到库', visible:false },
   { key:'qc_result', label:'质检', visible:false },
-  { key:'status', label:'审核状态', visible:false },
+  { key:'status', label:'审核状态', visible:true },
   { key:'created_at', label:'申请入库时间', visible:true },
   { key:'warehouse_handled_at', label:'仓库处理时间', visible:false },
   { key:'platform_audited_at', label:'平台审核时间', visible:false },
@@ -891,7 +893,7 @@ function dropOn(i:number){
 }
 
 function mapStatus(s: string){
-  const m: Record<string,string> = { created: '已创建', receiving: '收货中', completed: '已完成', cancelled: '已取消', platform_approved:'已审核', platform_rejected:'已驳回' };
+  const m: Record<string,string> = { draft:'未审核', submitted:'已提交', approved:'审核通过', created: '已创建', receiving: '收货中', completed: '已完成', cancelled: '已取消', platform_approved:'已审核', platform_rejected:'已驳回' };
   return m[s] || s || '-';
 }
 function inboundStatus(row:any){
@@ -904,7 +906,7 @@ function inboundStatusColor(row:any){
 }
 function statusColor(s:string){
   const map:Record<string,string>={
-    draft:'slate', created:'blue', submitted:'indigo',
+    draft:'slate', created:'blue', submitted:'indigo', approved:'teal',
     warehouse_confirmed:'cyan', receiving:'orange',
     partially_delivered:'amber', completed:'green', fully_delivered:'green',
     platform_approved:'teal', platform_rejected:'rose', warehouse_rejected:'rose',
@@ -926,7 +928,15 @@ async function load(){
     // 合并本地“车辆入库”Mock（门岗抓拍推送）
     let mock:any[] = [];
     try{ mock = JSON.parse(localStorage.getItem('mockInboundOrders')||'[]') || []; }catch{ mock = []; }
-    list.value = [...mock, ...rows.map(r=>({ ...r }))];
+  // 合并最近导入预约（防刷新丢失）
+  let imported:any[] = [];
+  try{ imported = JSON.parse(localStorage.getItem('lastImportedReservations')||'[]')||[]; }catch{ imported=[]; }
+  const merged = [...mock, ...rows.map(r=>({ ...r }))];
+  imported.forEach((it:any)=>{
+    const exists = merged.find(x => (x.reservation_number||x.order_no)===it.reservation_number);
+    if(!exists){ merged.unshift({ reservation_number: it.reservation_number, status: 'draft', created_at: new Date().toISOString().slice(0,16).replace('T',' ') }); }
+  });
+  list.value = merged;
   }catch{ list.value = []; }
   loading.value = false;
 }
@@ -968,6 +978,15 @@ async function registerWarehouseReceipt(row:any){
   }catch(e:any){ alert('操作失败：'+(e?.message||e)); }
 }
 function transferMove(_row:any){ alert('移库（占位）'); }
+function canSubmit(row:any){ const s = String(row.status||''); return s==='draft' || s==='created'; }
+async function submitApply(row:any){
+  try{
+    const id = row.reservation_number || row.order_no || row.id;
+    if(!id) return alert('缺少预约号');
+    await http.post(`/v1/inbound/reservations/${encodeURIComponent(id)}/submit`, {});
+    row.status = 'submitted';
+  }catch(e:any){ alert('提交失败：'+(e?.message||e)); }
+}
 // 占位编辑入口已不在列表展示，保留需求时再启用
 // 精简：删除、审核、驳回、取消预约等方法移除，按新操作栏逻辑保留“注册仓单”演示
 

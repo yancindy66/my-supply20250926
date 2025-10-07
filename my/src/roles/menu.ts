@@ -88,7 +88,8 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
   inventory: [
     { title: '入库管理', link: '/inbound/manage', children: [
       { title: '入库申请', link: '/inbound/apply' },
-      { title: '入库单列表', link: '/inbound/order/list' }
+      { title: '入库单列表', link: '/inbound/order/list' },
+      { title: '导入入库预约（Excel）', link: '/inbound/order/import' }
     ] },
     { title: '仓单管理', link: '/warehouse-receipt/manage', children: [
       { title: '仓单列表', link: '/warehouse-receipt/list' },
@@ -138,10 +139,12 @@ const MENUS: Record<RoleKey, MenuItem[]> = {
     { title: '入库管理', link: '/inbound/manage', children: [
       { title: '门岗核验', link: '/inbound/gate/verify' },
       { title: '车辆入库', link: '/inbound/order/office-list' },
-      { title: '入库单列表', link: '/inbound/list' }
+      { title: '入库单列表', link: '/inbound/list' },
+      { title: '待审核入库申请', link: '/inbound/pending' }
     ] },
     { title: '仓单管理', link: '/warehouse-receipt/manage', children: [
       { title: '仓单列表', link: '/warehouse-receipt/list' },
+      { title: '库存列表', link: '/warehouse-receipt/stock-list' },
       { title: '仓单信息查看', link: '/warehouse-receipt/detail/:id' }
     ] },
     { title: '出库管理', link: '/outbound/manage', children: [

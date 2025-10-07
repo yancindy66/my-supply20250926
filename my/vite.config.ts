@@ -6,7 +6,8 @@ import { viteMockServe } from 'vite-plugin-mock';
 export default defineConfig(() => {
   const useProxy = String(process.env.VITE_USE_PROXY || 'true').toLowerCase() === 'true';
   const useMock = String(process.env.VITE_USE_MOCK || '').toLowerCase() === 'true';
-  const backendPort = Number(process.env.BACKEND_PORT || 8080);
+  // 默认直连后端 8092（可通过 BACKEND_PORT 覆盖）
+  const backendPort = Number(process.env.BACKEND_PORT || 8092);
 
   const plugins = [vue()];
   if (!useProxy && useMock) {

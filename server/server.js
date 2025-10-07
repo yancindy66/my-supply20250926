@@ -3,12 +3,15 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { query } from './db.js';
+import multer from 'multer';
+import xlsx from 'xlsx';
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Health
 app.get('/health', (_req, res) => res.json({ ok: true }));
@@ -135,6 +138,49 @@ app.get('/api/warehouses', (_req, res) => {
   res.json({ code:0, data: demoStore.warehouses });
 });
 
+// --- Simple inventory demo endpoints ---
+function getInventoryKey(warehouseId, productId, unit, lot){
+  return [String(warehouseId||''), String(productId||''), String(unit||''), String(lot||'')].join('|');
+}
+
+if (!demoStore.inventory) demoStore.inventory = new Map();
+
+// Stock-in
+app.post('/api/stock-in', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const { warehouse_id, product_id, quantity, unit='吨', lot_no='' } = req.body || {};
+  const wh = Number(warehouse_id), pid = Number(product_id);
+  const qty = Number(quantity||0);
+  if (!wh || !pid || !Number.isFinite(qty) || qty<=0) return res.status(400).json({ code:400, message:'参数错误' });
+  const key = getInventoryKey(wh, pid, String(unit), String(lot_no||''));
+  const old = demoStore.inventory.get(key) || { warehouse_id: wh, product_id: pid, unit: String(unit), lot_no: String(lot_no||''), quantity: 0 };
+  const now = { ...old, quantity: Number(old.quantity||0) + qty };
+  demoStore.inventory.set(key, now);
+  return res.json({ code:0, data: now });
+});
+
+// Stock-out
+app.post('/api/stock-out', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const { warehouse_id, product_id, quantity, unit='吨', lot_no='' } = req.body || {};
+  const wh = Number(warehouse_id), pid = Number(product_id);
+  const qty = Number(quantity||0);
+  if (!wh || !pid || !Number.isFinite(qty) || qty<=0) return res.status(400).json({ code:400, message:'参数错误' });
+  const key = getInventoryKey(wh, pid, String(unit), String(lot_no||''));
+  const old = demoStore.inventory.get(key) || { warehouse_id: wh, product_id: pid, unit: String(unit), lot_no: String(lot_no||''), quantity: 0 };
+  if (Number(old.quantity||0) < qty) return res.status(400).json({ code:400, message:'库存不足' });
+  const now = { ...old, quantity: Number(old.quantity||0) - qty };
+  demoStore.inventory.set(key, now);
+  return res.json({ code:0, data: now });
+});
+
+// Inventory list
+app.get('/api/inventory', (_req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const list = Array.from(demoStore.inventory.values());
+  return res.json({ code:0, data:{ list, total: list.length } });
+});
+
 // Inbound reservations
 app.get('/v1/inbound/reservations', async (req, res) => {
   try {
@@ -211,6 +257,22 @@ app.post('/v1/inbound/reservations', async (req, res) => {
   }
 });
 
+// Pending list should be defined BEFORE ":id" routes to avoid being captured as id
+app.get('/v1/inbound/reservations/pending', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const wid = req.query.warehouse_id? String(req.query.warehouse_id) : undefined;
+  const list = demoStore.reservations.filter(r => r.status==='pending' && (!wid || String(r.target_warehouse_id)===wid));
+  return res.json({ code:0, data:{ list, total:list.length } });
+});
+
+// Query reservations by reservation numbers (bulk)
+app.post('/v1/inbound/reservations/by-numbers', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const nums = Array.isArray(req.body) ? req.body.map(x => String(x)) : [];
+  const list = demoStore.reservations.filter(r => nums.includes(String(r.reservation_number)));
+  return res.json({ code:0, data:{ list, total:list.length } });
+});
+
 app.get('/v1/inbound/reservations/:id', (req, res) => {
   if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
   const row = demoStore.reservations.find(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
@@ -265,6 +327,78 @@ app.post('/v1/inbound/reservations/:id/cancel', (req, res) => {
   if (!r) return res.json({ code:404, message:'not found' });
   r.status = 'cancelled';
   return res.json({ code:0 });
+});
+
+// pending list for a warehouse (demo)
+app.get('/v1/inbound/reservations/pending', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const wid = req.query.warehouse_id?
+    String(req.query.warehouse_id) : undefined;
+  const list = demoStore.reservations.filter(r => r.status==='submitted' && (!wid || String(r.target_warehouse_id)===wid));
+  return res.json({ code:0, data:{ list, total:list.length } });
+});
+
+function ensureInventory(){ if(!demoStore.inventory) demoStore.inventory = new Map(); }
+function invKey(wh, pid, unit, lot){ return [String(wh||''), String(pid||''), String(unit||''), String(lot||'')].join('|'); }
+function addInventoryDemo(warehouse_id, product_id, quantity, unit, lot_no=''){
+  ensureInventory();
+  const key = invKey(warehouse_id, product_id, unit, lot_no);
+  const old = demoStore.inventory.get(key) || { warehouse_id, product_id, unit, lot_no, quantity: 0 };
+  const now = { ...old, quantity: Number(old.quantity||0) + Number(quantity||0) };
+  demoStore.inventory.set(key, now);
+  return now;
+}
+
+// approve reservation (demo): 仅状态流转，不直接入库
+app.post('/v1/inbound/reservations/:id/confirm', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const r = demoStore.reservations.find(x => String(x.id)===String(req.params.id) || x.reservation_number===req.params.id);
+  if (!r) return res.json({ code:404, message:'not found' });
+  r.status = 'approved';
+  r.warehouse_handled_at = new Date().toISOString().slice(0,16).replace('T',' ');
+  if(!demoStore.auditLogs) demoStore.auditLogs = [];
+  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'warehouse_approve', actor:'warehouse_demo', ts:r.warehouse_handled_at });
+  // 此处不做库存增加，库存以“实际到库/过磅”环节落账
+  return res.json({ code:0, data:{ reservation:r } });
+});
+
+// reject reservation (demo)
+app.post('/v1/inbound/reservations/:id/reject', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const r = demoStore.reservations.find(x => String(x.id)===String(req.params.id) || x.reservation_number===req.params.id);
+  if (!r) return res.json({ code:404, message:'not found' });
+  r.status = 'rejected';
+  r.reject_reason = String((req.body&&req.body.reason) || '');
+  if(!demoStore.auditLogs) demoStore.auditLogs = [];
+  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'warehouse_reject', actor:'warehouse_demo', ts:new Date().toISOString().slice(0,16).replace('T',' '), detail:{ reason: r.reject_reason } });
+  return res.json({ code:0, data:r });
+});
+
+// submit reservation (demo): 存货人端“申请入库”
+app.post('/v1/inbound/reservations/:id/submit', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const r = demoStore.reservations.find(x => String(x.id)===String(req.params.id) || x.reservation_number===req.params.id);
+  if (!r) return res.json({ code:404, message:'not found' });
+  r.status = 'pending';
+  if(!demoStore.auditLogs) demoStore.auditLogs = [];
+  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'submit', actor:'depositor_demo', ts:new Date().toISOString().slice(0,16).replace('T',' ') });
+  return res.json({ code:0, data:r });
+});
+
+// apply reservation (demo): 审核通过后由存货人发起“入库申请”完成闭环
+app.post('/v1/inbound/reservations/:id/apply', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const r = demoStore.reservations.find(x => String(x.id)===String(req.params.id) || x.reservation_number===req.params.id);
+  if (!r) return res.json({ code:404, message:'not found' });
+  // 仅当已通过才允许“申请入库”完成闭环
+  if (r.status !== 'approved') {
+    return res.json({ code:400, message:'当前状态不可申请入库' });
+  }
+  r.status = 'completed';
+  r.completed_at = new Date().toISOString().slice(0,16).replace('T',' ');
+  if(!demoStore.auditLogs) demoStore.auditLogs = [];
+  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'apply_to_inbound', actor:'depositor_demo', ts:r.completed_at });
+  return res.json({ code:0, data:r });
 });
 
 // Warehouse receipts
@@ -716,6 +850,132 @@ app.post('/v1/inbound/orders/batch/precheck', async (req, res) => {
     res.json({ code: 0, data: { valid, items: results } });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
+  }
+});
+
+// Import reservations from CSV-like rows (demo)
+// Import reservations from CSV-like rows (demo) - FIXED VERSION
+app.post('/v1/inbound/reservations/import', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code: 501, message: 'not implemented' });
+
+  const items = Array.isArray(req.body) ? req.body : [];
+  const created = [];
+  const errors = [];
+
+  // 分组：一批一聚合（按货物批次号/客户预约号）
+  /** @type {Map<string, any[]>} */
+  const batchMap = new Map();
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i] || {};
+    const wh = Number(it.warehouse_id || it.target_warehouse_id || 0);
+    const cid = Number(it.commodity_id || 0);
+    const qty = Number(it.quantity || it.planned_quantity || 0);
+    if (!wh || !cid || !qty) { errors.push(`Row ${i}: 缺少必要字段(warehouse_id, commodity_id, quantity)`); continue; }
+    const batch = String(it.client_batch_no || it.client_reservation_no || it.batch_no || it.reservation_number || '').trim() || `ROW_${i+1}`;
+    const rec = {
+      warehouse_id: wh,
+      commodity_id: cid,
+      quantity: qty,
+      unit: String(it.unit || it.measurement_unit || '吨'),
+      vehicle_plate: String(it.vehicle_plate || ''),
+      driver_phone: String(it.driver_phone || ''),
+      driver_id_no: String(it.driver_id_no || it.driver_id_card || ''),
+      spec: String(it.spec || it.commodity_spec || ''),
+      owner_name: String(it.owner_name || '导入货主'),
+      eta: String(it.eta || it.expected_arrival_time || ''),
+      source_row_index: i
+    };
+    if (!batchMap.has(batch)) batchMap.set(batch, []);
+    batchMap.get(batch).push(rec);
+  }
+
+  // 为每个批次生成一条预约记录，并挂接 detail_lines
+  const nowStr = new Date().toISOString().slice(0, 16).replace('T', ' ') + ':00';
+  for (const [batch, lines] of batchMap.entries()) {
+    try {
+      const id = Date.now() * 1000 + Math.floor(Math.random() * 1000) + created.length;
+      const reservation_number = 'RSV' + id;
+      const code6 = generateSixDigitCode();
+      const sumQty = lines.reduce((s, r) => s + Number(r.quantity || 0), 0);
+      const first = lines[0] || {};
+      const row = {
+        id,
+        reservation_number,
+        unique_reservation_code: code6,
+        status: 'pending',
+        created_at: nowStr,
+        created_by: 'depositor_demo',
+        source_type: 'excel',
+        target_warehouse_id: Number(first.warehouse_id || 1),
+        commodity_id: Number(first.commodity_id || 1),
+        total_planned_quantity: sumQty,
+        measurement_unit: String(first.unit || '吨'),
+        owner_name: String(first.owner_name || '导入货主'),
+        client_batch_no: batch,
+        // 明细：用于“点击批次号查看一行一单”
+        detail_lines: lines.map((r, idx) => ({
+          reservation_number,
+          transport_no: '-',
+          order_no: '-',
+          status: '待审核',
+          inbound_proof: '-',
+          owner_name: String(r.owner_name || '-'),
+          commodity_text: r.spec ? `#${r.commodity_id} / ${r.spec}` : `#${r.commodity_id}`,
+          vehicle_plate: String(r.vehicle_plate || '-'),
+          planned_quantity: Number(r.quantity || 0),
+          actual_in_weight: '-',
+          weigh_mode_text: '-',
+          gross: '-',
+          tare: '-',
+          net: '-',
+          deductions: '-',
+          entry_time: '-',
+          exit_time: '-',
+          driver_name: '-',
+          driver_phone: String(r.driver_phone || '-'),
+          driver_id_card: String(r.driver_id_no || '-'),
+          _seq: idx + 1
+        }))
+      };
+
+      if (!demoStore.reservations) demoStore.reservations = [];
+      demoStore.reservations.unshift(row);
+
+      if (!demoStore.auditLogs) demoStore.auditLogs = [];
+      demoStore.auditLogs.unshift({ id: Date.now() + Math.floor(Math.random() * 1000), scope: 'inbound_reservation', ref_id: reservation_number, action: 'import_create', actor: 'depositor_demo', ts: nowStr, detail: { client_batch_no: batch, count: lines.length } });
+
+      created.push({ id, reservation_number, status: 'pending', client_reservation_no: batch });
+    } catch (e) {
+      errors.push(`Batch ${batch}: 处理失败 - ${String(e?.message || e)}`);
+    }
+  }
+
+  return res.json({ code: 0, data: { created, errors: errors.length ? errors : undefined, summary: { total: items.length, batches: batchMap.size, success: created.length, failed: errors.length } } });
+});
+
+// Excel import → create reservations (file upload)
+app.post('/v1/inbound/reservations/import-xlsx', upload.single('file'), (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  try{
+    if(!req.file) return res.status(400).json({ code:400, message:'file is required' });
+    const wb = xlsx.read(req.file.buffer, { type:'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = xlsx.utils.sheet_to_json(ws, { defval:'' });
+    const rows = json.map((r, idx) => ({
+      warehouse_id: Number(r.warehouse_id||1),
+      commodity_id: Number(r.commodity_id||1),
+      quantity: Number(r.quantity||0),
+      unit: String(r.unit||'件'),
+      vehicle_plate: String(r.vehicle_plate||''),
+      driver_phone: String(r.driver_phone||''),
+      lot_no: String(r.lot_no||''),
+      _row_no: idx+2
+    })).filter(r=> Number(r.quantity)>0);
+    // 复用 JSON 导入逻辑
+    req.body = rows;
+    return app._router.handle(req, res, () => {});
+  }catch(e){
+    return res.status(500).json({ code:500, message:String(e?.message||e) });
   }
 });
 

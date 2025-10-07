@@ -9,7 +9,9 @@
       </label>
       <button class="ghost" @click="syncGate">同步门岗</button>
       <button class="ghost" @click="exportExcel">导出</button>
-      <button class="ghost primary" :disabled="saving" @click="saveCurrent">{{ saving? '保存中…' : '保存' }}</button>
+      <button class="ghost primary" :disabled="saving" @click="() => saveCurrent()">{{ saving? '保存中…' : '保存' }}</button>
+      <button class="ghost primary" :disabled="pushing" @click="generateReservations">{{ pushing? '推送中…' : '生成预约单并推送' }}</button>
+      <button class="ghost" :disabled="syncing" @click="syncReservationStatus">{{ syncing? '同步中…' : '同步状态' }}</button>
       <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
       <label class="ghost upload-btn">
         上传磅单(多张)
@@ -161,7 +163,8 @@ async function loadLuckysheetCDN(){
 const allRecords = ref<any[]>([]);
 const viewRecords = ref<any[]>([]);
 const STORAGE_KEY = 'inbound_saved_sheets.v1';
-const savedList = ref<{id:string; name:string; data:any[]}[]>(loadSaved());
+type SavedEntry = { id: string; name: string; data: any[]; ts?: number };
+const savedList = ref<SavedEntry[]>(loadSaved());
 // 文件夹面板（仅展示已保存项，不再与“隐藏”冲突）
 const showCloseDialog = ref(false);
 const closed = ref(false);
@@ -179,6 +182,121 @@ function openFolder(){
   // 每次打开先从本地加载一次，避免旧的内存列表
   try{ const raw = localStorage.getItem(STORAGE_KEY); if(raw){ savedList.value = JSON.parse(raw)||[]; } }catch{}
   showFolder.value = true;
+}
+const pushing = ref(false);
+const syncing = ref(false);
+
+async function generateReservations(){
+  try{
+    pushing.value = true;
+    // 1) 从 Luckysheet 取当前可见区域数据
+    const grid:any = (window as any).__getCurrentGridValues?.();
+    const values:any[] = grid?.values || viewRecords.value || [];
+    if(!values.length){ showToast('没有可推送的数据'); return; }
+    // 2) 按“货物批次号/客户批次号”分组：一批生成一个预约
+    // 客户批次号来源优先级：client_batch_no(首列) > client_reservation_no > batch_no
+    const groupMap = new Map<string, { rows:number[]; sample:any; sum:number }>();
+    values.forEach((r:any, i:number)=>{
+      const key = String(r.client_batch_no || r.client_reservation_no || r.batch_no || '').trim() || `ROW_${i+2}`;
+      const qty = Number(r.quantity || r.planned_quantity || 0) || 0;
+      if(!groupMap.has(key)) groupMap.set(key, { rows:[], sample:r, sum:0 });
+      const g = groupMap.get(key)!; g.rows.push(i); g.sum += qty;
+    });
+    // 3) 生成提交 items（后端已容错名称->ID，这里传必要字段）
+    const items:any[] = [];
+    for(const [key, g] of groupMap.entries()){
+      items.push({
+        warehouse_id: Number(g.sample.warehouse_id || g.sample.target_warehouse_id || 1),
+        commodity_id: Number(g.sample.commodity_id || 1),
+        quantity: g.sum,
+        unit: String(g.sample.unit || g.sample.measurement_unit || '件'),
+        vehicle_plate: String(g.sample.vehicle_plate || ''),
+        driver_phone: String(g.sample.driver_phone || ''),
+        client_reservation_no: key
+      });
+    }
+    if(!items.length){ showToast('有效数量为0，无法推送'); return; }
+    // 3) 调用批量创建接口
+    const resp = await fetch('/v1/inbound/reservations/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
+    const data = await resp.json();
+    if(!resp.ok || data.code){ throw new Error(data.message||'推送失败'); }
+    const created = data?.data?.created || [];
+    // 4) 写回预约号至“预约单号”列；首列“货物批次号”仅保留原值（不写RSV）
+    try{
+      const ls:any = (window as any).luckysheet;
+      const sheets:any[] = ls?.getAllSheets?.() || [];
+      const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
+      const sheet = sheets[idx] || sheets[0];
+      const header = sheet.data[0] || [];
+      // 动态定位列：优先匹配列头名称
+      let colRSV = -1; // 预约单号(RSV)
+      let colBatch = -1; // 货物批次号（首列）
+      for(let cidx=0;cidx<header.length;cidx++){
+        const name = String(header[cidx]?.v||'');
+        if(name==='预约单号' && colRSV===-1) colRSV=cidx;
+        if((name==='货物批次号' || name==='客户批次号') && colBatch===-1) colBatch=cidx;
+      }
+      if(colRSV===-1){ // 若无该列，则在末尾新增一列“预约单号”
+        const newIdx = header.length;
+        sheet.data[0][newIdx] = { v:'预约单号' };
+        colRSV = newIdx;
+      }
+      // 建立 groups 顺序一致数组
+      const keys = Array.from(groupMap.keys());
+      created.forEach((c:any, i:number)=>{
+        const key = keys[i]; const g = groupMap.get(key); if(!g) return;
+        g.rows.forEach((ri)=>{
+          const rowIndex = 1 + ri; // 跳过表头
+          if(sheet?.data?.[rowIndex]){
+            // 仅写入预约号到“预约单号”列，不覆盖首列“货物批次号”
+            sheet.data[rowIndex][colRSV] = { v: c.reservation_number };
+          }
+        });
+      });
+      ls?.refresh?.();
+    }catch{}
+    showToast(`已推送到仓库端待审核：${created.length} 条`);
+  }catch(e:any){
+    showToast('推送失败：'+(e?.message||e));
+  }finally{ pushing.value=false; }
+}
+
+async function syncReservationStatus(){
+  try{
+    syncing.value = true;
+    const grid:any = (window as any).__getCurrentGridValues?.();
+    const vals:any[] = grid?.values || viewRecords.value || [];
+    const numbers = vals.map((r:any)=> String(r.reservation_number||'').trim()).filter(Boolean);
+    if(!numbers.length){ showToast('当前表没有预约号'); return; }
+    const resp = await fetch('/v1/inbound/reservations/by-numbers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(numbers) });
+    const data = await resp.json(); if(!resp.ok || data.code){ throw new Error(data.message||'同步失败'); }
+    const list:any[] = data?.data?.list || [];
+    const statusMap = new Map<string,string>(); list.forEach(r=> statusMap.set(String(r.reservation_number), String(r.status)) );
+    // 写回 Luckysheet：将“入库状态”列或相邻列更新为已通过/待审核
+    try{
+      const ls:any = (window as any).luckysheet;
+      const sheets:any[] = ls?.getAllSheets?.() || [];
+      const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
+      const sheet = sheets[idx] || sheets[0];
+      const dataGrid:any[] = sheet?.data || [];
+      for(let r=1;r<dataGrid.length;r++){
+        const row = dataGrid[r]; if(!row) continue;
+        const no = row[0]?.v; // 假设首列为预约单号
+        const st = statusMap.get(String(no||''));
+        if(st){
+          const text = st==='approved' ? '预约成功' : (st==='pending'?'待审核': st);
+          // 找到“入库状态”列（如果存在），否则写入第二列
+          let colIdx = 3; // 备选列
+          const headerRow = dataGrid[0] || [];
+          for(let c=0;c<headerRow.length;c++){ if(String(headerRow[c]?.v||'')==='入库状态'){ colIdx=c; break; } }
+          row[colIdx] = { v: text };
+        }
+      }
+      ls?.refresh?.();
+    }catch{}
+    showToast('已同步预约状态');
+  }catch(e:any){ showToast('同步失败：'+(e?.message||e)); }
+  finally{ syncing.value=false; }
 }
 function formatTime(ts?: number){ if(!ts) return ''; const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 const showCols = ref(false);
@@ -333,7 +451,7 @@ async function renderLuckysheet(rows:any[]){
 }
 
 const cols = ref([
-  { key:'reservation_number', name:'预约单号', visible:true },
+  { key:'client_batch_no', name:'货物批次号', visible:true },
   { key:'transport_no', name:'运输单号', visible:true },
   { key:'order_no', name:'入库单号', visible:true },
   { key:'status', name:'入库状态', visible:true },
@@ -463,7 +581,7 @@ function exportErrorCsv(){ if(!importErrors.value.length) return; const lines = 
 // 保存/打开（持久化到localStorage）与新建空白表
 async function getLS(){ const any = await loadLuckysheetCDN(); return (any && typeof any.create==='function')? any : (window as any).luckysheet; }
 function loadSaved(){
-  try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw) : []; }catch{ return []; }
+  try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? (JSON.parse(raw) as SavedEntry[]) : []; }catch{ return [] as SavedEntry[]; }
 }
 function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedList.value)); }
 function persistWorkbook(){
@@ -494,7 +612,8 @@ async function saveCurrent(customName?: string){
   const ts = new Date();
   const time = `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}`;
   const name = customName ? customName : `保存-${nameHint}-${time}`;
-  savedList.value = [{ id, name, data, ts: +ts }, ...savedList.value];
+  const entry: SavedEntry = { id, name, data, ts: +ts };
+  savedList.value = [entry, ...savedList.value];
   persist();
   // 打开功能已移除：保存仅用于留存版本
   saving.value = false;
