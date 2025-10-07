@@ -358,8 +358,9 @@ app.post('/v1/inbound/reservations/:id/confirm', (req, res) => {
   r.warehouse_handled_at = new Date().toISOString().slice(0,16).replace('T',' ');
   if(!demoStore.auditLogs) demoStore.auditLogs = [];
   demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'warehouse_approve', actor:'warehouse_demo', ts:r.warehouse_handled_at });
-  // 此处不做库存增加，库存以“实际到库/过磅”环节落账
-  return res.json({ code:0, data:{ reservation:r } });
+  // 同步到“存货人入库申请单列表”所用数据源（此处直接返回最新全量，前端可轮询）
+  const depositorList = (demoStore.reservations||[]).slice().sort((a,b)=> (b.id||0)-(a.id||0));
+  return res.json({ code:0, data:{ reservation:r, depositor_list: depositorList } });
 });
 
 // reject reservation (demo)

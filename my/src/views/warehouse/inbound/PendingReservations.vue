@@ -10,14 +10,19 @@
     </div>
     <el-table :data="groupedRows" size="small" border :loading="loading" @selection-change="onSelChange">
       <el-table-column type="selection" width="48" />
+      <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="reservation_number" label="预约单号(RSV)" min-width="180" />
+      <el-table-column prop="unique_reservation_code" label="预约码" min-width="120" />
       <el-table-column prop="client_batch_no" label="货物批次号" min-width="160">
         <template #default="{row}"><el-link type="primary" @click="openDetail(row)">{{ row.client_batch_no || '-' }}</el-link></template>
       </el-table-column>
       <el-table-column prop="owner_name" label="客户" min-width="140" />
       <el-table-column prop="commodity_text" label="商品" min-width="160" />
-      <el-table-column prop="sum_quantity" label="预约入库量(吨)" min-width="140" />
+      <el-table-column prop="total_planned_quantity" label="预约入库量" min-width="140" />
       <el-table-column prop="created_at" label="预约日期" min-width="160" />
+      <el-table-column prop="actual_in_weight" label="已入库量" min-width="120" />
+      <el-table-column prop="pieces" label="件数" min-width="100" />
+      <el-table-column prop="weigh_mode_text" label="入库方式" min-width="120" />
       <el-table-column prop="status_text" label="状态" min-width="120" />
       <el-table-column label="操作" min-width="200">
         <template #default="{ row }">
@@ -59,6 +64,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 const loading = ref(false);
 const rows = ref<any[]>([]);
@@ -67,6 +73,7 @@ const multipleSelection = ref<any[]>([]);
 const showDetail = ref(false);
 const currentBatch = ref('');
 const detailRows = ref<any[]>([]);
+const router = useRouter();
 
 function getWid(){
   if(wid.value) return wid.value;
@@ -90,7 +97,8 @@ async function confirm(row:any){
     const r = await fetch(`/v1/inbound/reservations/${encodeURIComponent(id)}/confirm`, { method:'POST' });
     if(!r.ok){ const t=await r.text(); alert('确认失败：'+t); return; }
     await load();
-    alert('已确认并入库');
+    alert('已确认');
+    try{ router.push('/inbound/list'); }catch{}
   }catch(e:any){ alert('确认失败：'+(e?.message||e)); }
 }
 
@@ -103,6 +111,7 @@ async function reject(row:any){
     if(!r.ok){ const t=await r.text(); alert('驳回失败：'+t); return; }
     await load();
     alert('已驳回');
+    try{ router.push('/inbound/list'); }catch{}
   }catch(e:any){ alert('驳回失败：'+(e?.message||e)); }
 }
 
@@ -112,13 +121,20 @@ const groupedRows = computed(()=>{
   return (rows.value||[]).map((r:any)=>{
     const sumQty = Number(r.total_planned_quantity || 0);
     const commodity = r.commodity_text || (r.detail_lines && r.detail_lines[0]?.commodity_text) || `#${r.commodity_id||''}`;
+    const weighModeText = r.weigh_mode==='by_pack' ? '按规格' : (r.weigh_mode==='by_weight' ? '按磅重' : (r.weigh_mode_text || '-'));
+    const actualIn = r.actual_in_weight ?? r.actual ?? (r.detail_lines ? r.detail_lines.reduce((s:any,d:any)=> s + Number(d.actual_in_weight||0), 0) : '-');
+    const pieces = r.pieces ?? (r.detail_lines ? r.detail_lines.reduce((s:any,d:any)=> s + Number(d.pieces||0), 0) : '-');
     return {
       reservation_number: r.reservation_number,
+      unique_reservation_code: r.unique_reservation_code,
       client_batch_no: r.client_batch_no || r.client_reservation_no || '-',
       owner_name: r.owner_name || '-',
       commodity_text: commodity,
-      sum_quantity: sumQty,
+      total_planned_quantity: sumQty,
       created_at: r.created_at || '-',
+      actual_in_weight: actualIn,
+      pieces,
+      weigh_mode_text: weighModeText,
       status_text: mapStatusText(String(r.status||'')),
       __any: r
     };
@@ -129,13 +145,30 @@ function onSelChange(list:any[]){ multipleSelection.value = list||[]; }
 
 async function batchConfirm(){
   if(!multipleSelection.value.length) return;
-  for(const it of multipleSelection.value){ try{ await confirm(it.__any); }catch{} }
+  for(const it of multipleSelection.value){
+    try{
+      const id = it.__any?.id || it.__any?.reservation_number;
+      if(!id) continue;
+      const r = await fetch(`/v1/inbound/reservations/${encodeURIComponent(id)}/confirm`, { method:'POST' });
+      if(!r.ok){ /* ignore */ }
+    }catch{}
+  }
   await load();
+  try{ router.push('/inbound/list'); }catch{}
 }
 async function batchReject(){
   if(!multipleSelection.value.length) return;
-  for(const it of multipleSelection.value){ try{ await reject(it.__any); }catch{} }
+  const reason = window.prompt('请输入驳回理由','资料不完整');
+  if(reason==null) return;
+  for(const it of multipleSelection.value){
+    try{
+      const id = it.__any?.id || it.__any?.reservation_number;
+      if(!id) continue;
+      await fetch(`/v1/inbound/reservations/${encodeURIComponent(id)}/reject`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason }) });
+    }catch{}
+  }
   await load();
+  try{ router.push('/inbound/list'); }catch{}
 }
 
 function openDetail(row:any){

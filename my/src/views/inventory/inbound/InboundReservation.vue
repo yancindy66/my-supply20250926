@@ -39,8 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive } from 'vue';
-import { listInboundOrders } from '@/api/depositor';
+import { ref, onMounted, computed, reactive, onBeforeUnmount } from 'vue';
 import * as XLSX from 'xlsx';
 import http from '@/api/http';
 
@@ -102,52 +101,39 @@ const totalPages = computed(()=> Math.max(1, Math.ceil(allRecords.value.length /
 function mapStatus(s: string){ const m:Record<string,string>={ created:'已创建', receiving:'收货中', completed:'已完成', cancelled:'已取消' }; return m[s]||s||'-'; }
 
 async function load(){
-  // 存货人角色：只加载自己的数据
-  let mock:any[] = [];
-  try{ mock = JSON.parse(localStorage.getItem('inventoryMockInboundOrders')||'[]')||[]; }catch{}
-  let api:any[] = [];
+  // 直接读取后端“入库预约”列表（包含 pending/approved/rejected/completed）
+  let list:any[] = [];
   try{
-    const resp:any = await listInboundOrders({ page:1, pageSize:100, role: 'inventory' });
-    api = resp?.data?.list || [];
-  }catch(e){ /* ignore */ }
-  
-  if((mock?.length||0)===0 && (api?.length||0)===0){
-    mock = genFullMock(10);
-    try{ localStorage.setItem('inventoryMockInboundOrders', JSON.stringify(mock)); }catch{}
+    const resp:any = await http.get('/v1/inbound/reservations');
+    list = resp?.data?.list || resp?.data?.data?.list || resp?.data?.data || [];
+  }catch{ list = []; }
+  // 兜底：本地模拟
+  if(!Array.isArray(list) || list.length===0){
+    try{ list = JSON.parse(localStorage.getItem('inventoryMockInboundReservations')||'[]')||[]; }catch{}
   }
-  
-  const data = [...mock, ...api].map((r:any)=>({
-    reservation_number: r.reservation_number || r.order_no,
-    transport_no: r.transport_no || '-',
-    order_no: r.order_no || '-',
-    status: mapStatus(r.status),
+  // 统一与仓库端聚合列表的字段：序号、预约单号、预约码、货物批次号、客户、商品、预约入库量、预约日期、已入库量、件数、入库方式、状态
+  const data = (list||[]).map((r:any)=>({
+    reservation_number: r.reservation_number || '-',
+    unique_reservation_code: r.unique_reservation_code || '-',
+    client_batch_no: r.client_batch_no || r.client_reservation_no || '-',
     owner_name: r.owner_name || '-',
-    commodity: (r.commodity_name||'-') + (r.commodity_spec?(' / '+r.commodity_spec):''),
-    vehicle_plate: r.vehicle_plate || '-',
-    planned_quantity: r.total_planned_quantity || r.planned_quantity || '-',
-    actual_in_weight: r.actual || r.calc_weight || '-',
-    weigh_mode_text: r.weigh_mode==='by_pack' ? '按规格' : (r.weigh_mode==='by_weight'?'按磅重': (r.weigh_mode || '-')),
-    gross: r.gross ?? '-',
-    tare: r.tare ?? '-',
-    net: (r.gross!=null && r.tare!=null)? (Number(r.gross)-Number(r.tare)) : (r.net ?? '-'),
-    deductions: r.deductions ?? '-',
-    entry_photos_count: Array.isArray(r.entry_photos)? `${r.entry_photos.length} 张` : (r.entry_capture_count ?? '-'),
-    entry_time: r.entry_time || '-',
-    exit_photos_count: Array.isArray(r.exit_photos)? `${r.exit_photos.length} 张` : (r.exit_capture_count ?? '-'),
-    exit_time: r.exit_time || '-',
-    qc_url: r.qc_url || '-',
-    driver_name: r.driver_name || '-',
-    driver_phone: r.driver_phone || '-',
-    driver_id_card: r.driver_id_card || r.driver_id_no || '-',
-    driver_license_url: r.driver_license_url || '-',
-    inbound_proof: (r.weigh_ticket_urls && r.weigh_ticket_urls.length) ? `磅单${r.weigh_ticket_urls.length}张` : (r.weigh_ticket_url||r.doc_url? '磅单1张':'-'),
-    _act: '编辑 删除'
+    commodity_text: r.commodity_text || (r.commodity_id?(`#${r.commodity_id}`):'-'),
+    total_planned_quantity: r.total_planned_quantity ?? r.planned_quantity ?? '-',
+    created_at: r.created_at || '-',
+    actual_in_weight: r.actual_in_weight ?? r.actual ?? '-',
+    pieces: r.pieces ?? '-',
+    weigh_mode_text: (r.weigh_mode==='by_pack' ? '按规格' : (r.weigh_mode==='by_weight'?'按磅重': (r.weigh_mode_text || '-'))),
+    status_text: mapReservationStatus(r.status)
   }));
   allRecords.value = data;
   rerender();
 }
 
-onMounted(load);
+function mapReservationStatus(s:string){ const m:Record<string,string>={ pending:'待审核', approved:'审核通过', rejected:'已驳回', completed:'已完成' }; return m[s]||s||'-'; }
+
+let timer:any = null;
+onMounted(()=>{ load(); timer = setInterval(load, 6000); });
+onBeforeUnmount(()=>{ if(timer){ clearInterval(timer); timer=null; } });
 
 function randomPlate(){
   const letters = 'ABCDEFGHJKLmnopqrstu'.toUpperCase();
