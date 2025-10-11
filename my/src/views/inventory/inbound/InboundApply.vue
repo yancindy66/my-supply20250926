@@ -258,9 +258,14 @@ async function generateReservations(){
     }
     if(!items.length){ showToast('有效数量为0，无法推送'); return; }
     // 3) 调用批量创建接口
-    const resp = await fetch('/v1/inbound/reservations/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
-    const data = await resp.json();
-    if(!resp.ok || data.code){ throw new Error(data.message||'推送失败'); }
+    let resp = await fetch('/v1/inbound/reservations/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
+    let data = await resp.json().catch(()=>({}));
+    if(!resp.ok || data.code){
+      // 代理失败时，直连后端端口（8092）作为兜底
+      resp = await fetch('http://127.0.0.1:8092/v1/inbound/reservations/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
+      data = await resp.json();
+      if(!resp.ok || data.code){ throw new Error(data.message||'推送失败'); }
+    }
     const created = data?.data?.created || [];
     const summary = data?.data?.summary || {};
     // 4) 写回预约号至“预约单号”列；首列“货物批次号”仅保留原值（不写RSV）
