@@ -7,17 +7,11 @@
         批量导入
         <input type="file" accept=".csv,.xlsx,.xls" @change="onImportFile" />
       </label>
-      <button class="ghost" @click="syncGate">同步门岗</button>
+      
       <button class="ghost" @click="exportExcel">导出</button>
       <button class="ghost primary" :disabled="saving" @click="() => saveCurrent()">{{ saving? '保存中…' : '保存' }}</button>
       <button class="ghost primary" :disabled="pushing" @click="generateReservations">{{ pushing? '推送中…' : '生成预约单并推送' }}</button>
-      <button class="ghost" :disabled="syncing" @click="syncReservationStatus">{{ syncing? '同步中…' : '同步状态' }}</button>
-      <button class="ghost" @click="openInsertDialog">插入测试抓拍</button>
-      <label class="ghost upload-btn">
-        上传磅单(多张)
-        <input type="file" accept="image/*" multiple @change="onUploadTickets" />
-      </label>
-      <button class="ghost" @click="previewCaptures">预览抓拍</button>
+      
       <button class="ghost primary" @click="printSheet">打印</button>
       <div class="spacer"></div>
       <select class="ghost-select" v-model.number="pageSize" @change="applyPaging">
@@ -500,29 +494,11 @@ async function renderLuckysheet(rows:any[]){
 
 const cols = ref([
   { key:'client_batch_no', name:'货物批次号', visible:true },
-  { key:'transport_no', name:'运输单号', visible:true },
-  { key:'order_no', name:'入库单号', visible:true },
-  { key:'status', name:'入库状态', visible:true },
-  { key:'inbound_proof', name:'入库凭证+', visible:true },
+  { key:'reservation_number', name:'预约单号', visible:true },
   { key:'owner_name', name:'客户', visible:true },
   { key:'commodity', name:'商品', visible:true },
-  { key:'vehicle_plate', name:'车牌号', visible:true },
   { key:'planned_quantity', name:'预约量', visible:true },
-  { key:'actual_in_weight', name:'已经入库量', visible:true },
-  { key:'weigh_mode_text', name:'磅重（入库方式）', visible:true },
-  { key:'gross', name:'毛重', visible:true },
-  { key:'tare', name:'皮重', visible:true },
-  { key:'net', name:'净重', visible:true },
-  { key:'deductions', name:'扣重', visible:true },
-  { key:'entry_photos_count', name:'入场抓拍', visible:true },
-  { key:'entry_time', name:'入场抓拍时间', visible:true },
-  { key:'exit_photos_count', name:'出场抓拍', visible:true },
-  { key:'exit_time', name:'出场抓拍时间', visible:true },
-  { key:'qc_url', name:'质检URL', visible:true },
-  { key:'driver_name', name:'司机姓名', visible:true },
-  { key:'driver_phone', name:'司机手机', visible:true },
-  { key:'driver_id_card', name:'司机身份证', visible:true },
-  { key:'driver_license_url', name:'司机驾驶证', visible:true }
+  { key:'status', name:'入库状态', visible:true },
 ]);
 
 function pagedRecords(){
