@@ -77,6 +77,25 @@ const currentBatch = ref('');
 const detailRows = ref<any[]>([]);
 const router = useRouter();
 
+// 覆盖层：持久保存“货物批次号”等本地编辑字段，避免后端demo重启导致丢失
+const OVERLAY_KEY = 'inventory_inbound_overlay.v1';
+function loadOverlay(): Record<string, any>{
+  try{ return JSON.parse(localStorage.getItem(OVERLAY_KEY)||'{}')||{}; }catch{ return {}; }
+}
+function saveOverlay(map: Record<string, any>){ try{ localStorage.setItem(OVERLAY_KEY, JSON.stringify(map)); }catch{} }
+function applyOverlay(list:any[]){
+  const ov = loadOverlay();
+  if(!ov || !list) return list;
+  list.forEach((r:any)=>{
+    const key = String(r.reservation_number || r.id || '');
+    if(key && ov[key] && typeof ov[key]==='object'){
+      const o = ov[key];
+      if(o.client_batch_no!=null) r.client_batch_no = o.client_batch_no;
+    }
+  });
+  return list;
+}
+
 function getWid(){
   if(wid.value) return wid.value;
   try{ const s = localStorage.getItem('warehouseId')||''; if(s) return s; }catch{}
@@ -88,11 +107,12 @@ async function load(){
   try{
     const r = await fetch(`/v1/inbound/reservations`);
     const j = await r.json();
-    rows.value = j?.data?.list || j?.data?.data?.list || j?.data?.data || [];
+    const server = j?.data?.list || j?.data?.data?.list || j?.data?.data || [];
+    rows.value = applyOverlay(server.slice());
     try{ localStorage.setItem('inventory_inbound_rows', JSON.stringify(rows.value)); }catch{}
   }catch{
     // 回退到本地缓存，避免切页返回后数据丢失
-    try{ rows.value = JSON.parse(localStorage.getItem('inventory_inbound_rows')||'[]')||[]; }catch{ rows.value=[]; }
+    try{ rows.value = applyOverlay(JSON.parse(localStorage.getItem('inventory_inbound_rows')||'[]')||[]); }catch{ rows.value=[]; }
   }
   loading.value = false;
 }
@@ -155,6 +175,9 @@ async function saveBatchNo(row:any){
     const id = raw.id || raw.reservation_number;
     await fetch(`/v1/inbound/reservations/${encodeURIComponent(id)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ client_batch_no: row.client_batch_no }) });
     raw.client_batch_no = row.client_batch_no;
+    // 叠加保存到本地覆盖层，避免后端demo重启丢失
+    const key = String(raw.reservation_number || raw.id || '');
+    if(key){ const ov = loadOverlay(); ov[key] = { ...(ov[key]||{}), client_batch_no: row.client_batch_no }; saveOverlay(ov); }
     try{ localStorage.setItem('inventory_inbound_rows', JSON.stringify(rows.value)); }catch{}
   }catch(e:any){ alert('保存失败：'+(e?.message||e)); }
 }
