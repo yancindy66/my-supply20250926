@@ -14,7 +14,9 @@
       <el-table-column prop="reservation_number" label="预约单号(RSV)" min-width="180" />
       <el-table-column prop="unique_reservation_code" label="预约码" min-width="120" />
       <el-table-column prop="client_batch_no" label="货物批次号" min-width="160">
-        <template #default="{row}"><el-link type="primary" @click="openDetail(row)">{{ row.client_batch_no || '-' }}</el-link></template>
+        <template #default="{row}">
+          <el-input v-model="row.client_batch_no" style="width:120px" placeholder="点击编辑" @blur="saveBatchNo(row)" />
+        </template>
       </el-table-column>
       <el-table-column prop="owner_name" label="客户" min-width="140" />
       <el-table-column prop="commodity_text" label="商品" min-width="160" />
@@ -84,11 +86,14 @@ function getWid(){
 async function load(){
   loading.value = true;
   try{
-    // 存货人视图：直接使用预约列表，展示结构与仓库端一致
     const r = await fetch(`/v1/inbound/reservations`);
     const j = await r.json();
     rows.value = j?.data?.list || j?.data?.data?.list || j?.data?.data || [];
-  }catch{ rows.value = []; }
+    try{ localStorage.setItem('inventory_inbound_rows', JSON.stringify(rows.value)); }catch{}
+  }catch{
+    // 回退到本地缓存，避免切页返回后数据丢失
+    try{ rows.value = JSON.parse(localStorage.getItem('inventory_inbound_rows')||'[]')||[]; }catch{ rows.value=[]; }
+  }
   loading.value = false;
 }
 
@@ -143,6 +148,16 @@ const groupedRows = computed(()=>{
 });
 
 function onSelChange(list:any[]){ multipleSelection.value = list||[]; }
+
+async function saveBatchNo(row:any){
+  const raw = row.__any; if(!raw) return;
+  try{
+    const id = raw.id || raw.reservation_number;
+    await fetch(`/v1/inbound/reservations/${encodeURIComponent(id)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ client_batch_no: row.client_batch_no }) });
+    raw.client_batch_no = row.client_batch_no;
+    try{ localStorage.setItem('inventory_inbound_rows', JSON.stringify(rows.value)); }catch{}
+  }catch(e:any){ alert('保存失败：'+(e?.message||e)); }
+}
 
 async function batchConfirm(){
   if(!multipleSelection.value.length) return;
@@ -202,6 +217,37 @@ function openDetail(row:any){
   }));
   showDetail.value = true;
 }
+
+// 导出：严格按当前表数据导出，保持一致
+function exportCsv(){
+  const headers = ['序号','预约单号','预约码','货物批次号','客户','商品','预约入库量','预约日期','已入库量','件数','入库方式','状态'];
+  const rowsCsv = groupedRows.value.map((r:any, idx:number)=>[
+    String(idx+1), r.reservation_number||'', r.unique_reservation_code||'', r.client_batch_no||'', r.owner_name||'', r.commodity_text||'',
+    String(r.total_planned_quantity||''), r.created_at||'', String(r.actual_in_weight||''), String(r.pieces||''), r.weigh_mode_text||'', r.status_text||''
+  ]);
+  const csv = [headers.join(','), ...rowsCsv.map(a=>a.map(x=> String(x).replaceAll('"','""')).map(x=> /[",\n]/.test(x)?`"${x}"`:x).join(','))].join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '入库单列表.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// 批量导入：接收csv，仅映射“货物批次号”等关键字段，合并到当前表
+async function importCsv(file: File){
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if(!lines.length) return;
+  const header = lines[0].split(',');
+  const idx:Record<string,number>={}; header.forEach((h,i)=> idx[h.trim()]=i);
+  const map = (r:string[])=>({ client_batch_no: r[idx['货物批次号']]||r[idx['客户批次号']]||r[idx['客户预约号']]||'', owner_name: r[idx['客户']]||'', commodity_text: r[idx['商品']]||'', total_planned_quantity: Number(r[idx['预约入库量']]||r[idx['数量']]||0)||0, created_at: r[idx['预约日期']]||'' });
+  const imported = lines.slice(1).map(ln=> map(ln.split(',')));
+  // 合并：追加到内存并缓存
+  const current = groupedRows.value.map(x=> ({ ...x }));
+  const merged = [...imported.map(x=> ({ ...x, reservation_number:'', unique_reservation_code:'', actual_in_weight:'-', pieces:'-', weigh_mode_text:'-', status_text:'待审核', __any:{ client_batch_no: x.client_batch_no } })), ...current];
+  // 回写 rows（仅最简合并：把导入项塞在前面，真实入库仍以后端为准）
+  rows.value = merged.map(m=> ({ reservation_number: m.reservation_number, unique_reservation_code: m.unique_reservation_code, client_batch_no: m.client_batch_no, owner_name: m.owner_name, commodity_text: m.commodity_text, total_planned_quantity: m.total_planned_quantity, created_at: m.created_at, actual_in_weight: m.actual_in_weight, pieces: m.pieces, weigh_mode_text: m.weigh_mode_text, status_text: m.status_text, detail_lines: [], id: m.__any?.id }));
+  try{ localStorage.setItem('inventory_inbound_rows', JSON.stringify(rows.value)); }catch{}
+}
+
+function onImportFile(e: Event){ const f=(e.target as HTMLInputElement).files?.[0]; if(!f) return; importCsv(f); (e.target as HTMLInputElement).value=''; }
 
 load();
 </script>

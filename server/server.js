@@ -293,6 +293,7 @@ app.put('/v1/inbound/reservations/:id', (req, res) => {
   const row = demoStore.reservations.find(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
   if (!row) return res.json({ code:404, message:'not found' });
   const b = req.body || {};
+  if (b.client_batch_no != null) row.client_batch_no = String(b.client_batch_no);
   if (b.total_planned_quantity != null) row.total_planned_quantity = Number(b.total_planned_quantity);
   if (b.measurement_unit != null) row.measurement_unit = String(b.measurement_unit);
   if (b.status) row.status = String(b.status);
