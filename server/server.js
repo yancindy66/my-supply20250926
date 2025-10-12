@@ -869,10 +869,11 @@ app.post('/v1/inbound/reservations/import', (req, res) => {
   const batchMap = new Map();
   for (let i = 0; i < items.length; i++) {
     const it = items[i] || {};
-    const wh = Number(it.warehouse_id || it.target_warehouse_id || 0);
-    const cid = Number(it.commodity_id || 0);
+    // 放宽校验：warehouse_id/commodity_id 缺失时默认 1（demo），仅数量<=0 时判错
+    const wh = Number(it.warehouse_id || it.target_warehouse_id || 1);
+    const cid = Number(it.commodity_id || 1);
     const qty = Number(it.quantity || it.planned_quantity || 0);
-    if (!wh || !cid || !qty) { errors.push(`Row ${i}: 缺少必要字段(warehouse_id, commodity_id, quantity)`); continue; }
+    if (!qty || !Number.isFinite(qty) || qty<=0) { errors.push(`Row ${i}: 数量必须为正数`); continue; }
     const batch = String(it.client_batch_no || it.client_reservation_no || it.batch_no || it.reservation_number || '').trim() || `ROW_${i+1}`;
     const rec = {
       warehouse_id: wh,
