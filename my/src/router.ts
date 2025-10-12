@@ -29,7 +29,8 @@ const routes = [
       { path: 'inbound/gate/verify', component: () => import('./views/warehouse/inbound/GateVerify.vue'), meta: { title: '门岗核验' } },
       { path: 'inbound/order/office-list', component: () => import('./views/warehouse/inbound/VehicleInbound.vue'), meta: { title: '车辆入库（修正）', office: true } },
       { path: 'inbound/list', component: () => import('./views/warehouse/inbound/InboundOrderList.vue'), meta: { title: '入库单列表' } },
-      { path: 'inbound/pending', component: () => import('./views/warehouse/inbound/PendingReservations.vue'), meta: { title: '待审核入库申请' } },
+      { path: 'warehouse/inbound/pending', component: () => import('./views/warehouse/inbound/PendingReservations.vue'), meta: { title: '待审核入库申请' } },
+      { path: 'inbound/pending', redirect: '/warehouse/inbound/pending' },
       // 金融机构
       { path: 'financing/application-list', component: () => import('./views/financial-portal/financing/申请列表.vue'), meta: { title: '融资申请列表' } },
       { path: 'risk-control/dashboard', component: () => import('./views/financial-portal/Dashboard.vue'), meta: { title: '风险总览' } },
@@ -146,13 +147,15 @@ const routes = [
       { path: 'outbound/apply', component: () => import('./views/operation/outbound mangement 出库管理/OutboundList.vue'), meta: { title: '出库预约' } },
       { path: 'unfreeze/apply', component: () => import('./views/operation/renewal 仓单续期/List.vue'), meta: { title: '解冻申请' } },
       { path: 'unfreeze/review', component: () => import('./views/operation/renewal 仓单续期/Detail.vue'), meta: { title: '解冻审批' } },
-      { path: 'inbound/order/list', component: () => import('./views/inventory/inbound/InboundOrderList.vue'), meta: { title: '入库单列表' } },
-      { path: 'inbound/list', redirect: '/inbound/order/list' },
+      { path: 'inventory/inbound/order/list', component: () => import('./views/inventory/inbound/InboundOrderList.vue'), meta: { title: '入库单列表（存货人）' } },
+      { path: 'warehouse/inbound/order/list', component: () => import('./views/warehouse/inbound/InboundOrderList.vue'), meta: { title: '入库单列表（仓库）' } },
+      { path: 'inbound/order/list', redirect: '/inventory/inbound/order/list' },
+      { path: 'inbound/list', redirect: '/inventory/inbound/order/list' },
       // { path: 'inbound/office/list', component: () => import('./views/placeholder/GateOffice.vue'), meta: { title: '门岗核验（办公室）', office: true } },
       // 存货人-车辆入库（共用预约表）
       { path: 'inventory/vehicle-inbound', component: () => import('./views/warehouse/inbound/VehicleInbound.vue'), meta: { title: '车辆入库（预约表）', office: true } },
       { path: 'inbound/order/apply', component: () => import('./views/inventory/inbound/InboundApply.vue'), meta: { title: '新建入库预约' } },
-      { path: 'inbound/order/import', component: () => import('./views/inventory/inbound/InboundImport.vue'), meta: { title: '导入入库预约（Excel）' } },
+      { path: 'inbound/order/import', redirect: '/inventory/inbound/order/list' },
       // 旧“入库预约列表”改为“入库单列表” → 直接重定向
       { path: 'inbound/reservation/list', redirect: '/inbound/order/list' },
       { path: 'monitor/overview', component: () => import('./views/operation/Dashboard.vue') },
