@@ -261,6 +261,7 @@ async function generateReservations(){
         unit: String(r.unit || r.measurement_unit || '件'),
         vehicle_plate: String(r.vehicle_plate || ''),
         driver_phone: String(r.driver_phone || ''),
+        client_batch_no: key,
         owner_name: String(r.owner_name || ''),
         spec: String(r.commodity || ''),
         client_reservation_no: key

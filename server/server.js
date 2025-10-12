@@ -922,7 +922,7 @@ app.post('/v1/inbound/reservations/import', (req, res) => {
           order_no: '-',
           status: '待审核',
           inbound_proof: '-',
-          owner_name: String(r.owner_name || '-'),
+          owner_name: String(r.owner_name || row.owner_name || '-'),
           commodity_text: r.spec ? `#${r.commodity_id} / ${r.spec}` : `#${r.commodity_id}`,
           vehicle_plate: String(r.vehicle_plate || '-'),
           planned_quantity: Number(r.quantity || 0),
