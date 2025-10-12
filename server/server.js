@@ -335,7 +335,7 @@ app.get('/v1/inbound/reservations/pending', (req, res) => {
   if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
   const wid = req.query.warehouse_id?
     String(req.query.warehouse_id) : undefined;
-  const list = demoStore.reservations.filter(r => r.status==='submitted' && (!wid || String(r.target_warehouse_id)===wid));
+  const list = demoStore.reservations.filter(r => (r.status==='pending' || r.status==='submitted') && (!wid || String(r.target_warehouse_id)===wid));
   return res.json({ code:0, data:{ list, total:list.length } });
 });
 
@@ -863,6 +863,7 @@ app.post('/v1/inbound/reservations/import', (req, res) => {
   const items = Array.isArray(req.body) ? req.body : [];
   const created = [];
   const errors = [];
+  const debug = [];
 
   // 分组：一批一聚合（按货物批次号/客户预约号）
   /** @type {Map<string, any[]>} */
@@ -890,6 +891,7 @@ app.post('/v1/inbound/reservations/import', (req, res) => {
     };
     if (!batchMap.has(batch)) batchMap.set(batch, []);
     batchMap.get(batch).push(rec);
+    debug.push({ i, batch, rec });
   }
 
   // 为每个批次生成一条预约记录，并挂接 detail_lines
@@ -953,7 +955,7 @@ app.post('/v1/inbound/reservations/import', (req, res) => {
     }
   }
 
-  return res.json({ code: 0, data: { created, errors: errors.length ? errors : undefined, summary: { total: items.length, batches: batchMap.size, success: created.length, failed: errors.length } } });
+  return res.json({ code: 0, data: { created, errors: errors.length ? errors : undefined, summary: { total: items.length, batches: batchMap.size, success: created.length, failed: errors.length }, debug } });
 });
 
 // Excel import → create reservations (file upload)
