@@ -180,6 +180,23 @@ function openFolder(){
 const pushing = ref(false);
 const syncing = ref(false);
 
+// 名称→ID 映射缓存（用于从表格中文名称推断ID）
+const warehouseNameToId = ref<Record<string, number>>({});
+const productNameToId = ref<Record<string, number>>({});
+async function ensureNameIdMaps(){
+  try{
+    const [whRes, pdRes]: any = await Promise.all([
+      fetch('/api/warehouses').then(r=>r.json()).catch(()=>({ data:[] })),
+      fetch('/api/products').then(r=>r.json()).catch(()=>({ data:[] })),
+    ]);
+    const whs:any[] = whRes?.data || [];
+    const pds:any[] = pdRes?.data || [];
+    const wm: Record<string, number> = {}; whs.forEach(w=>{ if(w?.name) wm[String(w.name).trim()] = Number(w.id||1); });
+    const pm: Record<string, number> = {}; pds.forEach(p=>{ if(p?.name) pm[String(p.name).trim()] = Number(p.id||1); });
+    warehouseNameToId.value = wm; productNameToId.value = pm;
+  }catch{ /* ignore */ }
+}
+
 async function generateReservations(){
   try{
     pushing.value = true;
@@ -190,6 +207,7 @@ async function generateReservations(){
     const sheet:any = sheets[idx] || sheets[0];
     let values:any[] = [];
     let selectedCount = 0;
+    let selectedRows:number[] = [];
     try{
       const data:any[] = sheet?.data || [];
       const header = data[0] || [];
@@ -213,8 +231,9 @@ async function generateReservations(){
         for(let r=start; r<=end; r++){ selectedRowSet.add(r); }
       }
       if(selectedRowSet.size>0){
-        values = Array.from(selectedRowSet.values()).map(r=> rowToObj(r)).filter(Boolean) as any[];
-        selectedCount = selectedRowSet.size;
+        selectedRows = Array.from(selectedRowSet.values());
+        values = selectedRows.map(r=> rowToObj(r)).filter(Boolean) as any[];
+        selectedCount = selectedRows.length;
       }
       if(!values.length){
         // 退化：整表（跳过表头）
@@ -228,28 +247,25 @@ async function generateReservations(){
       selectedCount = values.length;
     }
     if(!values.length){ showToast('没有可推送的数据'); return; }
-    // 2) 按“货物批次号/客户批次号”分组：一批生成一个预约
-    // 客户批次号来源优先级：client_batch_no(首列) > client_reservation_no > batch_no
-    const groupMap = new Map<string, { rows:number[]; sample:any; sum:number }>();
-    values.forEach((r:any, i:number)=>{
+    // 2) 逐行发送（不在前端聚合），让后端按“货物批次号”一批一聚合，生成完整 detail_lines
+    await ensureNameIdMaps();
+    const items:any[] = values.map((r:any, i:number)=>{
       const key = String(r.client_batch_no || r.client_reservation_no || r.batch_no || '').trim() || `ROW_${i+2}`;
-      const qty = Number(r.quantity || r.planned_quantity || 0) || 0;
-      if(!groupMap.has(key)) groupMap.set(key, { rows:[], sample:r, sum:0 });
-      const g = groupMap.get(key)!; g.rows.push(i); g.sum += qty;
-    });
-    // 3) 生成提交 items（后端已容错名称->ID，这里传必要字段）
-    const items:any[] = [];
-    for(const [key, g] of groupMap.entries()){
-      items.push({
-        warehouse_id: Number(g.sample.warehouse_id || g.sample.target_warehouse_id || 1),
-        commodity_id: Number(g.sample.commodity_id || 1),
-        quantity: g.sum,
-        unit: String(g.sample.unit || g.sample.measurement_unit || '件'),
-        vehicle_plate: String(g.sample.vehicle_plate || ''),
-        driver_phone: String(g.sample.driver_phone || ''),
+      const qty = Number((String(r.quantity||r.planned_quantity||'').match(/\d+(\.\d+)?/)||['0'])[0]);
+      const whId = Number(r.warehouse_id || r.target_warehouse_id || warehouseNameToId.value[String(r.warehouse_name||r.仓库||r.目标仓库||'').trim()] || 1);
+      const pdId = Number(r.commodity_id || productNameToId.value[String(r.commodity||r.commodity_name||r.商品||'').trim()] || 1);
+      return {
+        warehouse_id: whId,
+        commodity_id: pdId,
+        quantity: qty,
+        unit: String(r.unit || r.measurement_unit || '件'),
+        vehicle_plate: String(r.vehicle_plate || ''),
+        driver_phone: String(r.driver_phone || ''),
+        owner_name: String(r.owner_name || ''),
+        spec: String(r.commodity || ''),
         client_reservation_no: key
-      });
-    }
+      };
+    }).filter((x:any)=> Number(x.quantity)>0);
     if(!items.length){ showToast('有效数量为0，无法推送'); return; }
     // 3) 调用批量创建接口
     let resp = await fetch('/v1/inbound/reservations/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
@@ -282,21 +298,18 @@ async function generateReservations(){
         sheet.data[0][newIdx] = { v:'预约单号' };
         colRSV = newIdx;
       }
-      // 建立 groups 顺序一致数组
-      const keys = Array.from(groupMap.keys());
-      created.forEach((c:any, i:number)=>{
-        const key = keys[i]; const g = groupMap.get(key); if(!g) return;
-        g.rows.forEach((ri)=>{
-          const rowIndex = 1 + ri; // 跳过表头
-          if(sheet?.data?.[rowIndex]){
-            // 仅写入预约号到“预约单号”列，不覆盖首列“货物批次号”
-            sheet.data[rowIndex][colRSV] = { v: c.reservation_number };
-          }
-        });
+      // 按原顺序写回：将返回的第一个预约号写回对应行；（后端会聚合，但这里用于回填标记即可）
+      const nums:string[] = (created||[]).map((c:any)=> String(c.reservation_number||''));
+      (selectedRows.length? selectedRows : values.map((_r:any,idx:number)=> idx+1)).forEach((ri, idx)=>{
+        const rowIndex = 1 + (selectedRows.length? ri : ri); // 同名变量，仅保持行号
+        if(sheet?.data?.[rowIndex]){
+          sheet.data[rowIndex][colRSV] = { v: nums[idx] || '' };
+        }
       });
-      ls?.refresh?.();
+      // 推送完成后，直接重置当前表为空（仅保留表头），避免任何残留
+      try{ renderLuckysheet([]); }catch{ ls?.refresh?.(); }
     }catch{}
-    const batchCount = groupMap.size;
+    const batchCount = Number(summary?.batches || 0) || new Set(items.map((x:any)=> x.client_reservation_no)).size;
     showToast(`已选中 ${selectedCount} 行，生成 ${batchCount} 条预约单（按货物批次号聚合）`);
   }catch(e:any){
     showToast('推送失败：'+(e?.message||e));

@@ -883,7 +883,7 @@ app.post('/v1/inbound/reservations/import', (req, res) => {
       vehicle_plate: String(it.vehicle_plate || ''),
       driver_phone: String(it.driver_phone || ''),
       driver_id_no: String(it.driver_id_no || it.driver_id_card || ''),
-      spec: String(it.spec || it.commodity_spec || ''),
+      spec: String(it.spec || it.commodity || it.commodity_spec || ''),
       owner_name: String(it.owner_name || '导入货主'),
       eta: String(it.eta || it.expected_arrival_time || ''),
       source_row_index: i
