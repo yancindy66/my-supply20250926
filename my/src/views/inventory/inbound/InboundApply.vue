@@ -268,15 +268,27 @@ async function generateReservations(){
       };
     }).filter((x:any)=> Number(x.quantity)>0);
     if(!items.length){ showToast('有效数量为0，无法推送'); return; }
-    // 3) 调用批量创建接口
-    let resp = await fetch('/v1/inbound/reservations/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
-    let data = await resp.json().catch(()=>({}));
-    if(!resp.ok || data.code){
-      // 代理失败时，直连后端端口（8092）作为兜底
-      resp = await fetch('http://127.0.0.1:8092/v1/inbound/reservations/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
-      data = await resp.json();
-      if(!resp.ok || data.code){ throw new Error(data.message||'推送失败'); }
+    // 3) 调用批量创建接口（多端口兜底：相对路径 → 8092 → 8093 → 8080）
+    async function tryPost(url:string){
+      const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(items) });
+      const j = await r.json().catch(()=>({}));
+      return { r, j };
     }
+    const endpoints = [
+      '/v1/inbound/reservations/import',
+      'http://127.0.0.1:8092/v1/inbound/reservations/import',
+      'http://127.0.0.1:8093/v1/inbound/reservations/import',
+      'http://127.0.0.1:8080/v1/inbound/reservations/import'
+    ];
+    let data:any = null; let ok = false; let lastErr = '';
+    for(const ep of endpoints){
+      try{
+        const { r, j } = await tryPost(ep);
+        if(r.ok && !j?.code){ data = j; ok = true; break; }
+        lastErr = j?.message || `请求失败 ${r.status}`;
+      }catch(e:any){ lastErr = e?.message||String(e); }
+    }
+    if(!ok){ throw new Error(lastErr||'推送失败'); }
     const created = data?.data?.created || [];
     const summary = data?.data?.summary || {};
     // 4) 写回预约号至“预约单号”列；首列“货物批次号”仅保留原值（不写RSV）
@@ -485,6 +497,39 @@ async function renderLuckysheet(rows:any[]){
       config: {}
     }]
   });
+  // 粘贴增强：支持从 Excel/WPS Ctrl+C → Ctrl+V 粘贴为文本，保持长数字与前导零
+  try{
+    const host = document.getElementById('luckysheet');
+    if(host){
+      host.addEventListener('paste', (ev: ClipboardEvent) => {
+        try{
+          const text = ev.clipboardData?.getData('text/plain') || '';
+          if(!text) return;
+          ev.preventDefault();
+          const sheets:any[] = ls.getAllSheets?.() || [];
+          const idx = typeof ls.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
+          const sheet = sheets[idx] || sheets[0];
+          let sr = 1, sc = 0;
+          try{
+            const rg:any = (ls.getRange?.()||[])[0] || {};
+            sr = Math.max(1, Array.isArray(rg.row)? (rg.row[0]??1) : (rg.row?.startRow ?? rg.row?.[0] ?? 1));
+            sc = Math.max(0, Array.isArray(rg.column)? (rg.column[0]??0) : (rg.column?.startColumn ?? rg.column?.[0] ?? 0));
+          }catch{}
+          const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.length>0);
+          const table = lines.map(line => line.split('\t'));
+          for(let r=0;r<table.length;r++){
+            const row = table[r];
+            for(let c=0;c<row.length;c++){
+              const val = String(row[c] ?? '');
+              const rr = sr + r; const cc = sc + c;
+              try{ ls.setCellValue(rr, cc, { v: val, m: val, ct:{ fa:'@' } }); }catch{ try{ ls.setCellValue(rr, cc, val); }catch{} }
+            }
+          }
+          ls?.refresh?.();
+        }catch{}
+      });
+    }
+  }catch{}
   // 注册保存所需的快捷操作：读取当前可见区域值
   (window as any).__getCurrentGridValues = function(){
     const sheets:any[] = ls.getAllSheets?.() || [];
@@ -726,10 +771,31 @@ function triggerClose(){ showCloseDialog.value = true; }
 
 // 打印（兼容：将当前视图导出为HTML并触发浏览器打印）
 function printSheet(){
-  const headers = cols.value.filter(c=>c.visible).map(c=>c.name);
-  const keys = cols.value.filter(c=>c.visible).map(c=>c.key);
+  try{
+    const ls:any = (window as any).luckysheet;
+    const sheets:any[] = ls?.getAllSheets?.() || [];
+    const idx = typeof ls?.getSheetIndex==='function' ? ls.getSheetIndex() : 0;
+    const sheet = sheets[idx] || sheets[0];
+    const grid:any[] = sheet?.data || [];
+    const headers = (grid[0]||[]).map((c:any)=> String(c?.v ?? ''));
+    const body:string[] = [];
+    for(let r=1;r<grid.length;r++){
+      const row = grid[r] || [];
+      const tds = headers.map((_:string,ci:number)=>{
+        const cell:any = row[ci] || {};
+        const val = (cell.m!=null? String(cell.m): (cell.v!=null? String(cell.v):''));
+        return `<td>${val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`;
+      }).join('');
+      body.push(`<tr>${tds}</tr>`);
+    }
+    const html = `<html><head><meta charset='utf-8'><title>打印</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left;word-break:break-all}</style></head><body><table><thead><tr>${headers.map((h:string)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></body></html>`;
+    const w = window.open('', '_blank'); if(!w) return; w.document.open(); w.document.write(html); w.document.close(); w.focus(); w.print();
+    return;
+  }catch{}
+  const headers = cols.value.filter((c:any)=>c.visible).map((c:any)=>c.name);
+  const keys = cols.value.filter((c:any)=>c.visible).map((c:any)=>c.key);
   const htmlRows = viewRecords.value.map(r=> `<tr>${keys.map(k=>`<td>${String(r[k]??'')}</td>`).join('')}</tr>`).join('');
-  const html = `<html><head><meta charset='utf-8'><title>打印</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left}</style></head><body><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${htmlRows}</tbody></table></body></html>`;
+  const html = `<html><head><meta charset='utf-8'><title>打印</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left;word-break:break-all}</style></head><body><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${htmlRows}</tbody></table></body></html>`;
   const w = window.open('', '_blank'); if(!w) return;
   w.document.open(); w.document.write(html); w.document.close(); w.focus(); w.print();
 }
