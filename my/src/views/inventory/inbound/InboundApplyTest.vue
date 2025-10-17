@@ -12,6 +12,7 @@
       <button class="ghost" @click="addRow">新增一行</button>
       <button class="ghost" :disabled="!selectedCount" @click="deleteSelected">批量删除</button>
       <button class="ghost" :disabled="!rows.length" @click="openStats">统计</button>
+      <button class="ghost" @click="openColSettings">列设置</button>
       <button class="ghost" @click="saveDraft">保存草稿</button>
       <button class="ghost" :disabled="!hasDraft" @click="clearDraft">清除草稿</button>
       <button class="ghost" @click="openOnlyOffice">Excel表（OnlyOffice）</button>
@@ -29,7 +30,7 @@
             <th style="width:46px; text-align:center;">
               <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll($event)" />
             </th>
-            <th v-for="(h,i) in headers" :key="'h'+i">{{ h }}</th>
+            <th v-for="(h,i) in visibleHeaders" :key="'h'+i">{{ h }}</th>
             <th style="width:160px;">操作</th>
           </tr>
         </thead>
@@ -38,7 +39,7 @@
             <td style="text-align:center;">
               <input type="checkbox" :checked="selected.has(ri)" @change="toggleSelect(ri, $event)" />
             </td>
-            <td v-for="(h,ci) in headers" :key="'c'+ri+'-'+ci">
+            <td v-for="(h,ci) in visibleHeaders" :key="'c'+ri+'-'+ci">
               <template v-if="editingIndex === ri">
                 <input class="cell-input" v-model="rows[ri][h]" />
               </template>
@@ -76,6 +77,31 @@
         </div>
       </div>
     </div>
+    <!-- 列设置面板 -->
+    <div v-if="showCols" class="stats-mask" @click.self="showCols=false">
+      <div class="cols-panel">
+        <div class="cols-header">
+          <span>列设置</span>
+          <div class="cols-actions">
+            <button class="ghost" @click="resetCols">重置</button>
+            <button class="ghost" @click="saveCols">保存</button>
+            <button class="ghost" @click="showCols=false">关闭</button>
+          </div>
+        </div>
+        <div class="cols-body">
+          <div class="col-row" v-for="(h,idx) in headers" :key="'col-'+h">
+            <label class="col-name">
+              <input type="checkbox" :checked="!hiddenCols.has(h)" @change="toggleCol(h, $event)" />
+              <span>{{ h }}</span>
+            </label>
+            <div class="col-move">
+              <button class="ghost" :disabled="idx===0" @click="moveCol(h,-1)">上移</button>
+              <button class="ghost" :disabled="idx===headers.length-1" @click="moveCol(h,1)">下移</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -93,6 +119,10 @@ const showStats = ref(false);
 const selected = ref<Set<number>>(new Set());
 const DRAFT_KEY = 'inbound_apply_test_draft_v1';
 const hasDraft = ref(false);
+const showCols = ref(false);
+const hiddenCols = ref<Set<string>>(new Set());
+const COLS_KEY = 'inbound_apply_test_cols_v1';
+const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -137,6 +167,7 @@ const quantitySum = computed<number|null>(()=>{
   return null;
 });
 function openStats(){ showStats.value = true; }
+function openColSettings(){ showCols.value = true; }
 
 function addRow(){
   const row:any = {};
@@ -196,6 +227,8 @@ onMounted(()=>{
       }
     }
   }catch{}
+  // 恢复列设置
+  applySavedCols();
 });
 
 // 自动保存（防抖）
@@ -204,6 +237,39 @@ watch([rows, headers], ()=>{
   if(draftTimer) clearTimeout(draftTimer);
   draftTimer = setTimeout(()=>{ saveDraft(); }, 1200);
 },{ deep:true });
+
+// 列设置：显隐与顺序
+function toggleCol(h:string, ev: Event){
+  const checked = (ev.target as HTMLInputElement).checked;
+  if(!checked) hiddenCols.value.add(h); else hiddenCols.value.delete(h);
+}
+function moveCol(h:string, delta:number){
+  const i = headers.value.indexOf(h); if(i<0) return; const j = i+delta; if(j<0||j>=headers.value.length) return;
+  const copy = headers.value.slice(); const tmp = copy[i]; copy[i]=copy[j]; copy[j]=tmp; headers.value = copy;
+}
+function saveCols(){
+  try{ localStorage.setItem(COLS_KEY, JSON.stringify({ order: headers.value, hidden: Array.from(hiddenCols.value) })); showMsg('列设置已保存'); }catch{}
+}
+function resetCols(){
+  try{ localStorage.removeItem(COLS_KEY); }catch{}
+  hiddenCols.value.clear();
+  showMsg('列设置已重置');
+}
+function applySavedCols(){
+  try{
+    const raw = localStorage.getItem(COLS_KEY); if(!raw) return; const data = JSON.parse(raw||'{}');
+    const order: string[] = Array.isArray(data?.order)? data.order : [];
+    const hidden: string[] = Array.isArray(data?.hidden)? data.hidden : [];
+    const set = new Set(order);
+    const merged = order.filter(h=> headers.value.includes(h));
+    for(const h of headers.value){ if(!set.has(h)) merged.push(h); }
+    headers.value = merged;
+    hiddenCols.value = new Set(hidden.filter(h=> headers.value.includes(h)));
+  }catch{}
+}
+
+let colsTimer:any = null;
+watch([headers, hiddenCols], ()=>{ if(colsTimer) clearTimeout(colsTimer); colsTimer = setTimeout(()=> saveCols(), 800); }, { deep:true });
 
 function openOnlyOffice(){ window.open('http://127.0.0.1:8094/oo/embed?file=blank.xlsx&title='+encodeURIComponent('车辆入库.xlsx'), '_blank'); }
 function openSavedFiles(){ window.open('http://127.0.0.1:8094/oo/saved', '_blank'); }
@@ -243,7 +309,8 @@ async function onImportFile(e: Event){
 
 function exportExcel(){
   if(!rows.value.length) return;
-  const aoa = [headers.value, ...rows.value.map(r=> headers.value.map(h=> r[h]??''))];
+  const hh = visibleHeaders.value.length ? visibleHeaders.value : headers.value;
+  const aoa = [hh, ...rows.value.map(r=> hh.map(h=> r[h]??''))];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '入库申请');
@@ -284,8 +351,8 @@ async function pushBatches(){
 
 function printPreview(){
   if(!rows.value.length) return;
-  const htmlRows = rows.value.map(r=> `<tr>${headers.value.map(h=>`<td>${String(r[h]??'')}</td>`).join('')}</tr>`).join('');
-  const html = `<html><head><meta charset='utf-8'><title>打印</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left}</style></head><body><table><thead><tr>${headers.value.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${htmlRows}</tbody></table></body></html>`;
+  const hh = visibleHeaders.value.length ? visibleHeaders.value : headers.value;
+  const html = `<html><head><meta charset='utf-8'><title>打印</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left}</style></head><body><table><thead><tr>${hh.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.value.map(r=>`<tr>${hh.map(h=>`<td>${String(r[h]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
   const w = window.open('', '_blank'); if(!w) return; w.document.open(); w.document.write(html); w.document.close(); w.focus(); w.print();
 }
 </script>
@@ -315,4 +382,13 @@ function printPreview(){
 .stats-header{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #e5e7eb; }
 .stats-body{ padding: 12px; }
 .stats-row{ display:flex; align-items:center; justify-content:space-between; padding:6px 0; }
+
+/* 列设置面板样式复用遮罩 */
+.cols-panel{ width: 520px; background: #fff; border-radius: 12px; box-shadow: 0 14px 40px rgba(2,6,23,.35); overflow:hidden; }
+.cols-header{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #e5e7eb; }
+.cols-actions{ display:flex; gap:8px; }
+.cols-body{ max-height: 60vh; overflow:auto; padding: 10px 12px; }
+.col-row{ display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #e5e7eb; }
+.col-name{ display:flex; align-items:center; gap:8px; }
+.col-move button{ height:28px; }
 </style>
