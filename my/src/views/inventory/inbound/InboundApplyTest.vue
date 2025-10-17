@@ -136,8 +136,24 @@ const colWidths = ref<Record<string, number>>({});
 let resizing: { col: string; startX: number; startW: number } | null = null;
 const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
 const newColName = ref('');
-// 数据集ID（演示持久化用）
-const datasetId = ref<string>('inbound-draft');
+// 数据集ID（按“用户+日期”生成，如 inbound-1-20251017）
+const datasetId = ref<string>('inbound-anon');
+function formatDateYYYYMMDD(d: Date){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}${m}${day}`;
+}
+async function initDatasetId(){
+  try{
+    const r = await fetch('/v1/auth/me');
+    const j = await r.json();
+    const uid = j?.user?.id || j?.user_id || 'demo';
+    datasetId.value = `inbound-${uid}-${formatDateYYYYMMDD(new Date())}`;
+  }catch{
+    datasetId.value = `inbound-anon-${formatDateYYYYMMDD(new Date())}`;
+  }
+}
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -229,7 +245,7 @@ function saveDraft(){
  
  
 
-onMounted(()=>{
+onMounted(async ()=>{
   try{
     const raw = localStorage.getItem(DRAFT_KEY);
     if(raw){
@@ -245,12 +261,15 @@ onMounted(()=>{
   // 恢复列设置与列宽
   applySavedCols();
   loadColWidths();
-  // 尝试从后端恢复上次导入的数据集（demo 持久化）
-  fetch(`/v1/imports/inbound/${encodeURIComponent(datasetId.value)}`).then(r=>r.json()).then(j=>{
+  // 生成当日用户专属数据集ID后，再恢复数据
+  await initDatasetId();
+  try{
+    const r = await fetch(`/v1/imports/inbound/${encodeURIComponent(datasetId.value)}`);
+    const j = await r.json();
     if(j && j.code===0 && j.data && Array.isArray(j.data.headers) && Array.isArray(j.data.rows)){
       headers.value = j.data.headers; rows.value = j.data.rows; showMsg('已从后端恢复数据集');
     }
-  }).catch(()=>{});
+  }catch{}
 });
 
 // 自动保存（防抖）
