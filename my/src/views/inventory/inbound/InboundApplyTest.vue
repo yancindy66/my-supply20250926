@@ -9,10 +9,11 @@
       <button class="ghost" :disabled="!rows.length" @click="exportExcel">导出</button>
       <button class="ghost primary" :disabled="pushing || !rows.length" @click="pushBatches">{{ pushing? '推送中…' : '生成预约单并推送' }}</button>
       <button class="ghost" :disabled="!rows.length" @click="printPreview">打印</button>
+      <button class="ghost" :disabled="!rows.length" @click="openStats">统计</button>
       <button class="ghost" @click="openOnlyOffice">Excel表（OnlyOffice）</button>
       <button class="ghost" @click="openSavedFiles">已保存文件</button>
       <div class="spacer"></div>
-      <span class="hint" v-if="rows.length">已加载 {{ rows.length }} 行</span>
+      <span class="hint" v-if="rows.length">已加载 {{ rows.length }} 行<span v-if="quantitySum !== null">，数量合计 {{ quantitySum }}</span></span>
     </div>
 
     <div v-if="msg" class="toast">{{ msg }}</div>
@@ -22,28 +23,102 @@
         <thead>
           <tr>
             <th v-for="(h,i) in headers" :key="'h'+i">{{ h }}</th>
+            <th style="width:160px;">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(r,ri) in rows" :key="'r'+ri">
-            <td v-for="(h,ci) in headers" :key="'c'+ri+'-'+ci">{{ r[h] ?? '' }}</td>
+            <td v-for="(h,ci) in headers" :key="'c'+ri+'-'+ci">
+              <template v-if="editingIndex === ri">
+                <input class="cell-input" v-model="rows[ri][h]" />
+              </template>
+              <template v-else>
+                {{ r[h] ?? '' }}
+              </template>
+            </td>
+            <td>
+              <template v-if="editingIndex === ri">
+                <button class="ghost" @click="saveEdit()">保存</button>
+                <button class="ghost" @click="cancelEdit()">取消</button>
+              </template>
+              <template v-else>
+                <button class="ghost" @click="startEdit(ri)">编辑</button>
+                <button class="ghost" @click="deleteRow(ri)">删除</button>
+              </template>
+            </td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- 简易统计面板 -->
+    <div v-if="showStats" class="stats-mask" @click.self="showStats=false">
+      <div class="stats-panel">
+        <div class="stats-header">
+          <span>统计</span>
+          <button class="ghost" @click="showStats=false">关闭</button>
+        </div>
+        <div class="stats-body">
+          <div class="stats-row"><b>总行数：</b><span>{{ rows.length }}</span></div>
+          <div class="stats-row" v-for="(sum,key) in numericTotals" :key="'sum-'+key">
+            <b>{{ key }} 合计：</b><span>{{ sum }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import * as XLSX from 'xlsx';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const rows = ref<any[]>([]);
 const headers = ref<string[]>([]);
 const pushing = ref(false);
 const msg = ref('');
+const editingIndex = ref<number|null>(null);
+const originalRowSnapshot = ref<any|null>(null);
+const showStats = ref(false);
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
+function startEdit(idx:number){
+  if (editingIndex.value !== null) return;
+  editingIndex.value = idx;
+  originalRowSnapshot.value = { ...(rows.value[idx] || {}) };
+}
+function saveEdit(){
+  editingIndex.value = null;
+  originalRowSnapshot.value = null;
+}
+function cancelEdit(){
+  if (editingIndex.value === null) return;
+  const i = editingIndex.value;
+  if (originalRowSnapshot.value){ rows.value[i] = { ...originalRowSnapshot.value }; }
+  editingIndex.value = null;
+  originalRowSnapshot.value = null;
+}
+function deleteRow(idx:number){
+  if (editingIndex.value === idx) { editingIndex.value = null; originalRowSnapshot.value = null; }
+  rows.value.splice(idx, 1);
+}
+
+const preferredQtyHeaders = ['预约入库量','数量','planned_quantity','quantity'];
+function isNumeric(val:any){ if (val===null||val===undefined||val==='') return false; const n = Number(val); return !isNaN(n) && isFinite(n as any); }
+const numericTotals = computed<Record<string, number>>(()=>{
+  const totals: Record<string, number> = {};
+  for(const h of headers.value){
+    let sum = 0; let has = false;
+    for(const r of rows.value){ if(isNumeric(r[h])){ sum += Number(r[h]); has = true; } }
+    if(has) totals[h] = Number(sum.toFixed(6));
+  }
+  return totals;
+});
+const quantitySum = computed<number|null>(()=>{
+  for(const name of preferredQtyHeaders){ if(numericTotals.value[name] != null) return numericTotals.value[name]; }
+  return null;
+});
+function openStats(){ showStats.value = true; }
 
 function openOnlyOffice(){ window.open('http://127.0.0.1:8094/oo/embed?file=blank.xlsx&title='+encodeURIComponent('车辆入库.xlsx'), '_blank'); }
 function openSavedFiles(){ window.open('http://127.0.0.1:8094/oo/saved', '_blank'); }
@@ -147,4 +222,12 @@ function printPreview(){
 .grid{ width:100%; height:100%; min-width:900px; border-collapse:collapse; }
 .grid th, .grid td{ border:1px solid #e5e7eb; padding:6px 8px; font-size:12px; text-align:left; }
 .toast{ position:fixed; right:16px; bottom:16px; background:#0ea5e9; color:#fff; padding:8px 12px; border-radius:8px; box-shadow:0 6px 14px rgba(2,6,23,.25); z-index:60; }
+
+.cell-input{ width: 100%; box-sizing: border-box; height: 28px; padding: 2px 6px; border: 1px solid #cbd5e1; border-radius: 6px; }
+
+.stats-mask{ position: fixed; inset: 0; background: rgba(2,6,23,.35); display:flex; align-items:center; justify-content:center; z-index: 70; }
+.stats-panel{ width: 420px; background: #fff; border-radius: 12px; box-shadow: 0 14px 40px rgba(2,6,23,.35); overflow: hidden; }
+.stats-header{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #e5e7eb; }
+.stats-body{ padding: 12px; }
+.stats-row{ display:flex; align-items:center; justify-content:space-between; padding:6px 0; }
 </style>
