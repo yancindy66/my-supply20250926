@@ -463,6 +463,17 @@ async function pushBatches(){
       const created = j?.data?.created?.length || 0;
       const failed = (j?.data?.errors?.length||0);
       showMsg(`完成：创建 ${created}，失败 ${failed}`);
+      // 可选：提示跳转仓储端待审核列表
+      setTimeout(async () => {
+        try{
+          const r = await fetch('/v1/inbound/reservations/pending');
+          const pj = await r.json().catch(()=>({}));
+          const total = pj?.data?.total ?? 0;
+          if (window.confirm(`已推送到仓储端待审核列表（${total} 条）。是否打开查看？`)){
+            window.open('/inbound/pending', '_blank');
+          }
+        }catch{ /* ignore */ }
+      }, 300);
     }else{ showMsg('推送失败：'+(j?.message||res.statusText)); }
   }catch(e:any){ showMsg('推送异常：'+(e?.message||e)); }
   finally{ pushing.value=false; }

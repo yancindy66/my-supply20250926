@@ -30,6 +30,7 @@ const routes = [
       { path: 'inbound/order/office-list', component: () => import('./views/warehouse/inbound/VehicleInbound.vue'), meta: { title: '车辆入库（修正）', office: true } },
       { path: 'inbound/list', component: () => import('./views/warehouse/inbound/InboundOrderList.vue'), meta: { title: '入库单列表' } },
       { path: 'warehouse/inbound/pending', component: () => import('./views/warehouse/inbound/PendingReservations.vue'), meta: { title: '待审核入库申请' } },
+      { path: 'warehouse/inbound/pending-test', component: () => import('./views/warehouse/inbound/PendingReservations.vue'), meta: { title: '待审核入库申请（测试页1）' } },
       { path: 'inbound/pending', redirect: '/warehouse/inbound/pending' },
       // 金融机构
       { path: 'financing/application-list', component: () => import('./views/financial-portal/financing/申请列表.vue'), meta: { title: '融资申请列表' } },
