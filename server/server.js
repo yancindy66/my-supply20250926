@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import { query } from './db.js';
 import multer from 'multer';
 import xlsx from 'xlsx';
+import fs from 'fs';
+import path from 'path';
 dotenv.config();
 
 const app = express();
@@ -12,6 +14,8 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 const upload = multer({ storage: multer.memoryStorage() });
+// OnlyOffice 保存文件的本地存储目录（相对当前 server 进程工作目录）
+const OO_SAVE_DIR = path.resolve(process.cwd(), 'saved-oo');
 
 // Health
 app.get('/health', (_req, res) => res.json({ ok: true }));
@@ -23,6 +27,92 @@ app.get('/favicon.ico', (_req, res) => res.status(204).end());
 const allowDemo = String(process.env.ALLOW_DEMO || '').toLowerCase() === '1' || String(process.env.ALLOW_DEMO || '').toLowerCase() === 'true';
 // Demo in-memory store
 let demoStore = { inboundOrders: [], reservations: [], docs: [], scaleRecords: [], products: [], warehouses: [], gateEvents: [], alerts: [] };
+// 导入数据集（demo）：以 id 索引的 Map，元素形如 { id, type:'inbound', headers: string[], rows: any[], created_at, updated_at }
+if (!demoStore.importDatasets) demoStore.importDatasets = new Map();
+
+// Demo audit log → memory + optional file
+const demoLogToFile = String(process.env.DEMO_LOG_TO_FILE || '').toLowerCase() === '1' || String(process.env.DEMO_LOG_TO_FILE || '').toLowerCase() === 'true';
+const demoLogFile = process.env.DEMO_LOG_FILE || 'demo-audit.log';
+function pushAudit(entry){
+  if(!allowDemo) return;
+  if(!demoStore.auditLogs) demoStore.auditLogs = [];
+  const rec = { id: entry.id || (Date.now()+Math.floor(Math.random()*1000)), ...entry };
+  demoStore.auditLogs.unshift(rec);
+  if (demoLogToFile) {
+    try { fs.appendFileSync(demoLogFile, JSON.stringify(rec) + '\n'); } catch(e) {}
+  }
+}
+
+// ===== 导入数据集（入库申请）保存/编辑/删除（demo） =====
+// 创建或覆盖一个数据集
+app.post('/v1/imports/inbound', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const headers = Array.isArray(req.body?.headers)? req.body.headers : [];
+    const rows = Array.isArray(req.body?.rows)? req.body.rows : [];
+    const id = String(req.body?.id || Date.now());
+    const now = new Date().toISOString();
+    const ds = { id, type:'inbound', headers, rows, created_at: now, updated_at: now };
+    demoStore.importDatasets.set(id, ds);
+    pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_save', actor:'depositor_demo', ts: now, detail:{ rows: rows.length, headers: headers.length } });
+    return res.json({ code:0, data:{ id } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// 获取数据集
+app.get('/v1/imports/inbound/:id', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const ds = demoStore.importDatasets.get(String(req.params.id));
+    if(!ds) return res.json({ code:404, message:'not found' });
+    return res.json({ code:0, data: ds });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// 更新整批（覆盖）
+app.put('/v1/imports/inbound/:id', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const id = String(req.params.id);
+    const ds = demoStore.importDatasets.get(id);
+    if(!ds) return res.json({ code:404, message:'not found' });
+    const headers = Array.isArray(req.body?.headers)? req.body.headers : ds.headers;
+    const rows = Array.isArray(req.body?.rows)? req.body.rows : ds.rows;
+    ds.headers = headers; ds.rows = rows; ds.updated_at = new Date().toISOString();
+    pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_overwrite', actor:'depositor_demo', ts: ds.updated_at, detail:{ rows: rows.length } });
+    return res.json({ code:0, data: ds });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// 更新单行
+app.put('/v1/imports/inbound/:id/row/:idx', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const id = String(req.params.id); const idx = Number(req.params.idx);
+    const ds = demoStore.importDatasets.get(id);
+    if(!ds) return res.json({ code:404, message:'not found' });
+    if(idx<0 || idx>=ds.rows.length) return res.json({ code:400, message:'row index out of range' });
+    ds.rows[idx] = { ...(req.body||{}) };
+    ds.updated_at = new Date().toISOString();
+    pushAudit({ scope:'import_inbound', ref_id:id, action:'row_edit', actor:'depositor_demo', ts: ds.updated_at, detail:{ row_index: idx } });
+    return res.json({ code:0, data:{ row: ds.rows[idx] } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// 删除单行
+app.delete('/v1/imports/inbound/:id/row/:idx', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const id = String(req.params.id); const idx = Number(req.params.idx);
+    const ds = demoStore.importDatasets.get(id);
+    if(!ds) return res.json({ code:404, message:'not found' });
+    if(idx<0 || idx>=ds.rows.length) return res.json({ code:400, message:'row index out of range' });
+    const removed = ds.rows.splice(idx,1);
+    ds.updated_at = new Date().toISOString();
+    pushAudit({ scope:'import_inbound', ref_id:id, action:'row_delete', actor:'depositor_demo', ts: ds.updated_at, detail:{ row_index: idx, removed: removed.length } });
+    return res.json({ code:0, data:{ rows: ds.rows.length } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
 
 // Helper: generate 6-digit numeric reservation code
 function generateSixDigitCode(){
@@ -273,11 +363,72 @@ app.post('/v1/inbound/reservations/by-numbers', (req, res) => {
   return res.json({ code:0, data:{ list, total:list.length } });
 });
 
+// Place batch APIs BEFORE generic ":id" routes to avoid being captured by them
+app.get('/v1/inbound/reservations/batch-stats', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const bno = String(req.query.client_batch_no||'');
+    const all = Array.isArray(demoStore.reservations)? demoStore.reservations : [];
+    if (bno) {
+      const list = all.filter(r => String(r.client_batch_no||'')===bno).map(r => ({
+        reservation_number: r.reservation_number,
+        items: Array.isArray(r.detail_lines)? r.detail_lines.length : 0,
+        total_planned_quantity: Number(r.total_planned_quantity||0),
+        status: r.status,
+        created_at: r.created_at
+      }));
+      const total_items = list.reduce((s,x)=>s+Number(x.items||0),0);
+      const reservations_count = list.length;
+      const lastImport = (Array.isArray(demoStore.auditLogs)? demoStore.auditLogs : []).find(x => x.action==='import_create' && String(x?.detail?.client_batch_no||'')===bno) || null;
+      return res.json({ code:0, data:{ client_batch_no: bno, reservations:list, reservations_count, total_items, last_import: lastImport } });
+    }
+    const map = new Map();
+    for (const r of all){
+      const k = String(r.client_batch_no||'');
+      if (!k) continue;
+      const entry = map.get(k) || { client_batch_no:k, reservations_count:0, total_items:0, total_planned_quantity:0, latest_reservation_number:'', latest_created_at:'' };
+      entry.reservations_count += 1;
+      entry.total_items += Array.isArray(r.detail_lines)? r.detail_lines.length : 0;
+      entry.total_planned_quantity += Number(r.total_planned_quantity||0);
+      if (!entry.latest_created_at || String(r.created_at||'')>entry.latest_created_at){ entry.latest_created_at = String(r.created_at||''); entry.latest_reservation_number = r.reservation_number; }
+      map.set(k, entry);
+    }
+    return res.json({ code:0, data:{ list: Array.from(map.values()), total: map.size } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+app.get('/v1/inbound/reservations/batch/:batch/detail', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const bno = String(req.params.batch||'');
+    if (!bno) return res.json({ code:0, data:{ client_batch_no:'', reservations:[], items:[], total_items:0, total_planned_quantity:0 } });
+    const all = Array.isArray(demoStore.reservations)? demoStore.reservations : [];
+    const reservations = all.filter(r => String(r.client_batch_no||'')===bno);
+    const items = [];
+    let total_planned_quantity = 0;
+    for (const r of reservations){
+      total_planned_quantity += Number(r.total_planned_quantity||0);
+      const lines = Array.isArray(r.detail_lines)? r.detail_lines : [];
+      for (const d of lines){ items.push({ client_batch_no:bno, reservation_number: r.reservation_number, status: r.status, ...d }); }
+    }
+    return res.json({ code:0, data:{ client_batch_no:bno, reservations: reservations.map(r=>({ reservation_number:r.reservation_number, status:r.status, created_at:r.created_at })), items, total_items: items.length, total_planned_quantity } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
 app.get('/v1/inbound/reservations/:id', (req, res) => {
   if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
   const row = demoStore.reservations.find(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
   if (!row) return res.json({ code:404, message:'not found' });
   return res.json({ code:0, data: row });
+});
+
+// fetch reservation detail_lines by reservation_number or id
+app.get('/v1/inbound/reservations/:id/detail', (req, res) => {
+  if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+  const row = demoStore.reservations.find(r => String(r.id)===String(req.params.id) || r.reservation_number===req.params.id);
+  if (!row) return res.json({ code:404, message:'not found' });
+  const list = Array.isArray(row.detail_lines)? row.detail_lines : [];
+  return res.json({ code:0, data:{ reservation_number: row.reservation_number, client_batch_no: row.client_batch_no, list, total: list.length } });
 });
 
 // by reservation code (6 digits)
@@ -357,8 +508,7 @@ app.post('/v1/inbound/reservations/:id/confirm', (req, res) => {
   if (!r) return res.json({ code:404, message:'not found' });
   r.status = 'approved';
   r.warehouse_handled_at = new Date().toISOString().slice(0,16).replace('T',' ');
-  if(!demoStore.auditLogs) demoStore.auditLogs = [];
-  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'warehouse_approve', actor:'warehouse_demo', ts:r.warehouse_handled_at });
+  pushAudit({ scope:'inbound_reservation', ref_id:r.reservation_number, action:'warehouse_approve', actor:'warehouse_demo', ts:r.warehouse_handled_at });
   // 同步到“存货人入库申请单列表”所用数据源（此处直接返回最新全量，前端可轮询）
   const depositorList = (demoStore.reservations||[]).slice().sort((a,b)=> (b.id||0)-(a.id||0));
   return res.json({ code:0, data:{ reservation:r, depositor_list: depositorList } });
@@ -371,8 +521,7 @@ app.post('/v1/inbound/reservations/:id/reject', (req, res) => {
   if (!r) return res.json({ code:404, message:'not found' });
   r.status = 'rejected';
   r.reject_reason = String((req.body&&req.body.reason) || '');
-  if(!demoStore.auditLogs) demoStore.auditLogs = [];
-  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'warehouse_reject', actor:'warehouse_demo', ts:new Date().toISOString().slice(0,16).replace('T',' '), detail:{ reason: r.reject_reason } });
+  pushAudit({ scope:'inbound_reservation', ref_id:r.reservation_number, action:'warehouse_reject', actor:'warehouse_demo', ts:new Date().toISOString().slice(0,16).replace('T',' '), detail:{ reason: r.reject_reason } });
   return res.json({ code:0, data:r });
 });
 
@@ -382,8 +531,7 @@ app.post('/v1/inbound/reservations/:id/submit', (req, res) => {
   const r = demoStore.reservations.find(x => String(x.id)===String(req.params.id) || x.reservation_number===req.params.id);
   if (!r) return res.json({ code:404, message:'not found' });
   r.status = 'pending';
-  if(!demoStore.auditLogs) demoStore.auditLogs = [];
-  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'submit', actor:'depositor_demo', ts:new Date().toISOString().slice(0,16).replace('T',' ') });
+  pushAudit({ scope:'inbound_reservation', ref_id:r.reservation_number, action:'submit', actor:'depositor_demo', ts:new Date().toISOString().slice(0,16).replace('T',' ') });
   return res.json({ code:0, data:r });
 });
 
@@ -398,8 +546,7 @@ app.post('/v1/inbound/reservations/:id/apply', (req, res) => {
   }
   r.status = 'completed';
   r.completed_at = new Date().toISOString().slice(0,16).replace('T',' ');
-  if(!demoStore.auditLogs) demoStore.auditLogs = [];
-  demoStore.auditLogs.unshift({ id: Date.now()+Math.floor(Math.random()*1000), scope:'inbound_reservation', ref_id:r.reservation_number, action:'apply_to_inbound', actor:'depositor_demo', ts:r.completed_at });
+  pushAudit({ scope:'inbound_reservation', ref_id:r.reservation_number, action:'apply_to_inbound', actor:'depositor_demo', ts:r.completed_at });
   return res.json({ code:0, data:r });
 });
 
@@ -946,8 +1093,7 @@ app.post('/v1/inbound/reservations/import', (req, res) => {
       if (!demoStore.reservations) demoStore.reservations = [];
       demoStore.reservations.unshift(row);
 
-      if (!demoStore.auditLogs) demoStore.auditLogs = [];
-      demoStore.auditLogs.unshift({ id: Date.now() + Math.floor(Math.random() * 1000), scope: 'inbound_reservation', ref_id: reservation_number, action: 'import_create', actor: 'depositor_demo', ts: nowStr, detail: { client_batch_no: batch, count: lines.length } });
+      pushAudit({ scope: 'inbound_reservation', ref_id: reservation_number, action: 'import_create', actor: 'depositor_demo', ts: nowStr, detail: { client_batch_no: batch, count: lines.length } });
 
       created.push({ id, reservation_number, status: 'pending', client_reservation_no: batch });
     } catch (e) {
@@ -979,6 +1125,213 @@ app.post('/v1/inbound/reservations/import-xlsx', upload.single('file'), (req, re
     // 复用 JSON 导入逻辑
     req.body = rows;
     return app._router.handle(req, res, () => {});
+  }catch(e){
+    return res.status(500).json({ code:500, message:String(e?.message||e) });
+  }
+});
+
+// ---- OnlyOffice minimal config & file serving ----
+app.get('/oo/config', (req, res) => {
+  try{
+    const OO_BASE = process.env.OO_BASE || '';
+    const file = String(req.query.file||'inbound-reservations-template.csv');
+    const fileType = file.toLowerCase().endsWith('.xlsx')? 'xlsx':'csv';
+    const selfPort = Number(process.env.PORT || 8080);
+    const hostForDS = process.env.OO_PUBLIC_BASE || `http://host.docker.internal:${selfPort}`;
+    const url = `${hostForDS}/oo/file/${encodeURIComponent(file)}`;
+    const callbackUrl = `${hostForDS}/oo/callback?file=${encodeURIComponent(file)}`;
+    const config = {
+      type: 'desktop',
+      documentType: 'spreadsheet',
+      document: { fileType, key: String(Date.now()), title: file, url },
+      editorConfig: { callbackUrl, lang:'zh-CN' }
+    };
+    res.json({ code:0, data:{ oo_base: OO_BASE, config } });
+  }catch(e){ res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+app.get('/oo/file/:name', (req, res) => {
+  try{
+    const name = String(req.params.name||'');
+    const allow = new Set(['inbound-reservations-template.csv','products-template.csv','blank.csv','blank.xlsx']);
+    if(!allow.has(name)) return res.status(404).end();
+    // 提供一个即取即用的空白CSV（用于“打开即是表格”体验）
+    if(name === 'blank.csv'){
+      res.setHeader('Content-Type','text/csv; charset=utf-8');
+      res.end('');
+      return;
+    }
+    if(name === 'blank.xlsx'){
+      try{
+        // 动态生成一个空白的 XLSX（比 CSV 功能更完整，工具栏可用）
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.aoa_to_sheet([['']]);
+        xlsx.utils.book_append_sheet(wb, ws, 'Sheet1');
+        const buf = xlsx.write(wb, { type:'buffer', bookType:'xlsx' });
+        res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition','inline; filename="blank.xlsx"');
+        return res.end(buf);
+      }catch(e){ return res.status(500).send(String(e?.message||e)); }
+    }
+    const filePath = path.resolve(process.cwd(), 'my_clean','my','public','templates', name);
+    if(!fs.existsSync(filePath)) return res.status(404).end();
+    res.setHeader('Content-Type', name.endsWith('.csv')? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    fs.createReadStream(filePath).pipe(res);
+  }catch{ res.status(500).end(); }
+});
+
+app.post('/oo/callback', async (req, res) => {
+  try{
+    // 打印完整回调体，便于排障
+    console.log('OnlyOffice callback:', JSON.stringify(req.body || {}));
+
+    const status = Number(req.body?.status || 0);
+    // OnlyOffice 在 status=2（MustSave）或 6（MustForceSave）时提供下载 url
+    const downloadUrl = req.body?.url || (req.body?.data && req.body.data.url) || '';
+    const fileParam = String(req.query.file || 'document.xlsx');
+
+    // 放宽条件：只要回调里带有 url 即保存（避免前端未触发 MustSave 的情况）
+    if (downloadUrl) {
+      try{
+        if (!fs.existsSync(OO_SAVE_DIR)) fs.mkdirSync(OO_SAVE_DIR, { recursive: true });
+        const safeBase = path.basename(fileParam).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const saveName = `${Date.now()}-${safeBase}`;
+        const savePath = path.join(OO_SAVE_DIR, saveName);
+        const r = await fetch(downloadUrl);
+        if (!r.ok) throw new Error(`download failed: ${r.status}`);
+        const buf = Buffer.from(await r.arrayBuffer());
+        fs.writeFileSync(savePath, buf);
+        console.log('OnlyOffice saved file:', savePath, 'size=', buf.length);
+        pushAudit({ scope:'onlyoffice', ref_id: safeBase, action:'saved', actor:'documentserver', ts:new Date().toISOString(), detail:{ savePath, size: buf.length, status } });
+      }catch(e){
+        console.error('OnlyOffice save error:', e);
+      }
+    }
+    // 按 OnlyOffice 规范：必须返回 { error: 0 } 表示已处理
+    return res.json({ error:0 });
+  }catch(e){
+    console.error('OnlyOffice callback handler error:', e);
+    return res.json({ error:0 });
+  }
+});
+
+// 列出已保存的 OnlyOffice 文件
+app.get('/oo/saved', (_req, res) => {
+  try{
+    if (!fs.existsSync(OO_SAVE_DIR)) return res.json({ code:0, data:{ list:[] } });
+    const list = fs.readdirSync(OO_SAVE_DIR).sort().reverse();
+    return res.json({ code:0, data:{ list, dir: OO_SAVE_DIR } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// 下载指定保存文件
+app.get('/oo/saved/:name', (req, res) => {
+  try{
+    const name = path.basename(String(req.params.name||''));
+    const p = path.join(OO_SAVE_DIR, name);
+    if (!fs.existsSync(p)) return res.status(404).end();
+    return res.sendFile(p);
+  }catch(e){ return res.status(500).end(); }
+});
+
+// 内嵌页：直接在后端生成一个可编辑、全工具栏的 OnlyOffice 页面，避免前端 CSP/代理问题
+app.get('/oo/embed', (req, res) => {
+  try{
+    const OO_BASE = (process.env.OO_BASE && String(process.env.OO_BASE)) || 'http://127.0.0.1:8082';
+    const file = String(req.query.file||'blank.csv');
+    const title = String(req.query.title||file);
+    const selfPort = Number(process.env.PORT || 8080);
+    const hostForDS = process.env.OO_PUBLIC_BASE || `http://host.docker.internal:${selfPort}`;
+    const fileType = file.toLowerCase().endsWith('.xlsx')? 'xlsx':'csv';
+    const url = `${hostForDS}/oo/file/${encodeURIComponent(file)}`;
+    const callbackUrl = `${hostForDS}/oo/callback?file=${encodeURIComponent(file)}`;
+    const config = {
+      type: 'desktop',
+      documentType: 'spreadsheet',
+      document: { fileType, key: String(Date.now()), title, url,
+        permissions: { edit:true, download:true, print:true, review:true, comment:true }
+      },
+      editorConfig: {
+        callbackUrl,
+        lang:'zh-CN',
+        mode:'edit',
+        customization: {
+          autosave: true,
+          toolbar: true,
+          toolbarNoTabs: false,
+          compactToolbar: false,
+          leftMenu: true,
+          rightMenu: true,
+          header: true,
+          statusBar: true,
+          comments: true,
+          help: true,
+          feedback: { visible: false }
+        }
+      },
+      width: '100%',
+      height: '98%'
+    };
+
+    const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OnlyOffice Embed - ${title.replace(/</g,'&lt;')}</title>
+  <style>html,body{margin:0;padding:0;height:100%;}#onlyoffice-container{width:100%;height:98vh;} .oo-ctrl{position:fixed;top:8px;right:12px;z-index:9999;}</style>
+  <script src="${OO_BASE.replace(/\/+$/,'')}/web-apps/apps/api/documents/api.js"></script>
+</head>
+<body>
+  <div class="oo-ctrl"><button id="btn-force" style="padding:6px 10px;">强制保存</button></div>
+  <div id="onlyoffice-container"></div>
+  <script>
+    (function(){
+      const cfg = ${JSON.stringify(config)};
+      // 再次确保编辑与工具栏开启（防止服务端/环境差异覆盖）
+      cfg.type = 'desktop';
+      cfg.width = '100%';
+      cfg.height = '98%';
+      if(!cfg.document) cfg.document = {};
+      cfg.document.permissions = { edit:true, download:true, print:true, review:true, comment:true };
+      cfg.editorConfig = Object.assign({}, cfg.editorConfig||{}, {
+        mode: 'edit',
+        customization: Object.assign({},{
+          autosave:true, toolbar:true, toolbarNoTabs:false, compactToolbar:false,
+          leftMenu:true, rightMenu:true, header:true, statusBar:true, comments:true,
+          help:true, feedback:{ visible:false }
+        }, (cfg.editorConfig||{}).customization||{})
+      });
+      const editor = new DocsAPI.DocEditor('onlyoffice-container', cfg);
+      const key = cfg.document.key;
+      // 定时强制保存，避免“未触发 MustSave”导致无法落盘
+      setInterval(function(){ fetch('/oo/force-save?key='+encodeURIComponent(key), { method:'POST' }); }, 30000);
+      document.getElementById('btn-force').onclick = function(){ fetch('/oo/force-save?key='+encodeURIComponent(key), { method:'POST' }); };
+    })();
+  </script>
+</body>
+</html>`;
+    res.setHeader('Content-Type','text/html; charset=utf-8');
+    return res.end(html);
+  }catch(e){
+    return res.status(500).send(String(e?.message||e));
+  }
+});
+
+// 调用 DocumentServer CommandService 执行强制保存（forcesave）
+app.post('/oo/force-save', async (req, res) => {
+  try{
+    const OO_BASE = (process.env.OO_BASE && String(process.env.OO_BASE)) || 'http://127.0.0.1:8082';
+    const key = String((req.body && req.body.key) || (req.query && req.query.key) || '');
+    if (!key) return res.status(400).json({ code:400, message:'key required' });
+    const endpoint = OO_BASE.replace(/\/+$/,'') + '/coauthoring/CommandService.ashx';
+    const r = await fetch(endpoint, {
+      method:'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ c: 'forcesave', key })
+    });
+    const data = await r.json().catch(() => ({}));
+    return res.json({ code:0, data });
   }catch(e){
     return res.status(500).json({ code:500, message:String(e?.message||e) });
   }
@@ -1039,6 +1392,87 @@ app.post('/v1/inbound/orders/:id/reject', (req, res) => {
   const row = findDemoOrder(req.params.id); if (!row) return res.json({ code:404, message:'not found' });
   row.status = 'platform_rejected';
   return res.json({ code:0 });
+});
+
+// --- Audit logs (demo) ---
+app.get('/v1/audit/logs', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const { scope='', ref_id='', action='', client_batch_no='', limit='200' } = req.query || {};
+    let list = Array.isArray(demoStore.auditLogs)? demoStore.auditLogs.slice() : [];
+    if (scope) list = list.filter(x => String(x.scope)===String(scope));
+    if (ref_id) list = list.filter(x => String(x.ref_id)===String(ref_id));
+    if (action) list = list.filter(x => String(x.action)===String(action));
+    if (client_batch_no) list = list.filter(x => String(x?.detail?.client_batch_no||'')===String(client_batch_no));
+    const lim = Math.max(1, Math.min(1000, Number(limit||200)));
+    list = list.slice(0, lim);
+    return res.json({ code:0, data:{ list, total:list.length } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+app.post('/v1/audit/clear', (_req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    demoStore.auditLogs = [];
+    if (demoLogToFile) {
+      try { fs.writeFileSync(demoLogFile, ''); } catch {}
+    }
+    return res.json({ code:0 });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// Batch stats by client_batch_no (demo)
+app.get('/v1/inbound/reservations/batch-stats', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const bno = String(req.query.client_batch_no||'');
+    const all = Array.isArray(demoStore.reservations)? demoStore.reservations : [];
+    if (bno) {
+      const list = all.filter(r => String(r.client_batch_no||'')===bno).map(r => ({
+        reservation_number: r.reservation_number,
+        items: Array.isArray(r.detail_lines)? r.detail_lines.length : 0,
+        total_planned_quantity: Number(r.total_planned_quantity||0),
+        status: r.status,
+        created_at: r.created_at
+      }));
+      const total_items = list.reduce((s,x)=>s+Number(x.items||0),0);
+      const reservations_count = list.length;
+      const lastImport = (Array.isArray(demoStore.auditLogs)? demoStore.auditLogs : []).find(x => x.action==='import_create' && String(x?.detail?.client_batch_no||'')===bno) || null;
+      return res.json({ code:0, data:{ client_batch_no: bno, reservations:list, reservations_count, total_items, last_import: lastImport } });
+    }
+    // grouped overview
+    const map = new Map();
+    for (const r of all){
+      const k = String(r.client_batch_no||'');
+      if (!k) continue;
+      const entry = map.get(k) || { client_batch_no:k, reservations_count:0, total_items:0, total_planned_quantity:0, latest_reservation_number:'', latest_created_at:'' };
+      entry.reservations_count += 1;
+      entry.total_items += Array.isArray(r.detail_lines)? r.detail_lines.length : 0;
+      entry.total_planned_quantity += Number(r.total_planned_quantity||0);
+      if (!entry.latest_created_at || String(r.created_at||'')>entry.latest_created_at){ entry.latest_created_at = String(r.created_at||''); entry.latest_reservation_number = r.reservation_number; }
+      map.set(k, entry);
+    }
+    return res.json({ code:0, data:{ list: Array.from(map.values()), total: map.size } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// Batch detail: merge all detail_lines under the same client_batch_no (demo)
+app.get('/v1/inbound/reservations/batch/:batch/detail', (req, res) => {
+  try{
+    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    const bno = String(req.params.batch||'');
+    if (!bno) return res.json({ code:0, data:{ client_batch_no:'', reservations:[], items:[], total_items:0, total_planned_quantity:0 } });
+    const all = Array.isArray(demoStore.reservations)? demoStore.reservations : [];
+    const reservations = all.filter(r => String(r.client_batch_no||'')===bno);
+    const items = [];
+    let total_planned_quantity = 0;
+    for (const r of reservations){
+      total_planned_quantity += Number(r.total_planned_quantity||0);
+      const lines = Array.isArray(r.detail_lines)? r.detail_lines : [];
+      for (const d of lines){ items.push({ client_batch_no:bno, reservation_number: r.reservation_number, status: r.status, ...d }); }
+    }
+    return res.json({ code:0, data:{ client_batch_no:bno, reservations: reservations.map(r=>({ reservation_number:r.reservation_number, status:r.status, created_at:r.created_at })), items, total_items: items.length, total_planned_quantity } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
 });
 
 // --- Redflush (demo) ---

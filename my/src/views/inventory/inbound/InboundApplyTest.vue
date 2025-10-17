@@ -136,6 +136,8 @@ const colWidths = ref<Record<string, number>>({});
 let resizing: { col: string; startX: number; startW: number } | null = null;
 const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
 const newColName = ref('');
+// 数据集ID（演示持久化用）
+const datasetId = ref<string>('inbound-draft');
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -144,8 +146,11 @@ function startEdit(idx:number){
   originalRowSnapshot.value = { ...(rows.value[idx] || {}) };
 }
 function saveEdit(){
+  const idx = editingIndex.value;
   editingIndex.value = null;
   originalRowSnapshot.value = null;
+  // 行编辑实时落库（demo）
+  try{ if(idx!=null){ fetch(`/v1/imports/inbound/${encodeURIComponent(datasetId.value)}/row/${idx}`, { method:'PUT', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(rows.value[idx]||{}) }); } }catch{}
 }
 function cancelEdit(){
   if (editingIndex.value === null) return;
@@ -162,6 +167,8 @@ function deleteRow(idx:number){
   const next = new Set<number>();
   selected.value.forEach(i => { if(i > idx) next.add(i-1); else if(i < idx) next.add(i); });
   selected.value = next;
+  // 行删除实时落库（demo）
+  try{ fetch(`/v1/imports/inbound/${encodeURIComponent(datasetId.value)}/row/${idx}`, { method:'DELETE' }); }catch{}
 }
 
 const preferredQtyHeaders = ['预约入库量','数量','planned_quantity','quantity'];
@@ -378,6 +385,10 @@ async function onImportFile(e: Event){
       headers.value = Object.keys(json[0]||{}); rows.value = json;
     }
     showMsg('导入完成');
+    // 导入即落库（demo）
+    try{
+      await fetch('/v1/imports/inbound', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id: datasetId.value, headers: headers.value, rows: rows.value }) });
+    }catch{}
   }catch(err:any){ showMsg('导入失败：'+(err?.message||String(err))); }
   input.value='';
 }
