@@ -245,6 +245,12 @@ onMounted(()=>{
   // 恢复列设置与列宽
   applySavedCols();
   loadColWidths();
+  // 尝试从后端恢复上次导入的数据集（demo 持久化）
+  fetch(`/v1/imports/inbound/${encodeURIComponent(datasetId.value)}`).then(r=>r.json()).then(j=>{
+    if(j && j.code===0 && j.data && Array.isArray(j.data.headers) && Array.isArray(j.data.rows)){
+      headers.value = j.data.headers; rows.value = j.data.rows; showMsg('已从后端恢复数据集');
+    }
+  }).catch(()=>{});
 });
 
 // 自动保存（防抖）

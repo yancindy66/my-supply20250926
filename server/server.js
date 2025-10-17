@@ -29,6 +29,33 @@ const allowDemo = String(process.env.ALLOW_DEMO || '').toLowerCase() === '1' || 
 let demoStore = { inboundOrders: [], reservations: [], docs: [], scaleRecords: [], products: [], warehouses: [], gateEvents: [], alerts: [] };
 // 导入数据集（demo）：以 id 索引的 Map，元素形如 { id, type:'inbound', headers: string[], rows: any[], created_at, updated_at }
 if (!demoStore.importDatasets) demoStore.importDatasets = new Map();
+const IMPORT_SAVE_DIR = path.resolve(process.cwd(), 'saved-imports');
+const INBOUND_SAVE_FILE = path.join(IMPORT_SAVE_DIR, 'inbound.json');
+
+function loadImportsFromDisk(){
+  try{
+    if (!fs.existsSync(INBOUND_SAVE_FILE)) return;
+    const text = fs.readFileSync(INBOUND_SAVE_FILE, 'utf-8');
+    const obj = JSON.parse(text||'{}');
+    const map = new Map();
+    if (obj && typeof obj==='object'){
+      for (const [k, v] of Object.entries(obj)){
+        map.set(k, v);
+      }
+    }
+    demoStore.importDatasets = map;
+    console.log('[imports] inbound datasets loaded from disk:', map.size);
+  }catch(e){ console.error('[imports] load error:', e?.message||e); }
+}
+function saveImportsToDisk(){
+  try{
+    if (!fs.existsSync(IMPORT_SAVE_DIR)) fs.mkdirSync(IMPORT_SAVE_DIR, { recursive: true });
+    const obj = Object.fromEntries(demoStore.importDatasets.entries());
+    fs.writeFileSync(INBOUND_SAVE_FILE, JSON.stringify(obj));
+  }catch(e){ console.error('[imports] save error:', e?.message||e); }
+}
+// 启动时尝试恢复
+loadImportsFromDisk();
 
 // Demo audit log → memory + optional file
 const demoLogToFile = String(process.env.DEMO_LOG_TO_FILE || '').toLowerCase() === '1' || String(process.env.DEMO_LOG_TO_FILE || '').toLowerCase() === 'true';
@@ -54,6 +81,7 @@ app.post('/v1/imports/inbound', (req, res) => {
     const now = new Date().toISOString();
     const ds = { id, type:'inbound', headers, rows, created_at: now, updated_at: now };
     demoStore.importDatasets.set(id, ds);
+    saveImportsToDisk();
     pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_save', actor:'depositor_demo', ts: now, detail:{ rows: rows.length, headers: headers.length } });
     return res.json({ code:0, data:{ id } });
   }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
@@ -80,6 +108,7 @@ app.put('/v1/imports/inbound/:id', (req, res) => {
     const rows = Array.isArray(req.body?.rows)? req.body.rows : ds.rows;
     ds.headers = headers; ds.rows = rows; ds.updated_at = new Date().toISOString();
     pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_overwrite', actor:'depositor_demo', ts: ds.updated_at, detail:{ rows: rows.length } });
+    saveImportsToDisk();
     return res.json({ code:0, data: ds });
   }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
 });
@@ -95,6 +124,7 @@ app.put('/v1/imports/inbound/:id/row/:idx', (req, res) => {
     ds.rows[idx] = { ...(req.body||{}) };
     ds.updated_at = new Date().toISOString();
     pushAudit({ scope:'import_inbound', ref_id:id, action:'row_edit', actor:'depositor_demo', ts: ds.updated_at, detail:{ row_index: idx } });
+    saveImportsToDisk();
     return res.json({ code:0, data:{ row: ds.rows[idx] } });
   }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
 });
@@ -110,6 +140,7 @@ app.delete('/v1/imports/inbound/:id/row/:idx', (req, res) => {
     const removed = ds.rows.splice(idx,1);
     ds.updated_at = new Date().toISOString();
     pushAudit({ scope:'import_inbound', ref_id:id, action:'row_delete', actor:'depositor_demo', ts: ds.updated_at, detail:{ row_index: idx, removed: removed.length } });
+    saveImportsToDisk();
     return res.json({ code:0, data:{ rows: ds.rows.length } });
   }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
 });
