@@ -91,6 +91,10 @@
           </div>
         </div>
         <div class="cols-body">
+          <div class="col-add">
+            <input class="name-input" v-model="newColName" placeholder="新列名" />
+            <button class="ghost" @click="addColumn">新增列</button>
+          </div>
           <div class="col-row" v-for="(h,idx) in headers" :key="'col-'+h">
             <label class="col-name">
               <input type="checkbox" :checked="!hiddenCols.has(h)" @change="toggleCol(h, $event)" />
@@ -101,6 +105,7 @@
               <button class="ghost" @click="autoFitOne(h)">自适</button>
               <button class="ghost" :disabled="idx===0" @click="moveCol(h,-1)">上移</button>
               <button class="ghost" :disabled="idx===headers.length-1" @click="moveCol(h,1)">下移</button>
+              <button class="ghost" @click="removeCol(h)">删除列</button>
             </div>
           </div>
         </div>
@@ -129,6 +134,7 @@ const COLS_KEY = 'inbound_apply_test_cols_v1';
 const COLW_KEY = 'inbound_apply_test_colw_v1';
 const colWidths = ref<Record<string, number>>({});
 const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
+const newColName = ref('');
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -316,6 +322,24 @@ function autoFitAll(){
 }
 function resetColWidths(){ colWidths.value = {}; saveColWidths(); showMsg('列宽已重置'); }
 
+function addColumn(){
+  const name = (newColName.value||'').trim();
+  if(!name){ showMsg('列名不能为空'); return; }
+  if(headers.value.includes(name)){ showMsg('列名已存在'); return; }
+  headers.value = [...headers.value, name];
+  for(const r of rows.value){ (r as any)[name] = ''; }
+  newColName.value = '';
+  saveCols(); saveDraft(); showMsg('已新增列');
+}
+function removeCol(h:string){
+  const idx = headers.value.indexOf(h); if(idx<0) return;
+  headers.value = headers.value.filter(x=> x!==h);
+  hiddenCols.value.delete(h);
+  const w = { ...colWidths.value }; delete w[h]; colWidths.value = w; saveColWidths();
+  for(const r of rows.value){ delete (r as any)[h]; }
+  saveCols(); saveDraft(); showMsg('已删除列');
+}
+
 function openOnlyOffice(){ window.open('http://127.0.0.1:8094/oo/embed?file=blank.xlsx&title='+encodeURIComponent('车辆入库.xlsx'), '_blank'); }
 function openSavedFiles(){ window.open('http://127.0.0.1:8094/oo/saved', '_blank'); }
 
@@ -437,4 +461,6 @@ function printPreview(){
 .col-row{ display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #e5e7eb; }
 .col-name{ display:flex; align-items:center; gap:8px; }
 .col-move button{ height:28px; }
+.col-add{ display:flex; align-items:center; gap:8px; padding:6px 0 12px; border-bottom:1px solid #e5e7eb; margin-bottom:8px; }
+.name-input{ width: 180px; height:28px; padding: 0 8px; border:1px solid #cbd5e1; border-radius:6px; }
 </style>
