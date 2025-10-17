@@ -141,6 +141,7 @@ const routes = [
         'inspection/tasks','inspection/tasks/pending','inspection/records','tanks/monitor','weight/measurements','weight/gross','weight/tare','evidence/requirements','evidence/upload','evidence/audit'
       ].map(p => ({ path: p, component: () => import('./views/warehouse/inbound/BasicStub.vue'), meta: { title: p } })),
       { path: 'inbound/apply', component: () => import('./views/inventory/inbound/InboundApply.vue'), meta: { title: '入库申请' } },
+      { path: 'inbound/apply-test', component: () => import('./views/inventory/inbound/InboundApplyTest.vue'), meta: { title: '入库申请（测试页）' } },
       { path: 'warehouse-receipt/list', component: () => import('./views/inventory/warehouse-receipt/ReceiptList.vue'), meta: { title: '仓单列表' } },
       { path: 'pledge/apply', component: () => import('./views/operation/transfer-ownership 仓单过户/List.vue'), meta: { title: '质押申请' } },
       { path: 'pledge/list', component: () => import('./views/operation/transfer-ownership 仓单过户/List.vue'), meta: { title: '质押记录' } },
@@ -154,6 +155,7 @@ const routes = [
       // { path: 'inbound/office/list', component: () => import('./views/placeholder/GateOffice.vue'), meta: { title: '门岗核验（办公室）', office: true } },
       // 存货人-车辆入库（共用预约表）
       { path: 'inventory/vehicle-inbound', component: () => import('./views/warehouse/inbound/VehicleInbound.vue'), meta: { title: '车辆入库（预约表）', office: true } },
+      // 存货人-Excel 方案（页面已下线）
       { path: 'inbound/order/apply', component: () => import('./views/inventory/inbound/InboundApply.vue'), meta: { title: '新建入库预约' } },
       { path: 'inbound/order/import', redirect: '/inventory/inbound/order/list' },
       // 旧“入库预约列表”改为“入库单列表” → 直接重定向
