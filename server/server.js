@@ -724,11 +724,24 @@ app.get('/v1/warehouse-receipts', async (req, res) => {
     if (allowDemo) {
       const page = Number(req.query.page || 1);
       const pageSize = Number(req.query.pageSize || 10);
-      const total = 2;
-      const list = [
-        { id: 1, receipt_number: 'WR-DEMO-001', quantity: 120, measurement_unit: '吨', status: 'in_stock' },
-        { id: 2, receipt_number: 'WR-DEMO-002', quantity: 80, measurement_unit: '吨', status: 'in_stock' }
-      ].slice((page-1)*pageSize, page*pageSize);
+      // @ts-ignore
+      const ctx = req.ctx || { role:'', userId:0 };
+      // demo 仓单集合，如果未初始化则基于 inboundOrders 构造两条示例
+      if (!demoStore.warehouseReceipts) demoStore.warehouseReceipts = [];
+      if (!demoStore.warehouseReceipts.length && Array.isArray(demoStore.inboundOrders)){
+        demoStore.warehouseReceipts = (demoStore.inboundOrders.slice(0,2) || []).map((o,idx)=>({
+          id: Date.now()+idx,
+          receipt_number: `WR-DEMO-${String(idx+1).padStart(3,'0')}`,
+          quantity: Number(o.actual||o.planned_quantity||0),
+          measurement_unit: o.measurement_unit||'吨',
+          status: 'in_stock',
+          created_by_user_id: Number(o.created_by_user_id||0)
+        }));
+      }
+      let rows = demoStore.warehouseReceipts.slice();
+      if (ctx.role==='inventory' && ctx.userId){ rows = rows.filter(r => Number(r.created_by_user_id||0)===Number(ctx.userId)); }
+      const total = rows.length;
+      const list = rows.slice((page-1)*pageSize, page*pageSize);
       return res.json({ code: 0, data: { list, total } });
     }
     const page = Number(req.query.page || 1);
@@ -876,6 +889,8 @@ app.post('/v1/inbound/orders', async (req, res) => {
   } = req.body || {};
   try {
     if (allowDemo) {
+      // @ts-ignore
+      const ctx = req.ctx || { userId:0, role:'' };
       const row = {
         order_no: `INB-${Date.now()}`,
         reservation_number: reservation_number || `RSV${Date.now()}`,
@@ -902,7 +917,9 @@ app.post('/v1/inbound/orders', async (req, res) => {
             ? (Number(gross) - Number(tare) - Number(deductions||0))
             : (weigh_mode === 'by_pack' && pack_count!=null && convert_ratio!=null)
               ? Number(pack_count) * Number(convert_ratio)
-              : null
+              : null,
+        created_by_user_id: Number(ctx.userId||0),
+        created_by_role: String(ctx.role||'') || 'inventory'
       };
       demoStore.inboundOrders.unshift(row);
       return res.json({ code: 0, data: { id: row.order_no } });
@@ -922,6 +939,8 @@ app.get('/v1/inbound/orders', async (req, res) => {
     if (allowDemo) {
       const page = Number(req.query.page || 1);
       const pageSize = Number(req.query.pageSize || 10);
+      // @ts-ignore
+      const ctx = req.ctx || { role:'', userId:0, warehouseId:0 };
       // seed demo if empty
       if (!demoStore.inboundOrders.length) {
         demoStore.inboundOrders = [
@@ -976,6 +995,8 @@ app.get('/v1/inbound/orders', async (req, res) => {
       // role-based filtering (demo): inventory by ownerId, warehouse by warehouseId
       const { role='inventory', ownerId='', warehouseId='', carrierId='' } = req.query || {};
       let rows = demoStore.inboundOrders.slice();
+      if (ctx.role==='inventory' && ctx.userId){ rows = rows.filter(r => Number(r.created_by_user_id||0)===Number(ctx.userId)); }
+      if (ctx.role==='warehouse' && req.query.warehouseId){ rows = rows.filter(r => String(r.warehouse_id||r.target_warehouse_id||'')===String(req.query.warehouseId)); }
       if(String(role)==='warehouse' && warehouseId){ rows = rows.filter(r => String(r.warehouse_id||r.target_warehouse_id||'')===String(warehouseId)); }
       if(String(role)==='inventory' && ownerId){ rows = rows.filter(r => String(r.owner_id||'')===String(ownerId)); }
       if(String(role)==='logistics' && carrierId){ rows = rows.filter(r => String(r.logistics_carrier_id||'')===String(carrierId)); }
