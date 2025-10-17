@@ -32,6 +32,12 @@ http.interceptors.request.use((config) => {
       config.headers = config.headers || {};
       (config.headers as any)['Authorization'] = `Bearer ${token}`;
     }
+    // 附带角色与用户ID，便于后端做数据隔离
+    const role = localStorage.getItem('role');
+    const userRaw = localStorage.getItem('auth_user_json');
+    const user = userRaw ? JSON.parse(userRaw) : null;
+    if (role) (config.headers as any)['X-Role'] = role;
+    if (user && user.id) (config.headers as any)['X-User-Id'] = String(user.id);
   } catch {}
   return config;
 });

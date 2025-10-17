@@ -137,6 +137,7 @@ async function onLogin() {
     if (!token) { message.value = '登录失败'; return; }
     try { localStorage.setItem('auth_token', token); } catch {}
     const info = await apiMe();
+    try { localStorage.setItem('auth_user_json', JSON.stringify((info as any)?.user || { id:1, username: username.value })); } catch {}
     // 根据后端返回的角色与类型确定首页
     const roles = (info as any)?.roles || [];
     const type = (info as any)?.user?.type || '';
