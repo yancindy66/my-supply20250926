@@ -29,6 +29,7 @@
             <th style="width:46px; text-align:center;">
               <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll($event)" />
             </th>
+            <th style="width:70px; text-align:center;">序号</th>
             <th v-for="(h,i) in visibleHeaders" :key="'h'+i" :style="colWidths[h] ? ('width:'+colWidths[h]+'px') : ''">
               <span class="th-text">{{ h }}</span>
               <span class="col-resizer" @mousedown="onResizeStart(h, $event)"></span>
@@ -41,6 +42,7 @@
             <td style="text-align:center;">
               <input type="checkbox" :checked="selected.has(ri)" @change="toggleSelect(ri, $event)" />
             </td>
+            <td style="text-align:center;">{{ ri + 1 }}</td>
             <td v-for="(h,ci) in visibleHeaders" :key="'c'+ri+'-'+ci" :style="colWidths[h] ? ('width:'+colWidths[h]+'px') : ''">
               <template v-if="editingIndex === ri">
                 <input class="cell-input" v-model="rows[ri][h]" />
@@ -412,7 +414,9 @@ async function onImportFile(e: Event){
     showMsg('导入完成');
     // 导入即落库（demo）
     try{
-      await fetch('/v1/imports/inbound', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id: datasetId.value, headers: headers.value, rows: rows.value }) });
+      const user = await (await fetch('/v1/auth/me')).json().catch(()=>({}));
+      const uid = user?.user?.id || user?.user_id || null;
+      await fetch('/v1/imports/inbound', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id: datasetId.value, user_id: uid, dataset_date: formatDateYYYYMMDD(new Date()), headers: headers.value, rows: rows.value }) });
     }catch{}
   }catch(err:any){ showMsg('导入失败：'+(err?.message||String(err))); }
   input.value='';
