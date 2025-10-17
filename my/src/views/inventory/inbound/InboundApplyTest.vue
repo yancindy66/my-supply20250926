@@ -13,6 +13,8 @@
       <button class="ghost" :disabled="!selectedCount" @click="deleteSelected">批量删除</button>
       <button class="ghost" :disabled="!rows.length" @click="openStats">统计</button>
       <button class="ghost" @click="openColSettings">列设置</button>
+      <button class="ghost" :disabled="!headers.length" @click="autoFitAll">自动适配列宽</button>
+      <button class="ghost" :disabled="!headers.length" @click="resetColWidths">重置列宽</button>
       <button class="ghost" @click="saveDraft">保存草稿</button>
       <button class="ghost" :disabled="!hasDraft" @click="clearDraft">清除草稿</button>
       <button class="ghost" @click="openOnlyOffice">Excel表（OnlyOffice）</button>
@@ -30,7 +32,7 @@
             <th style="width:46px; text-align:center;">
               <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll($event)" />
             </th>
-            <th v-for="(h,i) in visibleHeaders" :key="'h'+i">{{ h }}</th>
+            <th v-for="(h,i) in visibleHeaders" :key="'h'+i" :style="colWidths[h] ? ('width:'+colWidths[h]+'px') : ''">{{ h }}</th>
             <th style="width:160px;">操作</th>
           </tr>
         </thead>
@@ -39,7 +41,7 @@
             <td style="text-align:center;">
               <input type="checkbox" :checked="selected.has(ri)" @change="toggleSelect(ri, $event)" />
             </td>
-            <td v-for="(h,ci) in visibleHeaders" :key="'c'+ri+'-'+ci">
+            <td v-for="(h,ci) in visibleHeaders" :key="'c'+ri+'-'+ci" :style="colWidths[h] ? ('width:'+colWidths[h]+'px') : ''">
               <template v-if="editingIndex === ri">
                 <input class="cell-input" v-model="rows[ri][h]" />
               </template>
@@ -94,7 +96,9 @@
               <input type="checkbox" :checked="!hiddenCols.has(h)" @change="toggleCol(h, $event)" />
               <span>{{ h }}</span>
             </label>
-            <div class="col-move">
+            <div class="col-move" style="display:flex; gap:6px; align-items:center;">
+              <input class="width-input" type="number" min="40" :value="colWidths[h] || ''" placeholder="宽度(px)" @change="onColWidthInput(h, $event)" />
+              <button class="ghost" @click="autoFitOne(h)">自适</button>
               <button class="ghost" :disabled="idx===0" @click="moveCol(h,-1)">上移</button>
               <button class="ghost" :disabled="idx===headers.length-1" @click="moveCol(h,1)">下移</button>
             </div>
@@ -122,6 +126,8 @@ const hasDraft = ref(false);
 const showCols = ref(false);
 const hiddenCols = ref<Set<string>>(new Set());
 const COLS_KEY = 'inbound_apply_test_cols_v1';
+const COLW_KEY = 'inbound_apply_test_colw_v1';
+const colWidths = ref<Record<string, number>>({});
 const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
@@ -227,8 +233,9 @@ onMounted(()=>{
       }
     }
   }catch{}
-  // 恢复列设置
+  // 恢复列设置与列宽
   applySavedCols();
+  loadColWidths();
 });
 
 // 自动保存（防抖）
@@ -268,8 +275,46 @@ function applySavedCols(){
   }catch{}
 }
 
+function loadColWidths(){
+  try{
+    const raw = localStorage.getItem(COLW_KEY); if(!raw) return;
+    const obj = JSON.parse(raw||'{}');
+    if(obj && typeof obj==='object') colWidths.value = obj;
+  }catch{}
+}
+function saveColWidths(){
+  try{ localStorage.setItem(COLW_KEY, JSON.stringify(colWidths.value||{})); }catch{}
+}
+
 let colsTimer:any = null;
 watch([headers, hiddenCols], ()=>{ if(colsTimer) clearTimeout(colsTimer); colsTimer = setTimeout(()=> saveCols(), 800); }, { deep:true });
+
+// 列宽输入与自适
+function onColWidthInput(h:string, ev: Event){
+  const v = Number((ev.target as HTMLInputElement).value);
+  if(!isFinite(v) || v < 40) return; colWidths.value = { ...colWidths.value, [h]: Math.round(v) }; saveColWidths();
+}
+function measureTextWidth(text:string, font='12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial'){
+  const canvas = (measureTextWidth as any)._c || ((measureTextWidth as any)._c = document.createElement('canvas'));
+  const ctx = canvas.getContext('2d'); if(!ctx) return text.length*12+24; ctx.font = font; return ctx.measureText(text||'').width + 24;
+}
+function autoFitOne(h:string){
+  let max = measureTextWidth(h);
+  for(const r of rows.value){ const w = measureTextWidth(String(r[h]??'')); if(w>max) max = w; }
+  colWidths.value = { ...colWidths.value, [h]: Math.ceil(max) };
+  saveColWidths();
+}
+function autoFitAll(){
+  const next: Record<string, number> = { ...colWidths.value };
+  const hh = headers.value;
+  for(const h of hh){
+    let max = measureTextWidth(h);
+    for(const r of rows.value){ const w = measureTextWidth(String(r[h]??'')); if(w>max) max = w; }
+    next[h] = Math.ceil(max);
+  }
+  colWidths.value = next; saveColWidths(); showMsg('列宽已自适');
+}
+function resetColWidths(){ colWidths.value = {}; saveColWidths(); showMsg('列宽已重置'); }
 
 function openOnlyOffice(){ window.open('http://127.0.0.1:8094/oo/embed?file=blank.xlsx&title='+encodeURIComponent('车辆入库.xlsx'), '_blank'); }
 function openSavedFiles(){ window.open('http://127.0.0.1:8094/oo/saved', '_blank'); }
@@ -371,7 +416,8 @@ function printPreview(){
 .hint{ color:#475569; margin:10px 0; }
 .spacer{ flex:1; }
 .grid-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); height:70vh; }
-.grid{ width:100%; height:100%; min-width:900px; border-collapse:collapse; }
+.grid{ width:100%; height:100%; min-width:900px; border-collapse:collapse; table-layout: fixed; }
+.width-input{ width: 110px; height: 28px; padding: 0 6px; border:1px solid #cbd5e1; border-radius:6px; }
 .grid th, .grid td{ border:1px solid #e5e7eb; padding:6px 8px; font-size:12px; text-align:left; }
 .toast{ position:fixed; right:16px; bottom:16px; background:#0ea5e9; color:#fff; padding:8px 12px; border-radius:8px; box-shadow:0 6px 14px rgba(2,6,23,.25); z-index:60; }
 
