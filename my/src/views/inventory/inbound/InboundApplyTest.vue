@@ -9,6 +9,8 @@
       <button class="ghost" :disabled="!rows.length" @click="exportExcel">导出</button>
       <button class="ghost primary" :disabled="pushing || !rows.length" @click="pushBatches">{{ pushing? '推送中…' : '生成预约单并推送' }}</button>
       <button class="ghost" :disabled="!rows.length" @click="printPreview">打印</button>
+      <button class="ghost" @click="addRow">新增一行</button>
+      <button class="ghost" :disabled="!selectedCount" @click="deleteSelected">批量删除</button>
       <button class="ghost" :disabled="!rows.length" @click="openStats">统计</button>
       <button class="ghost" @click="openOnlyOffice">Excel表（OnlyOffice）</button>
       <button class="ghost" @click="openSavedFiles">已保存文件</button>
@@ -22,12 +24,18 @@
       <table class="grid">
         <thead>
           <tr>
+            <th style="width:46px; text-align:center;">
+              <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll($event)" />
+            </th>
             <th v-for="(h,i) in headers" :key="'h'+i">{{ h }}</th>
             <th style="width:160px;">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(r,ri) in rows" :key="'r'+ri">
+            <td style="text-align:center;">
+              <input type="checkbox" :checked="selected.has(ri)" @change="toggleSelect(ri, $event)" />
+            </td>
             <td v-for="(h,ci) in headers" :key="'c'+ri+'-'+ci">
               <template v-if="editingIndex === ri">
                 <input class="cell-input" v-model="rows[ri][h]" />
@@ -80,6 +88,7 @@ const msg = ref('');
 const editingIndex = ref<number|null>(null);
 const originalRowSnapshot = ref<any|null>(null);
 const showStats = ref(false);
+const selected = ref<Set<number>>(new Set());
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -101,6 +110,11 @@ function cancelEdit(){
 function deleteRow(idx:number){
   if (editingIndex.value === idx) { editingIndex.value = null; originalRowSnapshot.value = null; }
   rows.value.splice(idx, 1);
+  selected.value.delete(idx);
+  // 重新整理已选索引（删除后索引左移）
+  const next = new Set<number>();
+  selected.value.forEach(i => { if(i > idx) next.add(i-1); else if(i < idx) next.add(i); });
+  selected.value = next;
 }
 
 const preferredQtyHeaders = ['预约入库量','数量','planned_quantity','quantity'];
@@ -119,6 +133,35 @@ const quantitySum = computed<number|null>(()=>{
   return null;
 });
 function openStats(){ showStats.value = true; }
+
+function addRow(){
+  const row:any = {};
+  for(const h of headers.value){ row[h] = ''; }
+  rows.value.push(row);
+  showMsg('已新增一行');
+}
+function toggleSelect(idx:number, ev: Event){
+  const checked = (ev.target as HTMLInputElement).checked;
+  if(checked) selected.value.add(idx); else selected.value.delete(idx);
+}
+const isAllSelected = computed(()=> rows.value.length>0 && selected.value.size === rows.value.length);
+const selectedCount = computed(()=> selected.value.size);
+function toggleSelectAll(ev: Event){
+  const checked = (ev.target as HTMLInputElement).checked;
+  if(checked){
+    const s = new Set<number>(); for(let i=0;i<rows.value.length;i++) s.add(i); selected.value = s;
+  }else{
+    selected.value.clear();
+  }
+}
+function deleteSelected(){
+  if(selected.value.size === 0) return;
+  const keep: any[] = [];
+  for(let i=0;i<rows.value.length;i++){ if(!selected.value.has(i)) keep.push(rows.value[i]); }
+  rows.value = keep as any[];
+  selected.value.clear();
+  showMsg('已删除选中行');
+}
 
 function openOnlyOffice(){ window.open('http://127.0.0.1:8094/oo/embed?file=blank.xlsx&title='+encodeURIComponent('车辆入库.xlsx'), '_blank'); }
 function openSavedFiles(){ window.open('http://127.0.0.1:8094/oo/saved', '_blank'); }
