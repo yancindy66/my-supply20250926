@@ -30,7 +30,7 @@ const routes = [
       { path: 'inbound/order/office-list', component: () => import('./views/warehouse/inbound/VehicleInbound.vue'), meta: { title: '车辆入库（修正）', office: true } },
       { path: 'inbound/list', component: () => import('./views/warehouse/inbound/InboundOrderList.vue'), meta: { title: '入库单列表' } },
       { path: 'warehouse/inbound/pending', component: () => import('./views/warehouse/inbound/PendingReservations.vue'), meta: { title: '待审核入库申请' } },
-      { path: 'warehouse/inbound/pending-test', component: () => import('./views/warehouse/inbound/PendingReservations.vue'), meta: { title: '待审核入库申请（测试页1）' } },
+      // 移除跨端测试入口，避免不同端互相访问
       { path: 'inbound/pending', redirect: '/warehouse/inbound/pending' },
       // 金融机构
       { path: 'financing/application-list', component: () => import('./views/financial-portal/financing/申请列表.vue'), meta: { title: '融资申请列表' } },
@@ -205,6 +205,13 @@ router.beforeEach((to, _from, next) => {
   if (publicPaths.includes(to.path)) return next();
   if (!role) return next('/login');
   if (!token) return next('/login');
+  // 简单端间隔离：存货人禁止访问 /warehouse/*，仓储端禁止访问 /inventory/*
+  if (role === 'inventory' && to.path.startsWith('/warehouse/')) {
+    return next('/inventory/dashboard');
+  }
+  if (role === 'warehouse' && (to.path.startsWith('/inventory/') || to.path.startsWith('/inbound/apply-test'))) {
+    return next('/warehouse/dashboard');
+  }
   return next();
 });
 
