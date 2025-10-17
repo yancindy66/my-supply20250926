@@ -436,15 +436,20 @@ app.get('/v1/inbound/reservations', async (req, res) => {
     const page = Number(req.query.page || 1);
     const pageSize = Number(req.query.pageSize || 10);
     if (allowDemo) {
+      // @ts-ignore
+      const ctx = req.ctx || { role:'', userId:0 };
       if (!demoStore.reservations.length) {
         demoStore.reservations = [
           { id:1, reservation_number:'RSV202411110001', unique_reservation_code:'483920', owner_name:'华夏粮油集团有限公司', owner_address:'天津市南开区', status:'submitted', target_warehouse_id:1, commodity_id:1, total_planned_quantity:100, measurement_unit:'吨', created_at:'2025-10-01 09:00' },
           { id:2, reservation_number:'RSV202411110002', unique_reservation_code:'572614', owner_name:'广源贸易有限公司', owner_address:'上海市浦东新区', status:'submitted', target_warehouse_id:2, commodity_id:2, total_planned_quantity:80, measurement_unit:'吨', created_at:'2025-10-01 10:30' }
         ];
       }
-      const total = demoStore.reservations.length;
+      // 仅返回当前用户创建的数据（存货人），仓储角色可按仓库维度过滤（略）
+      let rows = demoStore.reservations.slice();
+      if (ctx.role==='inventory' && ctx.userId){ rows = rows.filter(r => Number(r.created_by_user_id||0)===Number(ctx.userId)); }
+      const total = rows.length;
       const start = (page-1)*pageSize;
-      const list = demoStore.reservations.slice(start, start+pageSize);
+      const list = rows.slice(start, start+pageSize);
       return res.json({ code:0, data:{ list, total } });
     }
     const offset = (page - 1) * pageSize;
@@ -469,6 +474,8 @@ app.post('/v1/inbound/reservations', async (req, res) => {
       // 模拟从“平台运营的库”带出货主信息（此处写死演示）
       const owner_name = '演示货主A';
       const owner_address = '演示地址A';
+      // @ts-ignore
+      const ctx = req.ctx || { userId: 0, role: '' };
       demoStore.reservations.unshift({
         id,
         reservation_number:num,
@@ -480,6 +487,8 @@ app.post('/v1/inbound/reservations', async (req, res) => {
         commodity_id:Number(b.commodity_id||1),
         total_planned_quantity:Number(b.total_planned_quantity||0),
         measurement_unit:String(b.measurement_unit||'吨'),
+        created_by_user_id: Number(ctx.userId||0),
+        created_by_role: String(ctx.role||'') || 'inventory',
         transport_mode: String(b.transport_mode||''),
         weigh_mode: String(b.weigh_mode||'by_pack'),
         pack_count: b.pack_count!=null? Number(b.pack_count): null,
