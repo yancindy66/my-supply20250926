@@ -12,6 +12,8 @@
       <button class="ghost" @click="addRow">新增一行</button>
       <button class="ghost" :disabled="!selectedCount" @click="deleteSelected">批量删除</button>
       <button class="ghost" :disabled="!rows.length" @click="openStats">统计</button>
+      <button class="ghost" @click="saveDraft">保存草稿</button>
+      <button class="ghost" :disabled="!hasDraft" @click="clearDraft">清除草稿</button>
       <button class="ghost" @click="openOnlyOffice">Excel表（OnlyOffice）</button>
       <button class="ghost" @click="openSavedFiles">已保存文件</button>
       <div class="spacer"></div>
@@ -79,7 +81,7 @@
 
 <script setup lang="ts">
 import * as XLSX from 'xlsx';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 
 const rows = ref<any[]>([]);
 const headers = ref<string[]>([]);
@@ -89,6 +91,8 @@ const editingIndex = ref<number|null>(null);
 const originalRowSnapshot = ref<any|null>(null);
 const showStats = ref(false);
 const selected = ref<Set<number>>(new Set());
+const DRAFT_KEY = 'inbound_apply_test_draft_v1';
+const hasDraft = ref(false);
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -162,6 +166,44 @@ function deleteSelected(){
   selected.value.clear();
   showMsg('已删除选中行');
 }
+
+function saveDraft(){
+  try{
+    const data = { headers: headers.value, rows: rows.value };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+    hasDraft.value = true;
+    showMsg('草稿已保存');
+  }catch(e:any){ showMsg('保存草稿失败'); }
+}
+function clearDraft(){
+  try{
+    localStorage.removeItem(DRAFT_KEY);
+    hasDraft.value = false;
+    showMsg('草稿已清除');
+  }catch{}
+}
+
+onMounted(()=>{
+  try{
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if(raw){
+      const data = JSON.parse(raw||'{}');
+      if(Array.isArray(data?.headers) && Array.isArray(data?.rows)){
+        headers.value = data.headers;
+        rows.value = data.rows;
+        hasDraft.value = true;
+        showMsg('已恢复草稿');
+      }
+    }
+  }catch{}
+});
+
+// 自动保存（防抖）
+let draftTimer: any = null;
+watch([rows, headers], ()=>{
+  if(draftTimer) clearTimeout(draftTimer);
+  draftTimer = setTimeout(()=>{ saveDraft(); }, 1200);
+},{ deep:true });
 
 function openOnlyOffice(){ window.open('http://127.0.0.1:8094/oo/embed?file=blank.xlsx&title='+encodeURIComponent('车辆入库.xlsx'), '_blank'); }
 function openSavedFiles(){ window.open('http://127.0.0.1:8094/oo/saved', '_blank'); }
