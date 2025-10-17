@@ -140,7 +140,11 @@ function printPreview(){
 .ghost:disabled{ opacity:.6; cursor:not-allowed; }
 .upload-btn{ position:relative; overflow:hidden; display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:10px; background:linear-gradient(#f8fafc,#eef2f7); color:#0f172a; border:1px solid #e2e8f0; height:34px; cursor:pointer; }
 .upload-btn input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
-.primary{ background:linear-gradient(#2563eb,#1d4ed8) !重要; color:#fff !重要; border-color:#1e40af !重要; }
+.primary{ background:linear-gradient(#2563eb,#1d4ed8) !important; color:#fff !important; border-color:#1e40af !important; }
 .hint{ color:#475569; margin:10px 0; }
 .spacer{ flex:1; }
-.grid-wrap{ border:1px solid #e5e7eb;
+.grid-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); height:70vh; }
+.grid{ width:100%; height:100%; min-width:900px; border-collapse:collapse; }
+.grid th, .grid td{ border:1px solid #e5e7eb; padding:6px 8px; font-size:12px; text-align:left; }
+.toast{ position:fixed; right:16px; bottom:16px; background:#0ea5e9; color:#fff; padding:8px 12px; border-radius:8px; box-shadow:0 6px 14px rgba(2,6,23,.25); z-index:60; }
+</style>

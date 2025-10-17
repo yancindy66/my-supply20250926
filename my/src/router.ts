@@ -40,7 +40,7 @@ const routes = [
       // 担保机构端路由统一使用 guarrantee 前缀（避免与平台运营混淆）
       // 平台运营
       { path: 'member/manage', redirect: '/member/depositor-list' },
-      { path: 'member/depositor-list', component: () => import('./views/operation/会员管理/存货人管理/List.vue'), meta: { title: '平台运营-存货人管理' } },
+      { path: 'member/depositor-list', component: () => import('./views/operation/会员管理/存货人管理/list.vue'), meta: { title: '平台运营-存货人管理' } },
       { path: 'member/supervising-warehouse-list', component: () => import('./views/operation/会员管理/监管仓库管理/List.vue'), meta: { title: '平台运营-监管仓库管理' } },
       { path: 'member/qc-org-list', component: () => import('./views/operation/会员管理/质检机构管理/List.vue'), meta: { title: '平台运营-质检机构管理' } },
       { path: 'member/guarantee-org-list', component: () => import('./views/operation/会员管理/担保机构管理/List.vue'), meta: { title: '平台运营-担保机构管理' } },
@@ -51,7 +51,7 @@ const routes = [
       { path: 'guarrantee/dashboard', component: () => import('./views/guarrantee/Dashboard.vue'), meta: { title: '担保机构端-看板' } },
       // 兼容别名：/guarantee/* → /guarrantee/*（修正拼写差异）
       { path: 'guarantee/dashboard', redirect: '/guarrantee/dashboard' },
-      { path: 'guarantee/:pathMatch(.*)*', redirect: to => `/guarrantee/${to.params.pathMatch || ''}` },
+      { path: 'guarantee/:pathMatch(.*)*', redirect: (to: any) => `/guarrantee/${to.params.pathMatch || ''}` },
       // 担保机构端：融资管理（信息列表/查看/处理列表查看）与公告管理
       // 金融机构端 Dashboard
       { path: 'financial/dashboard', component: () => import('./views/financial-portal/Dashboard.vue'), meta: { title: '金融机构端-看板' } },
@@ -141,6 +141,7 @@ const routes = [
         'inspection/tasks','inspection/tasks/pending','inspection/records','tanks/monitor','weight/measurements','weight/gross','weight/tare','evidence/requirements','evidence/upload','evidence/audit'
       ].map(p => ({ path: p, component: () => import('./views/warehouse/inbound/BasicStub.vue'), meta: { title: p } })),
       { path: 'inbound/apply', component: () => import('./views/inventory/inbound/InboundApply.vue'), meta: { title: '入库申请' } },
+      { path: 'inbound/apply-test', component: () => import('./views/inventory/inbound/InboundApplyTest.vue'), meta: { title: '入库申请（测试页）' } },
       { path: 'warehouse-receipt/list', component: () => import('./views/inventory/warehouse-receipt/ReceiptList.vue'), meta: { title: '仓单列表' } },
       { path: 'pledge/apply', component: () => import('./views/operation/transfer-ownership 仓单过户/List.vue'), meta: { title: '质押申请' } },
       { path: 'pledge/list', component: () => import('./views/operation/transfer-ownership 仓单过户/List.vue'), meta: { title: '质押记录' } },
