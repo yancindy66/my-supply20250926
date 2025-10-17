@@ -17,6 +17,8 @@
       <button class="ghost" :disabled="!headers.length" @click="resetColWidths">重置列宽</button>
       <button class="ghost" @click="saveDraft">保存草稿</button>
       <button class="ghost" :disabled="!hasDraft" @click="clearDraft">清除草稿</button>
+      <button class="ghost" :disabled="!headers.length" @click="exportDraft">导出草稿</button>
+      <button class="ghost" @click="triggerImportDraft">导入草稿</button>
       <button class="ghost" @click="openOnlyOffice">Excel表（OnlyOffice）</button>
       <button class="ghost" @click="openSavedFiles">已保存文件</button>
       <div class="spacer"></div>
@@ -24,6 +26,9 @@
     </div>
 
     <div v-if="msg" class="toast">{{ msg }}</div>
+
+    <!-- 隐藏的草稿导入文件选择器 -->
+    <input ref="draftInputRef" type="file" accept="application/json,.json" style="display:none" @change="onImportDraft" />
 
     <div v-if="rows.length" class="grid-wrap">
       <table class="grid">
@@ -139,6 +144,7 @@ const colWidths = ref<Record<string, number>>({});
 let resizing: { col: string; startX: number; startW: number } | null = null;
 const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
 const newColName = ref('');
+const draftInputRef = ref<HTMLInputElement|null>(null);
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -228,6 +234,37 @@ function clearDraft(){
     hasDraft.value = false;
     showMsg('草稿已清除');
   }catch{}
+}
+function exportDraft(){
+  try{
+    const data = { headers: headers.value, rows: rows.value, cols:{ order: headers.value, hidden: Array.from(hiddenCols.value), widths: colWidths.value } };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '入库申请-草稿.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    showMsg('草稿已导出');
+  }catch(e:any){ showMsg('导出失败'); }
+}
+function triggerImportDraft(){ draftInputRef.value?.click(); }
+async function onImportDraft(e: Event){
+  const input = e.target as HTMLInputElement; const file = input.files?.[0]; if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text||'{}');
+    if(Array.isArray(data?.headers) && Array.isArray(data?.rows)){
+      headers.value = data.headers; rows.value = data.rows;
+      if(data?.cols){
+        const order = Array.isArray(data.cols.order)? data.cols.order : headers.value;
+        const set = new Set(order); const merged = order.filter((h:string)=> headers.value.includes(h)); for(const h of headers.value){ if(!set.has(h)) merged.push(h); }
+        headers.value = merged;
+        hiddenCols.value = new Set((Array.isArray(data.cols.hidden)? data.cols.hidden : []).filter((h:string)=> headers.value.includes(h)));
+        if(data.cols.widths && typeof data.cols.widths==='object') colWidths.value = data.cols.widths;
+      }
+      saveCols(); saveColWidths(); saveDraft(); hasDraft.value = true; showMsg('草稿已导入');
+    }else{ showMsg('草稿文件格式不正确'); }
+  }catch(err:any){ showMsg('导入失败'); }
+  finally{ input.value=''; }
 }
 
 onMounted(()=>{
