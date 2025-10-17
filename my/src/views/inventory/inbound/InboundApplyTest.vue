@@ -13,13 +13,7 @@
       <button class="ghost" :disabled="!selectedCount" @click="deleteSelected">批量删除</button>
       <button class="ghost" :disabled="!rows.length" @click="openStats">统计</button>
       <button class="ghost" @click="openColSettings">列设置</button>
-      <button class="ghost" :disabled="!headers.length" @click="autoFitAll">自动适配列宽</button>
-      <button class="ghost" :disabled="!headers.length" @click="resetColWidths">重置列宽</button>
-      <button class="ghost" @click="saveDraft">保存草稿</button>
-      <button class="ghost" :disabled="!hasDraft" @click="clearDraft">清除草稿</button>
-      
       <button class="ghost" @click="openOnlyOffice">Excel表（OnlyOffice）</button>
-      <button class="ghost" @click="openSavedFiles">已保存文件</button>
       <div class="spacer"></div>
       <span class="hint" v-if="rows.length">已加载 {{ rows.length }} 行<span v-if="quantitySum !== null">，数量合计 {{ quantitySum }}</span></span>
     </div>
@@ -225,13 +219,7 @@ function saveDraft(){
     showMsg('草稿已保存');
   }catch(e:any){ showMsg('保存草稿失败'); }
 }
-function clearDraft(){
-  try{
-    localStorage.removeItem(DRAFT_KEY);
-    hasDraft.value = false;
-    showMsg('草稿已清除');
-  }catch{}
-}
+ 
  
 
 onMounted(()=>{
@@ -318,17 +306,7 @@ function autoFitOne(h:string){
   colWidths.value = { ...colWidths.value, [h]: Math.ceil(max) };
   saveColWidths();
 }
-function autoFitAll(){
-  const next: Record<string, number> = { ...colWidths.value };
-  const hh = headers.value;
-  for(const h of hh){
-    let max = measureTextWidth(h);
-    for(const r of rows.value){ const w = measureTextWidth(String(r[h]??'')); if(w>max) max = w; }
-    next[h] = Math.ceil(max);
-  }
-  colWidths.value = next; saveColWidths(); showMsg('列宽已自适');
-}
-function resetColWidths(){ colWidths.value = {}; saveColWidths(); showMsg('列宽已重置'); }
+ 
 
 function onResizeStart(h: string, e: MouseEvent){
   e.preventDefault();
@@ -369,7 +347,7 @@ function removeCol(h:string){
 }
 
 function openOnlyOffice(){ window.open('http://127.0.0.1:8094/oo/embed?file=blank.xlsx&title='+encodeURIComponent('车辆入库.xlsx'), '_blank'); }
-function openSavedFiles(){ window.open('http://127.0.0.1:8094/oo/saved', '_blank'); }
+ 
 
 function parseCsv(text:string){
   const lines = text.split(/\r?\n/).filter(Boolean);
@@ -406,12 +384,13 @@ async function onImportFile(e: Event){
 
 function exportExcel(){
   const wb = XLSX.utils.book_new();
-  const allHeaders = headers.value.slice();
-  // Sheet1: 模板（仅表头）
+  // 取“全部列顺序”——如未设置则为 headers；如设置过列设置，headers 已是最新顺序
+  const allHeaders = headers.value.length ? headers.value.slice() : visibleHeaders.value.slice();
+  // 模板
   const wsTpl = XLSX.utils.aoa_to_sheet([allHeaders]);
   XLSX.utils.book_append_sheet(wb, wsTpl, '模板');
-  // Sheet2: 数据（全量表头+所有数据）
-  const dataRows = rows.value.map(r=> allHeaders.map(h=> r[h]??''));
+  // 数据（无论列显隐，都导出全列；若无行数据也导出只有表头的空表，避免“没有数据”的情况）
+  const dataRows = rows.value.length ? rows.value.map(r=> allHeaders.map(h=> r[h]??'')) : [];
   const wsData = XLSX.utils.aoa_to_sheet([allHeaders, ...dataRows]);
   XLSX.utils.book_append_sheet(wb, wsData, '数据');
   XLSX.writeFile(wb, '入库申请-模板含数据.xlsx');
