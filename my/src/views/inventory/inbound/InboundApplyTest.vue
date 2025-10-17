@@ -32,7 +32,10 @@
             <th style="width:46px; text-align:center;">
               <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll($event)" />
             </th>
-            <th v-for="(h,i) in visibleHeaders" :key="'h'+i" :style="colWidths[h] ? ('width:'+colWidths[h]+'px') : ''">{{ h }}</th>
+            <th v-for="(h,i) in visibleHeaders" :key="'h'+i" :style="colWidths[h] ? ('width:'+colWidths[h]+'px') : ''">
+              <span class="th-text">{{ h }}</span>
+              <span class="col-resizer" @mousedown="onResizeStart(h, $event)"></span>
+            </th>
             <th style="width:160px;">操作</th>
           </tr>
         </thead>
@@ -133,6 +136,7 @@ const hiddenCols = ref<Set<string>>(new Set());
 const COLS_KEY = 'inbound_apply_test_cols_v1';
 const COLW_KEY = 'inbound_apply_test_colw_v1';
 const colWidths = ref<Record<string, number>>({});
+let resizing: { col: string; startX: number; startW: number } | null = null;
 const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
 const newColName = ref('');
 
@@ -322,6 +326,26 @@ function autoFitAll(){
 }
 function resetColWidths(){ colWidths.value = {}; saveColWidths(); showMsg('列宽已重置'); }
 
+function onResizeStart(h: string, e: MouseEvent){
+  e.preventDefault();
+  const startX = e.clientX;
+  const startW = colWidths.value[h] || (e.target as HTMLElement)?.parentElement?.getBoundingClientRect().width || 120;
+  resizing = { col: h, startX, startW };
+  window.addEventListener('mousemove', onResizing);
+  window.addEventListener('mouseup', onResizeEnd, { once: true });
+}
+function onResizing(e: MouseEvent){
+  if(!resizing) return;
+  const dx = e.clientX - resizing.startX;
+  const w = Math.max(40, Math.round(resizing.startW + dx));
+  colWidths.value = { ...colWidths.value, [resizing.col]: w };
+}
+function onResizeEnd(){
+  if(resizing){ saveColWidths(); }
+  resizing = null;
+  window.removeEventListener('mousemove', onResizing);
+}
+
 function addColumn(){
   const name = (newColName.value||'').trim();
   if(!name){ showMsg('列名不能为空'); return; }
@@ -442,6 +466,9 @@ function printPreview(){
 .grid-wrap{ border:1px solid #e5e7eb; border-radius:12px; overflow:auto; box-shadow:0 10px 24px rgba(2,6,23,.06); height:70vh; }
 .grid{ width:100%; height:100%; min-width:900px; border-collapse:collapse; table-layout: fixed; }
 .width-input{ width: 110px; height: 28px; padding: 0 6px; border:1px solid #cbd5e1; border-radius:6px; }
+.th-text{ display:inline-block; vertical-align:middle; }
+.col-resizer{ position:absolute; right:0; top:0; width:6px; height:100%; cursor:col-resize; }
+thead th{ position:relative; }
 .grid th, .grid td{ border:1px solid #e5e7eb; padding:6px 8px; font-size:12px; text-align:left; }
 .toast{ position:fixed; right:16px; bottom:16px; background:#0ea5e9; color:#fff; padding:8px 12px; border-radius:8px; box-shadow:0 6px 14px rgba(2,6,23,.25); z-index:60; }
 
