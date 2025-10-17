@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { query } from './db.js';
+import { query, getConnection } from './db.js';
 import multer from 'multer';
 import xlsx from 'xlsx';
 import fs from 'fs';
@@ -61,20 +61,67 @@ loadImportsFromDisk();
 const demoLogToFile = String(process.env.DEMO_LOG_TO_FILE || '').toLowerCase() === '1' || String(process.env.DEMO_LOG_TO_FILE || '').toLowerCase() === 'true';
 const demoLogFile = process.env.DEMO_LOG_FILE || 'demo-audit.log';
 function pushAudit(entry){
-  if(!allowDemo) return;
-  if(!demoStore.auditLogs) demoStore.auditLogs = [];
   const rec = { id: entry.id || (Date.now()+Math.floor(Math.random()*1000)), ...entry };
+  if(allowDemo){
+    if(!demoStore.auditLogs) demoStore.auditLogs = [];
   demoStore.auditLogs.unshift(rec);
   if (demoLogToFile) {
     try { fs.appendFileSync(demoLogFile, JSON.stringify(rec) + '\n'); } catch(e) {}
   }
+    return;
+  }
+  try{
+    query('CREATE TABLE IF NOT EXISTS audit_logs (id BIGINT PRIMARY KEY AUTO_INCREMENT, scope VARCHAR(64) NOT NULL, ref_id VARCHAR(128) NOT NULL, action VARCHAR(64) NOT NULL, actor VARCHAR(128) NOT NULL, ts DATETIME NOT NULL, detail JSON NULL, INDEX idx_scope_ref (scope, ref_id), INDEX idx_ts (ts)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4', []);
+    const { scope='', ref_id='', action='', actor='', ts=new Date().toISOString(), detail=null } = rec || {};
+    query('INSERT INTO audit_logs (scope, ref_id, action, actor, ts, detail) VALUES (?,?,?,?,?,?)', [String(scope), String(ref_id), String(action), String(actor), String(ts).slice(0,19).replace('T',' '), detail? JSON.stringify(detail): null]);
+  }catch{}
 }
+
+// ---- 简易请求上下文（演示环境）：从头部读取角色与用户ID ----
+app.use((req, _res, next) => {
+  const role = String(req.headers['x-role'] || '').toLowerCase();
+  const uidRaw = req.headers['x-user-id'];
+  const userId = Number(uidRaw || 0);
+  const ctx = { role: role || (allowDemo ? 'inventory' : ''), userId: (userId || (allowDemo ? 1 : 0)) };
+  // @ts-ignore
+  req.ctx = ctx;
+  next();
+});
 
 // ===== 导入数据集（入库申请）保存/编辑/删除（demo） =====
 // 创建或覆盖一个数据集
 app.post('/v1/imports/inbound', (req, res) => {
   try{
-    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    if (!allowDemo){
+      (async () => {
+        const headers = Array.isArray(req.body?.headers)? req.body.headers : [];
+        const rows = Array.isArray(req.body?.rows)? req.body.rows : [];
+        const id = String(req.body?.id || Date.now());
+        const user_id = Number(req.body?.user_id || 0) || null;
+        const dataset_date = String(req.body?.dataset_date || '').trim() || null;
+        // @ts-ignore
+        const ctx = req.ctx || { userId:0 };
+        if (user_id && ctx.userId && Number(user_id)!==Number(ctx.userId)) return res.status(403).json({ code:403, message:'forbidden' });
+        const now = new Date().toISOString().slice(0,19).replace('T',' ');
+        const conn = await getConnection();
+        try{
+          await conn.beginTransaction();
+          await conn.query('CREATE TABLE IF NOT EXISTS import_inbound_datasets (id VARCHAR(64) PRIMARY KEY, user_id BIGINT NULL, dataset_date CHAR(8) NULL, headers JSON NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+          await conn.query('CREATE TABLE IF NOT EXISTS import_inbound_rows (id BIGINT PRIMARY KEY AUTO_INCREMENT, dataset_id VARCHAR(64) NOT NULL, row_index INT NOT NULL, data JSON NOT NULL, deleted TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, INDEX idx_dataset_row (dataset_id, row_index)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+          await conn.query('INSERT INTO import_inbound_datasets (id,user_id,dataset_date,headers,created_at,updated_at) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE headers=VALUES(headers), user_id=VALUES(user_id), dataset_date=VALUES(dataset_date), updated_at=VALUES(updated_at)', [id, user_id, dataset_date, JSON.stringify(headers||[]), now, now]);
+          await conn.query('DELETE FROM import_inbound_rows WHERE dataset_id=?', [id]);
+          if (rows.length){
+            const values = rows.map((r,idx)=> [id, idx, JSON.stringify(r||{}), 0, now, now]);
+            await conn.query('INSERT INTO import_inbound_rows (dataset_id,row_index,data,deleted,created_at,updated_at) VALUES ?',[values]);
+          }
+          await conn.commit();
+        }catch(e){ try{ await conn.rollback(); }catch{} throw e; }
+        finally{ try{ conn.release(); }catch{} }
+        pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_save', actor:'mysql', ts: now, detail:{ rows: rows.length, headers: headers.length } });
+        return res.json({ code:0, data:{ id } });
+      })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
+      return;
+    }
     const headers = Array.isArray(req.body?.headers)? req.body.headers : [];
     const rows = Array.isArray(req.body?.rows)? req.body.rows : [];
     const id = String(req.body?.id || Date.now());
@@ -90,7 +137,24 @@ app.post('/v1/imports/inbound', (req, res) => {
 // 获取数据集
 app.get('/v1/imports/inbound/:id', (req, res) => {
   try{
-    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    if (!allowDemo){
+      (async ()=>{
+        const id = String(req.params.id);
+        // 基于 ID 前缀/用户ID进行隔离校验（格式 inbound-<userId>-YYYYMMDD）
+        // @ts-ignore
+        const ctx = req.ctx || { role:'', userId:0 };
+        const parts = id.split('-');
+        const idUser = Number(parts?.[1] || 0) || 0;
+        if (idUser && ctx.userId && idUser !== ctx.userId){ return res.status(403).json({ code:403, message:'forbidden' }); }
+        const rows = await query('SELECT headers, created_at, updated_at, user_id, dataset_date FROM import_inbound_datasets WHERE id=? LIMIT 1',[id]);
+        if(!rows.length) return res.json({ code:404, message:'not found' });
+        const ds = rows[0];
+        if (ds.user_id && ctx.userId && Number(ds.user_id)!==Number(ctx.userId)) return res.status(403).json({ code:403, message:'forbidden' });
+        const list = await query('SELECT row_index, data FROM import_inbound_rows WHERE dataset_id=? AND deleted=0 ORDER BY row_index ASC',[id]);
+        return res.json({ code:0, data:{ id, headers: JSON.parse(ds.headers||'[]'), rows: list.map(x=> JSON.parse(x.data||'{}')), user_id: ds.user_id||null, dataset_date: ds.dataset_date||null, created_at: ds.created_at, updated_at: ds.updated_at } });
+      })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
+      return;
+    }
     const ds = demoStore.importDatasets.get(String(req.params.id));
     if(!ds) return res.json({ code:404, message:'not found' });
     return res.json({ code:0, data: ds });
@@ -100,7 +164,38 @@ app.get('/v1/imports/inbound/:id', (req, res) => {
 // 更新整批（覆盖）
 app.put('/v1/imports/inbound/:id', (req, res) => {
   try{
-    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    if (!allowDemo){
+      (async ()=>{
+        const id = String(req.params.id);
+        // @ts-ignore
+        const ctx = req.ctx || { userId:0 };
+        const parts = id.split('-');
+        const idUser = Number(parts?.[1] || 0) || 0;
+        if (idUser && ctx.userId && idUser !== ctx.userId){ return res.status(403).json({ code:403, message:'forbidden' }); }
+        const dsRows = await query('SELECT id FROM import_inbound_datasets WHERE id=? LIMIT 1',[id]);
+        if(!dsRows.length) return res.json({ code:404, message:'not found' });
+        const headers = Array.isArray(req.body?.headers)? req.body.headers : null;
+        const rows = Array.isArray(req.body?.rows)? req.body.rows : null;
+        const now = new Date().toISOString().slice(0,19).replace('T',' ');
+        if (headers){ await query('UPDATE import_inbound_datasets SET headers=?, updated_at=? WHERE id=?', [JSON.stringify(headers), now, id]); }
+        if (rows){
+          const conn = await getConnection();
+          try{
+            await conn.beginTransaction();
+            await conn.query('DELETE FROM import_inbound_rows WHERE dataset_id=?', [id]);
+            if (rows.length){
+              const values = rows.map((r,idx)=> [id, idx, JSON.stringify(r||{}), 0, now, now]);
+              await conn.query('INSERT INTO import_inbound_rows (dataset_id,row_index,data,deleted,created_at,updated_at) VALUES ?', [values]);
+            }
+            await conn.commit();
+          }catch(e){ try{ await conn.rollback(); }catch{} throw e; }
+          finally{ try{ conn.release(); }catch{} }
+        }
+        pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_overwrite', actor:'mysql', ts: now, detail:{ rows: rows? rows.length: undefined } });
+        return res.json({ code:0 });
+      })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
+      return;
+    }
     const id = String(req.params.id);
     const ds = demoStore.importDatasets.get(id);
     if(!ds) return res.json({ code:404, message:'not found' });
@@ -116,7 +211,26 @@ app.put('/v1/imports/inbound/:id', (req, res) => {
 // 更新单行
 app.put('/v1/imports/inbound/:id/row/:idx', (req, res) => {
   try{
-    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    if (!allowDemo){
+      (async ()=>{
+        const id = String(req.params.id); const idx = Number(req.params.idx);
+        // @ts-ignore
+        const ctx = req.ctx || { userId:0 };
+        const parts = id.split('-');
+        const idUser = Number(parts?.[1] || 0) || 0;
+        if (idUser && ctx.userId && idUser !== ctx.userId){ return res.status(403).json({ code:403, message:'forbidden' }); }
+        const now = new Date().toISOString().slice(0,19).replace('T',' ');
+        const exist = await query('SELECT id FROM import_inbound_rows WHERE dataset_id=? AND row_index=? LIMIT 1',[id, idx]);
+        if(exist.length){
+          await query('UPDATE import_inbound_rows SET data=?, deleted=0, updated_at=? WHERE dataset_id=? AND row_index=?', [JSON.stringify(req.body||{}), now, id, idx]);
+        }else{
+          await query('INSERT INTO import_inbound_rows (dataset_id,row_index,data,deleted,created_at,updated_at) VALUES (?,?,?,?,?,?)',[id, idx, JSON.stringify(req.body||{}), 0, now, now]);
+        }
+        pushAudit({ scope:'import_inbound', ref_id:id, action:'row_edit', actor:'mysql', ts: now, detail:{ row_index: idx } });
+        return res.json({ code:0 });
+      })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
+      return;
+    }
     const id = String(req.params.id); const idx = Number(req.params.idx);
     const ds = demoStore.importDatasets.get(id);
     if(!ds) return res.json({ code:404, message:'not found' });
@@ -132,7 +246,21 @@ app.put('/v1/imports/inbound/:id/row/:idx', (req, res) => {
 // 删除单行
 app.delete('/v1/imports/inbound/:id/row/:idx', (req, res) => {
   try{
-    if (!allowDemo) return res.status(501).json({ code:501, message:'not implemented' });
+    if (!allowDemo){
+      (async ()=>{
+        const id = String(req.params.id); const idx = Number(req.params.idx);
+        // @ts-ignore
+        const ctx = req.ctx || { userId:0 };
+        const parts = id.split('-');
+        const idUser = Number(parts?.[1] || 0) || 0;
+        if (idUser && ctx.userId && idUser !== ctx.userId){ return res.status(403).json({ code:403, message:'forbidden' }); }
+        const now = new Date().toISOString().slice(0,19).replace('T',' ');
+        await query('UPDATE import_inbound_rows SET deleted=1, updated_at=? WHERE dataset_id=? AND row_index=?',[now, id, idx]);
+        pushAudit({ scope:'import_inbound', ref_id:id, action:'row_delete', actor:'mysql', ts: now, detail:{ row_index: idx, removed: 1 } });
+        return res.json({ code:0 });
+      })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
+      return;
+    }
     const id = String(req.params.id); const idx = Number(req.params.idx);
     const ds = demoStore.importDatasets.get(id);
     if(!ds) return res.json({ code:404, message:'not found' });
