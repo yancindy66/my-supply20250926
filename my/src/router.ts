@@ -153,6 +153,8 @@ const routes = [
       { path: 'warehouse/inbound/order/list', component: () => import('./views/warehouse/inbound/InboundOrderList.vue'), meta: { title: '入库单列表（仓库）' } },
       { path: 'inbound/order/list', redirect: '/inventory/inbound/order/list' },
       { path: 'inbound/list', redirect: '/inventory/inbound/order/list' },
+      // 兼容旧链接：/inbound/apply → 测试页
+      { path: 'inbound/apply', redirect: '/inbound/apply-test' },
       // { path: 'inbound/office/list', component: () => import('./views/placeholder/GateOffice.vue'), meta: { title: '门岗核验（办公室）', office: true } },
       // 存货人-车辆入库（共用预约表）
       { path: 'inventory/vehicle-inbound', component: () => import('./views/warehouse/inbound/VehicleInbound.vue'), meta: { title: '车辆入库（预约表）', office: true } },
