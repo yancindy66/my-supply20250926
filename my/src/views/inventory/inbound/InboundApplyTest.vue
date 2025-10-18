@@ -448,8 +448,14 @@ async function onImportFile(e: Event){
       newHeaders = Object.keys(json[0]||{}); newRows = json;
     }
 
-    // 合并表头：保留现有顺序，将新列附加在末尾
-    const oldHeaders = headers.value.slice();
+    // 去掉“序号/No”等序号列，避免与页面固定序号列重复
+    const isSeq = (n:string)=>{
+      const s = String(n||'').trim().toLowerCase();
+      return s==='序号' || s==='序號' || s==='no' || s==='#' || s==='index';
+    };
+    newHeaders = newHeaders.filter(h=> !isSeq(h));
+    // 合并表头：保留现有顺序，将新列附加在末尾；并从旧表头中清除序号列一次性消除历史重复
+    const oldHeaders = headers.value.filter(h=> !isSeq(h));
     const set = new Set(oldHeaders);
     const mergedHeaders = oldHeaders.concat(newHeaders.filter(h=> !set.has(h)));
 
