@@ -128,18 +128,18 @@ const editingIndex = ref<number|null>(null);
 const originalRowSnapshot = ref<any|null>(null);
 const showStats = ref(false);
 const selected = ref<Set<number>>(new Set());
-const DRAFT_KEY = 'inbound_apply_test_draft_v1';
+// 所有本地存储键改为“按数据集隔离”
 const hasDraft = ref(false);
 const showCols = ref(false);
 const hiddenCols = ref<Set<string>>(new Set());
-const COLS_KEY = 'inbound_apply_test_cols_v1';
-const COLW_KEY = 'inbound_apply_test_colw_v1';
+// 列设置与列宽键将基于 datasetId 动态生成
 const colWidths = ref<Record<string, number>>({});
 let resizing: { col: string; startX: number; startW: number } | null = null;
 const visibleHeaders = computed(()=> headers.value.filter(h => !hiddenCols.value.has(h)));
 const newColName = ref('');
-// 数据集ID（按“用户+日期”生成，如 inbound-1-20251017）
+// 数据集ID（按“用户+日期”，并在导入时派生唯一ID，避免覆盖旧数据）
 const datasetId = ref<string>('inbound-anon');
+const datasetBaseId = ref<string>('inbound-anon');
 function formatDateYYYYMMDD(d: Date){
   const y = d.getFullYear();
   const m = String(d.getMonth()+1).padStart(2,'0');
@@ -151,11 +151,24 @@ async function initDatasetId(){
     const r = await fetch('/v1/auth/me');
     const j = await r.json();
     const uid = j?.user?.id || j?.user_id || 'demo';
-    datasetId.value = `inbound-${uid}-${formatDateYYYYMMDD(new Date())}`;
+    datasetBaseId.value = `inbound-${uid}-${formatDateYYYYMMDD(new Date())}`;
+    if (!datasetId.value || datasetId.value.startsWith('inbound-anon')) {
+      datasetId.value = datasetBaseId.value;
+    }
   }catch{
-    datasetId.value = `inbound-anon-${formatDateYYYYMMDD(new Date())}`;
+    datasetBaseId.value = `inbound-anon-${formatDateYYYYMMDD(new Date())}`;
+    if (!datasetId.value || datasetId.value.startsWith('inbound-anon')) {
+      datasetId.value = datasetBaseId.value;
+    }
   }
 }
+
+// 基于 datasetId 生成本地存储键
+const keyDraft = computed(()=> `inbound_apply_test_draft_v1:${datasetId.value}`);
+const keyCols = computed(()=> `inbound_apply_test_cols_v1:${datasetId.value}`);
+const keyColW = computed(()=> `inbound_apply_test_colw_v1:${datasetId.value}`);
+// 预留锁定键（如需在“推送后锁定列设置”，可写入 '1'）
+// const keyLock = computed(()=> `inbound_apply_test_lock_v1:${datasetId.value}`);
 
 function showMsg(m:string){ msg.value = m; setTimeout(()=> msg.value='', 1800); }
 function startEdit(idx:number){
@@ -239,7 +252,7 @@ function deleteSelected(){
 function saveDraft(){
   try{
     const data = { headers: headers.value, rows: rows.value };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+    localStorage.setItem(keyDraft.value, JSON.stringify(data));
     hasDraft.value = true;
     showMsg('草稿已保存');
   }catch(e:any){ showMsg('保存草稿失败'); }
@@ -248,8 +261,10 @@ function saveDraft(){
  
 
 onMounted(async ()=>{
+  // 先确定 datasetId，再按 dataset 读取本地设置与远端集
+  await initDatasetId();
   try{
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(keyDraft.value);
     if(raw){
       const data = JSON.parse(raw||'{}');
       if(Array.isArray(data?.headers) && Array.isArray(data?.rows)){
@@ -260,11 +275,8 @@ onMounted(async ()=>{
       }
     }
   }catch{}
-  // 恢复列设置与列宽
   applySavedCols();
   loadColWidths();
-  // 生成当日用户专属数据集ID后，再恢复数据
-  await initDatasetId();
   try{
     const r = await fetch(`/v1/imports/inbound/${encodeURIComponent(datasetId.value)}`);
     const j = await r.json();
@@ -291,16 +303,16 @@ function moveCol(h:string, delta:number){
   const copy = headers.value.slice(); const tmp = copy[i]; copy[i]=copy[j]; copy[j]=tmp; headers.value = copy;
 }
 function saveCols(){
-  try{ localStorage.setItem(COLS_KEY, JSON.stringify({ order: headers.value, hidden: Array.from(hiddenCols.value) })); showMsg('列设置已保存'); }catch{}
+  try{ localStorage.setItem(keyCols.value, JSON.stringify({ order: headers.value, hidden: Array.from(hiddenCols.value) })); showMsg('列设置已保存'); }catch{}
 }
 function resetCols(){
-  try{ localStorage.removeItem(COLS_KEY); }catch{}
+  try{ localStorage.removeItem(keyCols.value); }catch{}
   hiddenCols.value.clear();
   showMsg('列设置已重置');
 }
 function applySavedCols(){
   try{
-    const raw = localStorage.getItem(COLS_KEY); if(!raw) return; const data = JSON.parse(raw||'{}');
+    const raw = localStorage.getItem(keyCols.value); if(!raw) return; const data = JSON.parse(raw||'{}');
     const order: string[] = Array.isArray(data?.order)? data.order : [];
     const hidden: string[] = Array.isArray(data?.hidden)? data.hidden : [];
     const set = new Set(order);
@@ -313,13 +325,13 @@ function applySavedCols(){
 
 function loadColWidths(){
   try{
-    const raw = localStorage.getItem(COLW_KEY); if(!raw) return;
+    const raw = localStorage.getItem(keyColW.value); if(!raw) return;
     const obj = JSON.parse(raw||'{}');
     if(obj && typeof obj==='object') colWidths.value = obj;
   }catch{}
 }
 function saveColWidths(){
-  try{ localStorage.setItem(COLW_KEY, JSON.stringify(colWidths.value||{})); }catch{}
+  try{ localStorage.setItem(keyColW.value, JSON.stringify(colWidths.value||{})); }catch{}
 }
 
 let colsTimer:any = null;
@@ -400,17 +412,35 @@ async function onImportFile(e: Event){
   const input = e.target as HTMLInputElement; const file = input.files?.[0]; if(!file) return;
   const name = (file.name||'').toLowerCase();
   try{
+    // 读取新文件
+    let newHeaders: string[] = [];
+    let newRows: any[] = [];
     if(name.endsWith('.csv')){
       const text = await file.text();
       const { hdr, data } = parseCsv(text);
-      headers.value = hdr; rows.value = data;
+      newHeaders = hdr; newRows = data;
     }else{
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type:'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const json:any[] = XLSX.utils.sheet_to_json(ws, { defval:'' });
-      headers.value = Object.keys(json[0]||{}); rows.value = json;
+      newHeaders = Object.keys(json[0]||{}); newRows = json;
     }
+
+    // 合并表头：保留现有顺序，将新列附加在末尾
+    const oldHeaders = headers.value.slice();
+    const set = new Set(oldHeaders);
+    const mergedHeaders = oldHeaders.concat(newHeaders.filter(h=> !set.has(h)));
+
+    // 将新行按 mergedHeaders 规范化并追加
+    const normalizedNewRows = newRows.map(r => {
+      const o:any = {}; mergedHeaders.forEach(h => { o[h] = r[h] ?? ''; }); return o;
+    });
+    const normalizedOldRows = rows.value.map(r => {
+      const o:any = {}; mergedHeaders.forEach(h => { o[h] = r[h] ?? ''; }); return o;
+    });
+    headers.value = mergedHeaders;
+    rows.value = normalizedOldRows.concat(normalizedNewRows);
     showMsg('导入完成');
     // 导入即落库（demo）
     try{
