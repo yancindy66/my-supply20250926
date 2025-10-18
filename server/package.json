@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "cross-env ALLOW_DEMO=1 PORT=8080 nodemon --watch . server.js"
+    "dev": "cross-env ALLOW_DEMO=1 PORT=8080 nodemon --watch . server.js",
+    "migrate:schema": "node migrate-schema.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
