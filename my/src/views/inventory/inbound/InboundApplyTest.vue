@@ -457,13 +457,24 @@ async function pushBatches(){
   const items = buildItems(); if(!items.length){ showMsg('没有有效数据'); return; }
   pushing.value = true; showMsg('推送中…');
   try{
-    const res = await fetch('/v1/inbound/reservations/import', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(items) });
-    const j = await res.json().catch(()=>({}));
-    if(res.ok && j?.code===0){
-      const created = j?.data?.created?.length || 0;
-      const failed = (j?.data?.errors?.length||0);
-      showMsg(`完成：创建 ${created}，失败 ${failed}`);
-    }else{ showMsg('推送失败：'+(j?.message||res.statusText)); }
+    // 改为逐条真实落库：/v1/inbound/reservations（非演示模式写 MySQL）
+    let created = 0; let failed = 0;
+    for(const it of items){
+      const payload = {
+        applicant_id: null,
+        reservist_id: null,
+        target_warehouse_id: it.warehouse_id || null,
+        commodity_id: it.commodity_id || null,
+        total_planned_quantity: it.quantity || 0,
+        measurement_unit: it.unit || '吨'
+      };
+      try{
+        const r = await fetch('/v1/inbound/reservations', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+        const jr = await r.json().catch(()=>({}));
+        if(r.ok && jr?.code===0){ created++; } else { failed++; }
+      }catch{ failed++; }
+    }
+    showMsg(`完成：创建 ${created}，失败 ${failed}`);
   }catch(e:any){ showMsg('推送异常：'+(e?.message||e)); }
   finally{ pushing.value=false; }
 }

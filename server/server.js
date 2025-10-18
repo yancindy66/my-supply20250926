@@ -523,9 +523,14 @@ app.post('/v1/inbound/reservations', async (req, res) => {
       });
       return res.json({ code:0, data:{ id } });
     }
+    // 非演示：按照前端传入字段写库，并以请求上下文用户ID作为申请人/预约人
+    // @ts-ignore
+    const ctx = req.ctx || { userId: 0 };
+    const applicantId = Number(ctx.userId || b.applicant_id || 1);
+    const reservistId = Number(ctx.userId || b.reservist_id || applicantId);
     const result = await query(
-      'INSERT INTO inbound_reservations (reservation_number, reservation_type, reservist_id, applicant_id, target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit, status) VALUES (CONCAT("RSV", UNIX_TIMESTAMP()), "by_depositor", ?, ?, ?, ?, ?, ?, "submitted")',
-      [b.reservist_id || b.applicant_id || 1, b.applicant_id || 1, b.target_warehouse_id, b.commodity_id, b.total_planned_quantity, b.measurement_unit]
+      'INSERT INTO inbound_reservations (reservation_number, reservation_type, reservist_id, applicant_id, target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit, status, created_at) VALUES (CONCAT("RSV", UNIX_TIMESTAMP()), "by_depositor", ?, ?, ?, ?, ?, ?, "submitted", NOW())',
+      [reservistId, applicantId, b.target_warehouse_id || null, b.commodity_id || null, b.total_planned_quantity || 0, b.measurement_unit || '吨']
     );
     return res.json({ code: 0, data: { id: result.insertId } });
   } catch (e) {
