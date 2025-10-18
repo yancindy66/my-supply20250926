@@ -202,12 +202,13 @@ function deleteRow(idx:number){
   try{ fetch(`/v1/imports/inbound/${encodeURIComponent(datasetId.value)}/row/${idx}`, { method:'DELETE' }); }catch{}
 }
 
+// 数量列同义词尽量覆盖
 const preferredQtyHeaders = ['预约入库量','数量','预约数量','入库量','计划入库量','planned_quantity','quantity','qty'];
 function toHalfWidth(str:string){
-  return (str||'').replace(/[\uFF10-\uFF19]/g, (d)=> String(d.charCodeAt(0)-0xFF10))
-                  .replace(/\uFF0E|\u3002|．/g, '.')
-                  .replace(/\uFF0C|，/g, ',')
-                  .replace(/\s+/g,' ');
+  return (str||'')
+    .replace(/[\uFF10-\uFF19]/g, (d)=> String(d.charCodeAt(0)-0xFF10))
+    .replace(/[\uFF0E\u3002．]/g, '.')
+    .replace(/[\uFF0C，]/g, ',');
 }
 function parseNumberLike(val:any): number{
   if(val===null||val===undefined) return NaN;
@@ -215,21 +216,19 @@ function parseNumberLike(val:any): number{
   let s = String(val);
   s = toHalfWidth(s).trim();
   if(!s) return NaN;
-  // 去千分位逗号
-  s = s.replace(/,/g,'');
-  // 百分号
   const isPct = /%$/.test(s); if(isPct) s = s.replace(/%$/,'');
+  s = s.replace(/,/g,'');
   let n = Number(s);
   if(isNaN(n)) return NaN;
   if(isPct) n = n/100;
   return n;
 }
-function isNumeric(val:any){ const n = parseNumberLike(val); return !isNaN(n) && isFinite(n as any); }
+// function isNumeric(val:any){ const n = parseNumberLike(val); return !isNaN(n) && isFinite(n as any); }
 const numericTotals = computed<Record<string, number>>(()=>{
   const totals: Record<string, number> = {};
   for(const h of headers.value){
     let sum = 0; let has = false;
-    for(const r of rows.value){ if(isNumeric(r[h])){ sum += Number(r[h]); has = true; } }
+    for(const r of rows.value){ const n = parseNumberLike(r[h]); if(!isNaN(n)){ sum += n; has = true; } }
     if(has) totals[h] = Number(sum.toFixed(6));
   }
   return totals;
@@ -495,12 +494,12 @@ function exportExcel(){
 
 function buildItems(){
   const find = (obj:any, names:string[])=>{ for(const n of names){ if(obj[n]!=null && obj[n] !== '') return obj[n]; } return ''; };
-  const list = rows.value.map((r)=>{
+  return rows.value.map((r)=>{
     const qtyRaw = find(r, ['预约入库量','数量','预约数量','入库量','计划入库量','planned_quantity','quantity','qty']);
     const qty = parseNumberLike(qtyRaw);
-    const wh = parseNumberLike(find(r,['仓库ID','warehouse_id'])) || 1;
-    const comm = parseNumberLike(find(r,['商品ID','commodity_id'])) || 1;
-    const unit = String(find(r,['计量单位','单位','measurement_unit'])||'吨');
+    const wh  = parseNumberLike(find(r,['仓库ID','warehouse_id'])) || 1;
+    const comm= parseNumberLike(find(r,['商品ID','commodity_id'])) || 1;
+    const unit= String(find(r,['计量单位','单位','measurement_unit'])||'吨');
     return {
       warehouse_id: Number(wh),
       commodity_id: Number(comm),
@@ -515,11 +514,10 @@ function buildItems(){
       client_batch_no: String(find(r,['货物批次号','客户预约号','客户批次号','client_batch_no'])||'')
     };
   }).filter(x=> Number(x.quantity)>0);
-  return list;
 }
 
 async function pushBatches(){
-  const items = buildItems(); if(!items.length){ showMsg('没有有效数据：请确认存在“数量/预约入库量”等列，且为正数'); return; }
+  const items = buildItems(); if(!items.length){ showMsg('没有有效数据：请确认存在“数量/预约入库量/预约数量”等列且为正数'); return; }
   pushing.value = true; showMsg('推送中…');
   try{
     // 改为逐条真实落库：/v1/inbound/reservations（非演示模式写 MySQL）

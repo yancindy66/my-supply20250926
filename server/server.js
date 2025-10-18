@@ -94,8 +94,8 @@ app.post('/v1/imports/inbound', (req, res) => {
   try{
     if (!allowDemo){
       (async () => {
-        const headers = Array.isArray(req.body?.headers)? req.body.headers : [];
-        const rows = Array.isArray(req.body?.rows)? req.body.rows : [];
+        const headersIncoming = Array.isArray(req.body?.headers)? req.body.headers : [];
+        const rowsIncoming = Array.isArray(req.body?.rows)? req.body.rows : [];
         const id = String(req.body?.id || Date.now());
         const user_id = Number(req.body?.user_id || 0) || null;
         const dataset_date = String(req.body?.dataset_date || '').trim() || null;
@@ -108,17 +108,35 @@ app.post('/v1/imports/inbound', (req, res) => {
           await conn.beginTransaction();
           await conn.query('CREATE TABLE IF NOT EXISTS import_inbound_datasets (id VARCHAR(64) PRIMARY KEY, user_id BIGINT NULL, dataset_date CHAR(8) NULL, headers JSON NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
           await conn.query('CREATE TABLE IF NOT EXISTS import_inbound_rows (id BIGINT PRIMARY KEY AUTO_INCREMENT, dataset_id VARCHAR(64) NOT NULL, row_index INT NOT NULL, data JSON NOT NULL, deleted TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, INDEX idx_dataset_row (dataset_id, row_index)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-          await conn.query('INSERT INTO import_inbound_datasets (id,user_id,dataset_date,headers,created_at,updated_at) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE headers=VALUES(headers), user_id=VALUES(user_id), dataset_date=VALUES(dataset_date), updated_at=VALUES(updated_at)', [id, user_id, dataset_date, JSON.stringify(headers||[]), now, now]);
-          await conn.query('DELETE FROM import_inbound_rows WHERE dataset_id=?', [id]);
-          if (rows.length){
-            const values = rows.map((r,idx)=> [id, idx, JSON.stringify(r||{}), 0, now, now]);
-            await conn.query('INSERT INTO import_inbound_rows (dataset_id,row_index,data,deleted,created_at,updated_at) VALUES ?',[values]);
+
+          // 读取现有 headers 与最大行号
+          const dsRows = await conn.query('SELECT headers FROM import_inbound_datasets WHERE id=? LIMIT 1', [id]);
+          // @ts-ignore
+          const existingHeaders = (dsRows?.[0]?.[0]?.headers ? JSON.parse(dsRows[0][0].headers) : []) || [];
+          // 合并表头（并集，保留旧顺序，追加新列）
+          const set = new Set(existingHeaders);
+          const mergedHeaders = existingHeaders.concat((headersIncoming||[]).filter(h=> !set.has(h)));
+
+          if (!dsRows?.[0]?.length){
+            await conn.query('INSERT INTO import_inbound_datasets (id,user_id,dataset_date,headers,created_at,updated_at) VALUES (?,?,?,?,?,?)', [id, user_id, dataset_date, JSON.stringify(mergedHeaders), now, now]);
+          }else{
+            await conn.query('UPDATE import_inbound_datasets SET headers=?, user_id=IFNULL(user_id,?), dataset_date=IFNULL(dataset_date,?), updated_at=? WHERE id=?', [JSON.stringify(mergedHeaders), user_id, dataset_date, now, id]);
           }
+
+          // 计算当前最大 row_index，并以其后开始追加新行
+          const maxRow = await conn.query('SELECT MAX(row_index) AS m FROM import_inbound_rows WHERE dataset_id=? AND deleted=0', [id]);
+          // @ts-ignore
+          const start = Number(maxRow?.[0]?.[0]?.m || 0) + 1;
+          if (rowsIncoming.length){
+            const values = rowsIncoming.map((r,idx)=> [id, start + idx, JSON.stringify(r||{}), 0, now, now]);
+            await conn.query('INSERT INTO import_inbound_rows (dataset_id,row_index,data,deleted,created_at,updated_at) VALUES ?', [values]);
+          }
+
           await conn.commit();
+          pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_append', actor:'mysql', ts: now, detail:{ appended: rowsIncoming.length, headers_total: mergedHeaders.length } });
+          return res.json({ code:0, data:{ id, appended: rowsIncoming.length } });
         }catch(e){ try{ await conn.rollback(); }catch{} throw e; }
         finally{ try{ conn.release(); }catch{} }
-        pushAudit({ scope:'import_inbound', ref_id:id, action:'draft_save', actor:'mysql', ts: now, detail:{ rows: rows.length, headers: headers.length } });
-        return res.json({ code:0, data:{ id } });
       })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
       return;
     }
