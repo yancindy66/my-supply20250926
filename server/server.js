@@ -452,12 +452,30 @@ app.get('/v1/inbound/reservations', async (req, res) => {
       const list = rows.slice(start, start+pageSize);
       return res.json({ code:0, data:{ list, total } });
     }
+    // 基于请求头中的角色/用户进行过滤（非演示模式下使用 applicant_id/reservist_id 以及目标仓库过滤）
+    // @ts-ignore
+    const ctx = req.ctx || { role:'', userId:0 };
+    const where: string[] = [];
+    const params: any[] = [];
+    if (ctx.role === 'inventory' && ctx.userId) {
+      where.push('(applicant_id = ? OR reservist_id = ?)');
+      params.push(Number(ctx.userId), Number(ctx.userId));
+    }
+    if (ctx.role === 'warehouse' && req.query.warehouseId) {
+      where.push('target_warehouse_id = ?');
+      params.push(Number(req.query.warehouseId));
+    }
+    const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
     const offset = (page - 1) * pageSize;
     const list = await query(
-      'SELECT id, reservation_number, status, target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit, created_at FROM inbound_reservations ORDER BY id DESC LIMIT ? OFFSET ?',
-      [pageSize, offset]
+      `SELECT id, reservation_number, status, target_warehouse_id, commodity_id, total_planned_quantity, measurement_unit, created_at
+       FROM inbound_reservations${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      params.concat([pageSize, offset])
     );
-    const totalRows = await query('SELECT COUNT(1) as c FROM inbound_reservations', []);
+    const totalRows = await query(
+      `SELECT COUNT(1) as c FROM inbound_reservations${whereSql}`,
+      params
+    );
     return res.json({ code: 0, data: { list, total: Number(totalRows[0]?.c || 0) } });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
@@ -747,11 +765,20 @@ app.get('/v1/warehouse-receipts', async (req, res) => {
     const page = Number(req.query.page || 1);
     const pageSize = Number(req.query.pageSize || 10);
     const offset = (page - 1) * pageSize;
+    // @ts-ignore
+    const ctx = req.ctx || { role:'', userId:0 };
+    const where: string[] = [];
+    const params: any[] = [];
+    if (ctx.role === 'inventory' && ctx.userId) {
+      where.push('created_by_user_id = ?');
+      params.push(Number(ctx.userId));
+    }
+    const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
     const rows = await query(
-      'SELECT id, receipt_number, quantity, measurement_unit, status FROM warehouse_receipts ORDER BY id DESC LIMIT ? OFFSET ?',
-      [pageSize, offset]
+      `SELECT id, receipt_number, quantity, measurement_unit, status FROM warehouse_receipts${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      params.concat([pageSize, offset])
     );
-    const total = await query('SELECT COUNT(1) as c FROM warehouse_receipts', []);
+    const total = await query(`SELECT COUNT(1) as c FROM warehouse_receipts${whereSql}`, params);
     res.json({ code: 0, data: { list: rows, total: Number(total[0]?.c || 0) } });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
@@ -1007,11 +1034,24 @@ app.get('/v1/inbound/orders', async (req, res) => {
     const page = Number(req.query.page || 1);
     const pageSize = Number(req.query.pageSize || 10);
     const offset = (page - 1) * pageSize;
+    // @ts-ignore
+    const ctx = req.ctx || { role:'', userId:0 };
+    const where: string[] = [];
+    const params: any[] = [];
+    if (ctx.role === 'inventory' && ctx.userId) {
+      where.push('applicant_id = ?');
+      params.push(Number(ctx.userId));
+    }
+    if (ctx.role === 'warehouse' && req.query.warehouseId) {
+      where.push('warehouse_id = ?');
+      params.push(Number(req.query.warehouseId));
+    }
+    const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
     const rows = await query(
-      'SELECT order_no, reservation_number, status, planned_quantity, measurement_unit FROM inbound_orders ORDER BY id DESC LIMIT ? OFFSET ?',
-      [pageSize, offset]
+      `SELECT order_no, reservation_number, status, planned_quantity, measurement_unit FROM inbound_orders${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      params.concat([pageSize, offset])
     );
-    const total = await query('SELECT COUNT(1) as c FROM inbound_orders', []);
+    const total = await query(`SELECT COUNT(1) as c FROM inbound_orders${whereSql}`, params);
     res.json({ code: 0, data: { list: rows, total: Number(total[0]?.c || 0) } });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
