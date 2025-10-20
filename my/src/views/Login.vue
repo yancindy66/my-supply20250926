@@ -9,9 +9,8 @@
           <span class="tiles" aria-hidden="true">
             <i class="c1"></i><i class="c2"></i><i class="c3"></i><i class="c4"></i>
           </span>
-            <div class="brand-text">
+              <div class="brand-text">
               <div class="title">汇融至信· 云 TrustFusion</div>
-              <div class="subtitle">汇融至信 · 数智为先</div>
             </div>
         </div>
           
