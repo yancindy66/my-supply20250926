@@ -1,61 +1,54 @@
 <template>
   <div class="login-layout">
-    <!-- 左侧：登录面板（位于左侧，底部含欢迎文案） -->
-    <section class="panel">
+    <!-- 左下角：极简登录面板（可隐藏/展开） -->
+    <section class="panel" :class="{visible: showPanel}">
         <div class="panel-card">
+          <button type="button" class="close-btn" @click="showPanel=false" aria-label="关闭登录面板">×</button>
+          <div class="topline"></div>
           <div class="brand-row">
-          <img v-if="logoSrc" class="logo" :src="logoSrc" alt="logo" />
-            <div class="tag">探索未来之境</div>
+          <span class="tiles" aria-hidden="true">
+            <i class="c1"></i><i class="c2"></i><i class="c3"></i><i class="c4"></i>
+          </span>
+            <div class="brand-text">
+              <div class="title">汇融至信· 云 TrustFusion</div>
+              <div class="subtitle">汇融至信 · 数智为先</div>
+            </div>
         </div>
           
-        <!-- 角色选择（先选角色） -->
-        <div class="role-switch">
-          <button type="button" :class="['pill', role==='operation'?'on':'']" @click="role='operation'">平台运营</button>
-          <button type="button" :class="['pill', role==='inventory'?'on':'']" @click="role='inventory'">存货人</button>
-          <button type="button" :class="['pill', role==='warehouse'?'on':'']" @click="role='warehouse'">仓储机构</button>
-          <button type="button" :class="['pill', role==='financial'?'on':'']" @click="role='financial'">金融机构</button>
-          <button type="button" :class="['pill', role==='guarantee'?'on':'']" @click="role='guarantee'">担保机构</button>
-        </div>
-
+          
         <form @submit.prevent="onLogin" class="form">
-          <label>角色</label>
-          <select v-model="role" required>
-            <option value="operation">平台运营</option>
-            <option value="inventory">存货人</option>
-            <option value="warehouse">仓储机构</option>
-            <option value="financial">金融机构</option>
-            <option value="guarantee">担保机构</option>
-          </select>
           <label>账号</label>
-          <input id="username" v-model="username" type="text" required placeholder="手机/邮箱/用户名" />
+          <input id="username" class="field" v-model="username" type="text" required placeholder="手机/邮箱/用户名" />
           <label>密码</label>
-          <input id="password" v-model="password" type="password" required placeholder="请输入密码" />
-          <div class="inline">
-            <input v-model="captcha" placeholder="验证码" />
-            <button type="button" class="ghost small" :disabled="smsWait>0" @click="sendSms">{{ smsWait>0 ? `${smsWait}s` : '获取验证码' }}</button>
+          <input id="password" class="field" v-model="password" type="password" required placeholder="请输入密码" />
+          <div class="otp-row" role="group" aria-label="短信验证码">
+            <input class="otp-input" v-model="captcha" placeholder="短信验证码" />
+            <button type="button" class="otp-btn" :class="{disabled:smsWait>0}" :disabled="smsWait>0" @click="sendSms">
+              <span class="txt">{{ smsWait>0 ? `${smsWait}s` : '发送短信' }}</span>
+            </button>
       </div>
-          <div class="inline-check">
-            <label class="remember"><input type="checkbox" v-model="remember" /> 记住我</label>
+          <div class="inline-check right">
             <a class="link" href="javascript:void(0)">忘记密码？</a>
       </div>
           <div class="actions">
       <button type="submit">登录</button>
-            <button type="button" class="ghost" @click="goRegister()">注册该角色</button>
-            <button type="button" class="ghost" @click="previewLogin">快速预览</button>
           </div>
-          <div class="social-row cute">
-            <span>快捷登录：</span>
-            <button type="button" class="s cute face" title="刷脸登录" @click="loginWithFace">🙂</button>
-            <button type="button" class="s cute finger" title="指纹登录" @click="loginWithFingerprint">🔒</button>
-            <button type="button" class="s cute wechat" title="微信登录" aria-label="微信登录" @click="loginWithWeChat">微信</button>
+          <div class="links-row">
+            <a class="link" href="javascript:void(0)" @click="goRegister()">没有账号？创建账户 →</a>
           </div>
     </form>
         <div v-if="message" class="msg">{{ message }}</div>
-        <div class="welcome-footer">为确保账号安全，请勿在公共设备保存密码</div>
       </div>
     </section>
     
-    <!-- 右侧：简洁蓝色图片/渐变背景 -->
+    <!-- 面板隐藏时的浮动按钮 -->
+    <button v-if="!showPanel" class="panel-toggle" @click="showPanel=true" aria-label="打开登录">
+      <span class="tiles tiles-lg" aria-hidden="true">
+        <i class="c1"></i><i class="c2"></i><i class="c3"></i><i class="c4"></i>
+      </span>
+    </button>
+    
+    <!-- 背景：AI 蓝色动效 -->
     <section class="blue-pane">
       <div class="blue-overlay"></div>
       <!-- 中央 AI 核心光晕 + 扫描环 + 轨道粒子 -->
@@ -79,19 +72,7 @@
         <span class="dot d6"></span>
       </div>
       
-      <!-- 微信扫码登录弹窗 -->
-      <div v-if="showWechat" class="wx-mask" @click="closeWechat">
-        <div class="wx-modal" @click.stop>
-          <div class="wx-title">微信扫码登录</div>
-          <div class="wx-body">
-            <img v-if="wechatQrUrl" :src="wechatQrUrl" alt="wechat-qr" />
-            <div class="wx-tip">请使用微信扫描二维码完成登录</div>
-          </div>
-          <div class="wx-actions">
-            <button class="ghost" @click="closeWechat">取消</button>
-          </div>
-        </div>
-      </div>
+      
 
     </section>
   </div>
@@ -120,8 +101,9 @@ function sendSms(){
 const remember = ref(false);
 const message = ref('');
 const router = useRouter();
-const role = ref(localStorage.getItem('role') || 'operation');
+const role = ref('');
 const logoSrc = (typeof window !== 'undefined' && window.location) ? undefined : undefined;
+const showPanel = ref(false);
 
 async function onLogin() {
   if (!username.value || !password.value) { message.value='请输入用户名和密码'; return; }
@@ -154,7 +136,11 @@ function rolePreviewHome(roleKey: string){
   return '/dashboard';
 }
 function previewLogin(){
-  const r = String(role.value||'operation');
+  // 预览：自动按用户名推断一个角色：邮箱->operation，手机号->inventory，其他->warehouse
+  const u = String(username.value||'');
+  let r = 'warehouse';
+  if(/@/.test(u)) r = 'operation';
+  else if(/^1\d{10}$/.test(u)) r = 'inventory';
   // 预览模式：写入最小登录态（token + user + 归属）
   try{ localStorage.setItem('auth_token','preview'); }catch{}
   try{ localStorage.setItem('role', r); }catch{}
@@ -165,11 +151,7 @@ function previewLogin(){
   router.push(rolePreviewHome(r));
 }
 
-function goRegister(){
-  // 带着角色跳转注册页，注册页按角色切换表单
-  try{ localStorage.setItem('role', String(role.value||'operation')); }catch{}
-  router.push('/register');
-}
+function goRegister(){ router.push('/register'); }
 
 // 三种快捷登录（占位实现：调用后端 /api/auth/*，失败则给出提示）
 // 现已在 Nginx 开启 CORS，可在开发环境直连线上域名
@@ -297,44 +279,58 @@ function goTool(key: string){
 
 <style scoped>
 /* 左右两栏 */
-.login-layout{ min-height:100vh; display:grid; grid-template-columns:480px 1fr; gap:0; padding:0; font-family: 'Inter', 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif; background:
+.login-layout{ position:relative; min-height:100vh; display:block; padding:0; font-family: 'Inter', 'Noto Sans SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif; background:
   radial-gradient(1200px 800px at 25% -10%, rgba(21,62,150,.28), transparent 60%),
   linear-gradient(180deg,#0b1f48 0%, #0b2d66 40%, #0a2c68 100%);
 }
-.panel{ display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; padding:40px 28px; }
-.panel .panel-card{ width:100%; padding:28px 24px; border-radius:18px; backdrop-filter: blur(16px) saturate(170%); -webkit-backdrop-filter: blur(16px) saturate(170%); background:
-  linear-gradient(180deg, rgba(255,255,255,.90), rgba(237,242,255,.78)),
-  radial-gradient(800px 400px at 0% -10%, rgba(189,213,255,.35), transparent 60%),
-  radial-gradient(600px 300px at 100% -10%, rgba(174,205,255,.28), transparent 64%);
-  border:1px solid rgba(255,255,255,.85);
-  box-shadow: 0 24px 54px rgba(2,6,23,.16), inset 0 1px 0 rgba(255,255,255,.8);
-}
-.brand-row{ display:flex; align-items:center; justify-content:flex-start; gap:12px; margin-bottom:12px; }
-.brand-row .logo{ height:40px; opacity:.95; }
-.brand-row .tag{ font-size:20px; font-weight:800; letter-spacing:.06em; color:#0f172a; }
+.panel{ position:fixed; left:24px; bottom:24px; width:300px; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; padding:16px; z-index:100; }
+.panel{ transform: translateY(140%); opacity:0; pointer-events:none; transition: all .28s ease; }
+.panel.visible{ transform: translateY(0); opacity:1; pointer-events:auto; }
+.panel .close-btn{ position:absolute; right:10px; top:10px; width:24px; height:24px; border:none; background: transparent; color:#6b7280; font-size:20px; line-height:24px; cursor:pointer; }
+.panel .close-btn:hover{ color:#111827; }
+.panel .panel-card{ position:relative; width:100%; padding:16px 14px; border-radius:12px; background:#ffffff; border:1px solid #e5e7eb; box-shadow:0 10px 24px rgba(2,6,23,.10); }
+.brand-row{ display:flex; align-items:center; justify-content:flex-start; gap:10px; margin-bottom:12px; }
+.brand-row .tiles{ display:inline-grid; grid-template-columns:10px 10px; grid-template-rows:10px 10px; gap:2px; }
+.brand-row .tiles i{ display:block; width:10px; height:10px; border-radius:2px; }
+.brand-row .tiles .c1{ background:#f35325; }
+.brand-row .tiles .c2{ background:#81bc06; }
+.brand-row .tiles .c3{ background:#05a6f0; }
+.brand-row .tiles .c4{ background:#ffba08; }
+.brand-text{ display:flex; flex-direction:column; }
+.brand-text .title{ font-size:14px; font-weight:800; letter-spacing:.02em; color:#111827; }
+.brand-text .subtitle{ margin-top:2px; font-size:11px; color:#6b7280; letter-spacing:.02em; }
 .brand{ height:64px; display:flex; align-items:center; justify-content:center; color:#0f172a; font-weight:700; letter-spacing:.2em; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 8px 24px rgba(2,6,23,.06); }
-.panel-card{ position:relative; flex:1; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 24px rgba(2,6,23,.06); padding:20px; display:flex; flex-direction:column; justify-content:flex-end; min-height:520px; }
-.panel-card h2{ margin:0 0 16px; }
+.panel-card{ position:relative; flex:1; padding:12px 0 0; display:flex; flex-direction:column; justify-content:flex-start; min-height:auto; }
+.panel-card h2{ margin:0 0 16px; color:#e6eeff; }
 .form{ display:flex; flex-direction:column; gap:14px; margin-top:6px; }
-.form label{ color:#334155; font-size:14px; }
-.form input, .form select{ height:44px; padding:0 14px; border:1px solid rgba(2,6,23,.06); border-radius:12px; background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(248,251,255,.88)); box-shadow:0 8px 18px rgba(2,6,23,.06), inset 0 1px 2px rgba(2,6,23,.03); font-size:15px; }
-.form input::placeholder{ color:#94a3b8; }
-.form input:focus, .form select:focus{ outline:none; border-color:#93c5fd; box-shadow:0 0 0 2px rgba(147,197,253,.35), 0 10px 22px rgba(2,6,23,.08); }
+.form label{ color:#374151; font-size:13px; }
+.form input, .form select{ height:32px; padding:0 8px; border:1px solid #e5e7eb; border-radius:6px; background:#ffffff; box-shadow:none; color:#111827; font-size:13px; }
+.form input::placeholder{ color:#9ca3af; }
+.form input:focus, .form select:focus{ outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); background:#ffffff; color:#111827; }
 .inline{ display:flex; gap:10px; align-items:center; }
 .inline .ghost.small{ height:44px; padding:0 12px; border-radius:12px; border:1px solid rgba(2,6,23,.06); background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(246,249,255,.9)); box-shadow:0 6px 16px rgba(2,6,23,.06); color:#0f172a; font-weight:600; }
 .inline .ghost.small:disabled{ opacity:.6; cursor:not-allowed; }
+.otp-row{ display:flex; gap:6px; align-items:center; }
+.otp-input{ flex:0 0 90px; width:90px; height:32px; padding:0 6px; border:1px solid #e5e7eb; border-radius:6px; background:#ffffff; color:#111827; font-size:13px; }
+.otp-btn{ position:relative; height:32px; padding:0 10px; border:1px solid #1d4ed8; border-radius:6px; background:#1d4ed8; color:#fff; font-weight:700; letter-spacing:.01em; cursor:pointer; box-shadow:0 4px 10px rgba(29,78,216,.16); overflow:hidden; white-space:nowrap; font-size:13px; }
+.otp-btn.fancy .shine{ position:absolute; left:8px; top:50%; width:14px; height:14px; transform: translateY(-50%); border-radius:50%; background: radial-gradient(circle at 30% 30%, #fff, rgba(255,255,255,.6) 40%, rgba(255,255,255,0) 60%); box-shadow:0 0 16px rgba(255,255,255,.8); }
+.otp-btn .spark{ position:absolute; inset:0; background:radial-gradient(12px 12px at -10% 50%, rgba(255,255,255,.0), rgba(255,255,255,.0) 30%, rgba(255,255,255,.9) 31%, rgba(255,255,255,.0) 32%) repeat-x; background-size:24px 100%; animation: spark-move 1.6s linear infinite; mix-blend-mode: screen; opacity:.6; }
+@keyframes spark-move{ 0%{ background-position-x:0 } 100%{ background-position-x:240px } }
+.otp-btn.disabled{ filter: grayscale(.3); opacity:.7; cursor:not-allowed; box-shadow:none; }
+.otp-btn .txt{ position:relative; z-index:1; }
 .inline-check{ display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:2px; color:#667085; }
+.inline-check.right{ justify-content:flex-end; }
 .inline-check .remember{ display:flex; align-items:center; gap:6px; }
 .inline-check .link{ color:#2563eb; text-decoration:none; }
 .inline-check .link:hover{ text-decoration:underline; }
-.actions{ display:flex; gap:12px; margin-top:10px; }
-.actions button{ flex:1; height:46px; border:none; border-radius:14px; background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; cursor:pointer; box-shadow:0 12px 26px rgba(37,99,235,.28); font-weight:700; letter-spacing:.02em; }
+.actions{ display:flex; gap:10px; margin-top:6px; }
+.actions button{ flex:1; height:40px; border:1px solid #2563eb; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; box-shadow:0 8px 18px rgba(37,99,235,.20); font-weight:700; letter-spacing:.02em; }
 .actions button:hover{ transform: translateY(-1px); box-shadow:0 16px 32px rgba(37,99,235,.32); }
-.actions .ghost{ background:#f1f5f9; color:#0f172a; }
+.actions .ghost{ background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04)); color:#e6eeff; border:1px solid rgba(122,168,255,.22); box-shadow:0 8px 18px rgba(2,6,23,.16); }
 .msg{ margin-top:8px; color:#16a34a; }
 .welcome-footer{ margin-top:16px; text-align:center; color:#64748b; font-size:12px; }
 /* 快捷登录按钮：可爱玻璃风 */
-.social-row{ display:flex; align-items:center; gap:12px; margin-top:18px; font-size:14px; color:#475569; }
+.social-row{ display:flex; align-items:center; gap:12px; margin-top:18px; font-size:14px; color:#a9bff1; }
 .social-row.cute .s{ width:44px; height:44px; border-radius:12px; border:1px solid rgba(15,23,42,.08); background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(245,248,255,.9)); display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; box-shadow:0 6px 18px rgba(2,6,23,.08), inset 0 2px 4px rgba(255,255,255,.5); transition: transform .15s ease, box-shadow .15s ease; }
 .social-row.cute .s:hover{ transform: translateY(-2px); box-shadow:0 10px 22px rgba(2,6,23,.12), inset 0 2px 4px rgba(255,255,255,.6); }
 .social-row.cute .s.face{ color:#0ea5e9; }
@@ -345,7 +341,14 @@ function goTool(key: string){
 
 .cube-pane{ position:relative; border:1px solid #e2e8f0; border-radius:16px; background:#f8fbff; box-shadow:0 12px 28px rgba(2,6,23,.06); overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 /* 右侧蓝色背景（图片+渐变） */
-.blue-pane{ position:relative; width:100%; min-height:100vh; overflow:hidden; border-left:1px solid #0f3b9a44; }
+.blue-pane{ position:relative; z-index:1; width:100%; min-height:100vh; overflow:hidden; border-left:1px solid #0f3b9a44; }
+.panel-toggle{ position:fixed; left:24px; bottom:24px; height:40px; padding:0 16px; border:none; border-radius:999px; background:#1d4ed8; color:#fff; cursor:pointer; box-shadow:0 8px 18px rgba(29,78,216,.28); font-weight:700; letter-spacing:.02em; z-index:200; }
+.panel-toggle .tiles-lg{ display:inline-grid; grid-template-columns:12px 12px; grid-template-rows:12px 12px; gap:3px; margin-right:6px; vertical-align:middle; }
+.panel-toggle .tiles-lg i{ display:block; width:12px; height:12px; border-radius:2px; }
+.panel-toggle .tiles-lg .c1{ background:#f35325; }
+.panel-toggle .tiles-lg .c2{ background:#81bc06; }
+.panel-toggle .tiles-lg .c3{ background:#05a6f0; }
+.panel-toggle .tiles-lg .c4{ background:#ffba08; }
 .blue-overlay{ position:absolute; inset:0; background:
   radial-gradient(900px 700px at 60% 40%, rgba(24,76,170,.28), transparent 65%),
   radial-gradient(600px 450px at 60% 40%, rgba(40,110,230,.18), transparent 70%);
