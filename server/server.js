@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { query, getConnection } from './db.js';
 import multer from 'multer';
 import xlsx from 'xlsx';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 dotenv.config();
@@ -82,7 +83,14 @@ app.use((req, _res, next) => {
   const role = String(req.headers['x-role'] || '').toLowerCase();
   const uidRaw = req.headers['x-user-id'];
   const userId = Number(uidRaw || 0);
-  const ctx = { role: role || (allowDemo ? 'inventory' : ''), userId: (userId || (allowDemo ? 1 : 0)) };
+  const whRaw = req.headers['x-warehouse-id'];
+  const orgRaw = req.headers['x-org-id'];
+  const ctx = {
+    role: role || (allowDemo ? 'inventory' : ''),
+    userId: (userId || (allowDemo ? 1 : 0)),
+    warehouseId: Number(whRaw || 0) || 0,
+    orgId: Number(orgRaw || 0) || 0
+  };
   // @ts-ignore
   req.ctx = ctx;
   next();
@@ -97,10 +105,14 @@ app.post('/v1/imports/inbound', (req, res) => {
         const headersIncoming = Array.isArray(req.body?.headers)? req.body.headers : [];
         const rowsIncoming = Array.isArray(req.body?.rows)? req.body.rows : [];
         const id = String(req.body?.id || Date.now());
-        const user_id = Number(req.body?.user_id || 0) || null;
+        let user_id = Number(req.body?.user_id || 0) || null;
         const dataset_date = String(req.body?.dataset_date || '').trim() || null;
         // @ts-ignore
         const ctx = req.ctx || { userId:0 };
+        // 若请求体未显式传入 user_id，则采用请求头中的用户ID
+        const effectiveUserId = user_id || (ctx.userId ? Number(ctx.userId) : null);
+        // 基于 /v1/auth/me 结果可能包含组织ID；此处从请求头透传，或后续统一改为会话
+        const ownerOrgId = Number(req.headers['x-org-id'] || 0) || null;
         if (user_id && ctx.userId && Number(user_id)!==Number(ctx.userId)) return res.status(403).json({ code:403, message:'forbidden' });
         const now = new Date().toISOString().slice(0,19).replace('T',' ');
         const conn = await getConnection();
@@ -118,9 +130,9 @@ app.post('/v1/imports/inbound', (req, res) => {
           const mergedHeaders = existingHeaders.concat((headersIncoming||[]).filter(h=> !set.has(h)));
 
           if (!dsRows?.[0]?.length){
-            await conn.query('INSERT INTO import_inbound_datasets (id,user_id,dataset_date,headers,created_at,updated_at) VALUES (?,?,?,?,?,?)', [id, user_id, dataset_date, JSON.stringify(mergedHeaders), now, now]);
+            await conn.query('INSERT INTO import_inbound_datasets (id,user_id,owner_org_id,dataset_date,headers,created_at,updated_at) VALUES (?,?,?,?,?,?,?)', [id, effectiveUserId, ownerOrgId, dataset_date, JSON.stringify(mergedHeaders), now, now]);
           }else{
-            await conn.query('UPDATE import_inbound_datasets SET headers=?, user_id=IFNULL(user_id,?), dataset_date=IFNULL(dataset_date,?), updated_at=? WHERE id=?', [JSON.stringify(mergedHeaders), user_id, dataset_date, now, id]);
+            await conn.query('UPDATE import_inbound_datasets SET headers=?, user_id=IFNULL(user_id,?), owner_org_id=IFNULL(owner_org_id,?), dataset_date=IFNULL(dataset_date,?), updated_at=? WHERE id=?', [JSON.stringify(mergedHeaders), effectiveUserId, ownerOrgId, dataset_date, now, id]);
           }
 
           // 计算当前最大 row_index，并以其后开始追加新行
@@ -152,22 +164,49 @@ app.post('/v1/imports/inbound', (req, res) => {
   }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
 });
 
+// 列出当前用户最近一次的数据集（非演示模式）或返回空
+app.get('/v1/imports/inbound', (req, res) => {
+  try{
+    if (!allowDemo){
+      (async ()=>{
+        // @ts-ignore
+        const ctx = req.ctx || { userId:0 };
+        const uid = Number(ctx.userId||0);
+        let row = null;
+        if (uid){
+          const r = await query('SELECT id, headers, created_at, updated_at FROM import_inbound_datasets WHERE user_id=? ORDER BY updated_at DESC LIMIT 1', [uid]);
+          row = r && r[0] ? r[0] : null;
+        }
+        // 如果严格隔离，不返回其他人的数据。若无则返回空
+        if (!row) return res.json({ code:0, data:null });
+        return res.json({ code:0, data:{ id: row.id, headers: JSON.parse(row.headers||'[]'), created_at: row.created_at, updated_at: row.updated_at } });
+      })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
+      return;
+    }
+    // demo: 不提供全量列表，返回空
+    return res.json({ code:0, data:null });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
 // 获取数据集
 app.get('/v1/imports/inbound/:id', (req, res) => {
   try{
     if (!allowDemo){
       (async ()=>{
-        const id = String(req.params.id);
+    const id = String(req.params.id);
         // 基于 ID 前缀/用户ID进行隔离校验（格式 inbound-<userId>-YYYYMMDD）
         // @ts-ignore
-        const ctx = req.ctx || { role:'', userId:0 };
+    const ctx = req.ctx || { role:'', userId:0 };
         const parts = id.split('-');
         const idUser = Number(parts?.[1] || 0) || 0;
         if (idUser && ctx.userId && idUser !== ctx.userId){ return res.status(403).json({ code:403, message:'forbidden' }); }
-        const rows = await query('SELECT headers, created_at, updated_at, user_id, dataset_date FROM import_inbound_datasets WHERE id=? LIMIT 1',[id]);
+    const rows = await query('SELECT headers, created_at, updated_at, user_id, owner_org_id, dataset_date FROM import_inbound_datasets WHERE id=? LIMIT 1',[id]);
         if(!rows.length) return res.json({ code:404, message:'not found' });
         const ds = rows[0];
         if (ds.user_id && ctx.userId && Number(ds.user_id)!==Number(ctx.userId)) return res.status(403).json({ code:403, message:'forbidden' });
+    // 组织维度隔离：如请求头传 orgId 则需要一致
+    const reqOrg = Number(String(req.headers['x-org-id']||'')) || 0;
+    if (reqOrg && Number(ds.owner_org_id||0) && Number(ds.owner_org_id)!==reqOrg) return res.status(403).json({ code:403, message:'forbidden' });
         const list = await query('SELECT row_index, data FROM import_inbound_rows WHERE dataset_id=? AND deleted=0 ORDER BY row_index ASC',[id]);
         return res.json({ code:0, data:{ id, headers: JSON.parse(ds.headers||'[]'), rows: list.map(x=> JSON.parse(x.data||'{}')), user_id: ds.user_id||null, dataset_date: ds.dataset_date||null, created_at: ds.created_at, updated_at: ds.updated_at } });
       })().catch(e=> res.status(500).json({ code:500, message:String(e?.message||e) }));
@@ -325,20 +364,139 @@ function capabilitiesByRole(roleKey){
   };
 }
 
+// ---- Login OTP store (in-memory) ----
+/** @type {Map<string, { code:string, expires:number, userId?:number }>} */
+const loginOtps = new Map();
+
+// Aliyun SMS sender (optional)
+async function sendAliyunSms(phone, code){
+  try{
+    const provider = String(process.env.SMS_PROVIDER||'').toLowerCase();
+    if(provider !== 'aliyun') return { ok:false, reason:'provider_not_aliyun' };
+    // ESM 兼容：使用动态 import，并兼顾 default 与命名导出
+    // 使用 createRequire 兼容 ESM 环境下的 CJS SDK
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const DysmsMod = require('@alicloud/dysmsapi20170525');
+    const OpenApi = require('@alicloud/openapi-client');
+    const TeaUtil = require('@alicloud/tea-util');
+    const DysmsClientClass = DysmsMod.default || DysmsMod; // 默认导出为 Client
+    const SendSmsRequest = DysmsMod.SendSmsRequest || (DysmsClientClass && DysmsClientClass.SendSmsRequest);
+    const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID || '';
+    const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET || '';
+    const signName = process.env.ALIYUN_SMS_SIGN_NAME || '';
+    const templateCode = process.env.ALIYUN_SMS_TEMPLATE_CODE || '';
+    if(!accessKeyId || !accessKeySecret || !signName || !templateCode){
+      return { ok:false, reason:'missing_env' };
+    }
+    const config = new OpenApi.Config({ accessKeyId, accessKeySecret, endpoint:'dysmsapi.aliyuncs.com' });
+    const client = new DysmsClientClass(config);
+    const req = new SendSmsRequest({
+      phoneNumbers: String(phone),
+      signName,
+      templateCode,
+      templateParam: JSON.stringify({ code: String(code) })
+    });
+    const runtime = new (TeaUtil.RuntimeOptions || (TeaUtil.default && TeaUtil.default.RuntimeOptions) || Function)({});
+    const resp = await client.sendSmsWithOptions(req, runtime);
+    const body = resp && resp.body ? resp.body : {};
+    const codeUpper = String(body.Code || body.code || (msg==='OK'?'OK':'' )).toUpperCase();
+    const msg = body.Message || body.message || '';
+    if (process.env.SMS_LOG_VERBOSE === '1') {
+      console.log('[aliyun-sms] response raw:', resp);
+      console.log('[aliyun-sms] response:', { Code: body.Code||body.code, Message: msg, BizId: body.BizId||body.BizID||'', RequestId: body.RequestId||body.requestId||'' });
+    }
+    if(codeUpper === 'OK' || msg === 'OK'){
+      return { ok:true };
+    }
+    return { ok:false, reason: msg || 'send_failed', raw: body };
+  }catch(e){
+    console.error('[aliyun-sms] send error:', e?.message||e);
+    return { ok:false, reason: String(e?.message||e) };
+  }
+}
+
+// Send login SMS code
+app.post('/v1/auth/sms/send-login-code', async (req, res) => {
+  try{
+    const username = String(req.body?.username || '').trim();
+    if(!username) return res.status(400).json({ code:400, message:'username required' });
+    // Resolve user & phone
+    let user = null; let phone = '';
+    if (allowDemo) {
+      user = { id:1, username: username||'demo' };
+      phone = /^1\d{10}$/.test(username)? username : '138****0000';
+    } else {
+      const q = await query('SELECT id, username FROM users WHERE username=? LIMIT 1', [username]);
+      if(!q.length){
+        // 若输入本身是手机号，允许后续校验时再绑定
+        if(/^1\d{10}$/.test(username)){
+          user = { id:0, username };
+          phone = username;
+        } else {
+          return res.status(404).json({ code:404, message:'user not found' });
+        }
+      }else{
+        user = q[0];
+        // 优先 registration_profiles 的 contact_phone
+        try{
+          const rp = await query('SELECT contact_phone FROM registration_profiles WHERE user_id=? ORDER BY id DESC LIMIT 1', [user.id]);
+          phone = String(rp?.[0]?.contact_phone||'');
+        }catch{}
+      }
+    }
+    if(!phone){ phone = '138****0000'; }
+    const code = String(Math.floor(100000+Math.random()*900000));
+    const key = `u:${String(user?.id||0)}|${username}`;
+    loginOtps.set(key, { code, expires: Date.now()+5*60*1000, userId: Number(user?.id||0) });
+    // Integrate Aliyun if configured
+    const realPhone = /^1\d{10}$/.test(username)? username : String(phone||'');
+    const provider = String(process.env.SMS_PROVIDER||'').toLowerCase();
+    let sendRes = { ok:false };
+    if (provider === 'aliyun' && realPhone){
+      sendRes = await sendAliyunSms(realPhone, code);
+      if (!sendRes.ok) console.warn('[login-otp] aliyun send failed:', sendRes.reason || 'unknown');
+    }
+    const mask = phone.replace(/(\d{3})\d+(\d{2})/, '$1****$2');
+    if (process.env.NODE_ENV !== 'production') console.log('[login-otp]', username, code);
+    const resp = { sent_to: mask };
+    if (allowDemo || process.env.NODE_ENV !== 'production') {
+      // 仅开发/演示环境返回调试验证码，线上必须移除
+      // @ts-ignore
+      resp.debug_code = code;
+      if (!sendRes.ok && provider === 'aliyun') {
+        // @ts-ignore
+        resp.debug_message = sendRes.reason || 'send_failed';
+      }
+    }
+    return res.json({ code:0, data: resp });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
 app.post('/v1/auth/login', async (req, res) => {
-  const { username } = req.body || {};
+  const { username, password, otp } = req.body || {};
   try {
     if (allowDemo) {
+      // demo 模式也要求提供 otp（便于前端联调），但不强制校验
       const token = `mock-${Buffer.from(String(username || 'demo')).toString('hex')}`;
       return res.json({ code: 0, data: { token, user_id: 1, expires_in: 3600 } });
     }
-    const rows = await query(
-      'SELECT id, username, name, type, organization_id FROM users WHERE username=? LIMIT 1',
-      [username]
-    );
-    if (!rows.length) return res.json({ code: 401, message: '用户不存在' });
+    if(!username || !password) return res.json({ code:400, message:'用户名与密码必填' });
+    // OTP required for login (统一要求验证码)
+    if(!otp) return res.status(400).json({ code:400, message:'验证码必填' });
+    // verify otp
+    let okOtp = false;
+    for (const [k, v] of loginOtps.entries()) {
+      if (k.endsWith(`|${username}`) && v && Date.now() <= Number(v.expires||0) && String(v.code) === String(otp)) { okOtp = true; break; }
+    }
+    if(!okOtp) return res.status(400).json({ code:400, message:'验证码无效或过期' });
+    const rows = await query('SELECT id, username, name, role_key, organization_id, warehouse_id, password_hash FROM users WHERE username=? LIMIT 1',[username]);
+    if(!rows.length) return res.json({ code:401, message:'用户不存在' });
+    const u = rows[0];
+    const ok = crypto.createHash('sha256').update(String(password)).digest('hex') === String(u.password_hash);
+    if(!ok) return res.json({ code:401, message:'密码错误' });
     const token = `mock-${Buffer.from(String(username || 'user')).toString('hex')}`;
-    res.json({ code: 0, data: { token, user_id: rows[0].id, expires_in: 3600 } });
+    return res.json({ code:0, data:{ token, user_id: u.id, expires_in: 3600 } });
   } catch (e) {
     res.status(500).json({ code: 500, message: String(e?.message || e) });
   }
@@ -349,29 +507,33 @@ app.get('/v1/auth/me', async (_req, res) => {
     if (allowDemo) {
       const role_key = 'depositor';
       return res.json({
-        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, type: role_key },
+        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, warehouse_id: 1, type: role_key },
         roles: [{ id: 1, role_key, role_name: role_key==='depositor'?'存货人':role_key }],
         permissions: ['/inbound/apply','/warehouse-receipt/list','/pledge/list'],
         data_scope: 'organization',
         capabilities: capabilitiesByRole('inventory')
       });
     }
-    const user = (await query('SELECT id, username, name, type, organization_id FROM users LIMIT 1'))[0] || null;
-    const roles = await query(
-      'SELECT r.id, r.role_key, r.role_name FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=?',
-      [user?.id || 0]
-    );
-    const permissions = await query(
-      'SELECT p.permission_key FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id WHERE rp.role_id IN (?)',
-      [roles.map(r => r.id).concat(0)]
-    );
-    const primaryRole = (roles[0]?.role_key || 'inventory');
-    res.json({ user, roles, permissions: permissions.map(p => p.permission_key), data_scope: 'organization', capabilities: capabilitiesByRole(primaryRole) });
+    // 优先使用明确的 user_id（query 或 请求头）
+    // @ts-ignore
+    const ctx = _req.ctx || { userId:0 };
+    const idRaw = _req.query?.user_id || _req.headers['x-user-id'] || ctx.userId || 0;
+    const uid = Number(idRaw||0) || 0;
+    let user = null;
+    if (uid) {
+      const r = await query('SELECT id, username, name, role_key as type, organization_id, warehouse_id FROM users WHERE id=? LIMIT 1',[uid]);
+      user = r && r[0] ? r[0] : null;
+    }
+    if (!user) {
+      user = (await query('SELECT id, username, name, role_key as type, organization_id, warehouse_id FROM users ORDER BY id ASC LIMIT 1'))[0] || null;
+    }
+    const roles = user? [{ id:1, role_key: user.type, role_name: user.type }]: [];
+    res.json({ user, roles, permissions: [], data_scope: 'organization', capabilities: capabilitiesByRole(user?.type || 'inventory') });
   } catch (e) {
     if (allowDemo) {
       const role_key = 'depositor';
       return res.json({
-        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, type: role_key },
+        user: { id: 1, name: '演示用户', username: 'demo', organization_id: 1001, warehouse_id: 1, type: role_key },
         roles: [{ id: 1, role_key, role_name: '存货人' }],
         permissions: ['/inbound/apply','/warehouse-receipt/list','/pledge/list'],
         data_scope: 'organization',
@@ -380,6 +542,102 @@ app.get('/v1/auth/me', async (_req, res) => {
     }
     res.status(500).json({ code: 500, message: String(e?.message || e) });
   }
+});
+
+// 注册（最小实现）
+app.post('/v1/auth/register', async (req, res) => {
+  try{
+    const { username, password, role_key, name, organization_id=null, warehouse_id=null, company_name, license_no, contact_name, contact_phone, warehouse_name, warehouse_address, warehouse_type, materials, uscc } = req.body || {};
+    if(!username || !password || !role_key) return res.json({ code:400, message:'缺少必填字段' });
+    const now = new Date().toISOString().slice(0,19).replace('T',' ');
+    const hash = crypto.createHash('sha256').update(String(password)).digest('hex');
+    // 企业唯一校验（按 uscc 或 license_no）
+    try{
+      await query('CREATE TABLE IF NOT EXISTS organizations (id BIGINT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(128) NOT NULL, uscc VARCHAR(32) UNIQUE, license_no VARCHAR(64) UNIQUE, contact_name VARCHAR(64), contact_phone VARCHAR(32), status VARCHAR(16) DEFAULT "active", created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4', []);
+    }catch{}
+    if (uscc || license_no){
+      try{
+        const cond = uscc ? 'uscc=?' : 'license_no=?';
+        const rs = await query(`SELECT id, name FROM organizations WHERE ${cond} LIMIT 1`, [String(uscc||license_no)]);
+        if (rs && rs.length){
+          return res.status(409).json({ code:409, reason:'ORG_EXISTS', org_id: rs[0].id, org_name: rs[0].name });
+        }
+      }catch(e){ /* 忽略查询错误，避免阻断注册 */ }
+    }
+    const result = await query('INSERT INTO users (username,password_hash,name,role_key,organization_id,warehouse_id,status,created_at) VALUES (?,?,?,?,?,?,"active",?)',
+      [username, hash, name||username, role_key, organization_id, warehouse_id, now]);
+    const userId = result.insertId;
+    // 生成 6 位 user_code（全局计数）
+    try{
+      await query('INSERT INTO code_counters (`key`,`val`) VALUES ("USR",1) ON DUPLICATE KEY UPDATE val=LAST_INSERT_ID(val+1)', []);
+      const rows = await query('SELECT LAST_INSERT_ID() as n', []);
+      const n = Number(rows?.[0]?.n || 1);
+      const code = String(n).padStart(6,'0');
+      await query('UPDATE users SET user_code=? WHERE id=?',[code, userId]);
+    }catch{}
+    // 写注册资料（锁定）
+    try{
+      await query('INSERT INTO registration_profiles (user_id,role_key,org_name,license_no,contact_name,contact_phone,warehouse_name,warehouse_address,warehouse_type,materials,status,locked,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?, ?,"submitted",1,?,?)',
+        [userId, role_key, company_name||null, license_no||null, contact_name||null, contact_phone||null, warehouse_name||null, warehouse_address||null, warehouse_type||null, materials? JSON.stringify(materials): null, now, now]);
+    }catch{}
+    // 若提供了 uscc/公司名且不存在企业，自动创建组织（便于后续加入/管理）
+    try{
+      if (uscc || company_name){
+        const cond = uscc ? 'uscc=?' : 'license_no=?';
+        const val = String(uscc||license_no||'');
+        const exist = await query(`SELECT id FROM organizations WHERE ${cond} LIMIT 1`, [val]);
+        if(!(exist && exist.length)){
+          await query('INSERT INTO organizations (name, uscc, license_no, contact_name, contact_phone, status, created_at, updated_at) VALUES (?,?,?,?,?,"active",?,?)', [company_name||name||username, uscc||null, license_no||null, contact_name||null, contact_phone||null, now, now]);
+        }
+      }
+    }catch{}
+    return res.json({ code:0, data:{ user_id: userId } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// 申请加入企业（鉴权可后续完善，这里读取 ctx.userId）
+app.post('/v1/orgs/:orgId/join-requests', async (req, res) => {
+  try{
+    const orgId = Number(req.params.orgId||0);
+    // @ts-ignore
+    const ctx = req.ctx || { userId:0 };
+    const uid = Number(req.body?.user_id || ctx.userId || 0);
+    if(!orgId || !uid) return res.status(400).json({ code:400, message:'orgId/user_id required' });
+    try{ await query('CREATE TABLE IF NOT EXISTS org_join_requests (id BIGINT PRIMARY KEY AUTO_INCREMENT, org_id BIGINT NOT NULL, user_id BIGINT NOT NULL, status VARCHAR(16) NOT NULL DEFAULT "pending", reason VARCHAR(255) NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, INDEX idx_org (org_id), INDEX idx_user (user_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4', []);}catch{}
+    const now = new Date().toISOString().slice(0,19).replace('T',' ');
+    const r = await query('INSERT INTO org_join_requests (org_id,user_id,status,reason,created_at,updated_at) VALUES (?,?,?,?,?,?)', [orgId, uid, 'pending', String(req.body?.reason||''), now, now]);
+    return res.json({ code:0, data:{ id: r.insertId } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+// 找回企业 - 发送验证码（演示不真正发，返回脱敏联系方式）
+const retrieveCodes = new Map(); // key: uscc|contact, val: { code, expires }
+app.post('/v1/orgs/retrieve/send-code', async (req, res) => {
+  try{
+    const { uscc='', phone_or_email='' } = req.body || {};
+    if(!uscc || !phone_or_email) return res.status(400).json({ code:400, message:'uscc 与 联系方式必填' });
+    const rs = await query('SELECT id, name, contact_phone FROM organizations WHERE uscc=? LIMIT 1', [String(uscc)]).catch(()=>[]);
+    if(!(rs && rs.length)) return res.status(404).json({ code:404, message:'not found' });
+    const code = String(Math.floor(100000+Math.random()*900000));
+    const key = `${uscc}|${phone_or_email}`;
+    retrieveCodes.set(key, { code, expires: Date.now()+5*60*1000 });
+    const mask = phone_or_email.replace(/(\d{3})\d+(\d{2})/, '$1****$2').replace(/(.{2}).+(@)/, '$1****$2');
+    return res.json({ code:0, data:{ sent_to: mask } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
+});
+
+app.post('/v1/orgs/retrieve/verify', async (req, res) => {
+  try{
+    const { uscc='', phone_or_email='', code='' } = req.body || {};
+    const key = `${uscc}|${phone_or_email}`;
+    const rec = retrieveCodes.get(key);
+    if(!rec || String(rec.code)!==String(code) || Date.now()>Number(rec.expires||0)) return res.status(400).json({ code:400, message:'验证码无效或已过期' });
+    const rs = await query('SELECT id, name, uscc, contact_phone, created_at FROM organizations WHERE uscc=? LIMIT 1', [String(uscc)]).catch(()=>[]);
+    if(!(rs && rs.length)) return res.status(404).json({ code:404, message:'not found' });
+    const row = rs[0];
+    const admin_contact_mask = String(row.contact_phone||'').replace(/(\d{3})\d+(\d{2})/, '$1****$2');
+    return res.json({ code:0, data:{ org_id: row.id, name: row.name, uscc: row.uscc, admin_contact_mask, created_at: row.created_at } });
+  }catch(e){ return res.status(500).json({ code:500, message:String(e?.message||e) }); }
 });
 
 // Platform master data (demo)
@@ -470,18 +728,19 @@ app.get('/v1/inbound/reservations', async (req, res) => {
       const list = rows.slice(start, start+pageSize);
       return res.json({ code:0, data:{ list, total } });
     }
-    // 基于请求头中的角色/用户进行过滤（非演示模式下使用 applicant_id/reservist_id 以及目标仓库过滤）
+    // 基于请求头中的角色/用户/仓库进行过滤（行级隔离）
     // @ts-ignore
-    const ctx = req.ctx || { role:'', userId:0 };
-    const where: string[] = [];
-    const params: any[] = [];
+    const ctx = req.ctx || { role:'', userId:0, warehouseId:0 };
+    const where = [];
+    /** @type {any[]} */
+    const params = [];
     if (ctx.role === 'inventory' && ctx.userId) {
       where.push('(applicant_id = ? OR reservist_id = ?)');
       params.push(Number(ctx.userId), Number(ctx.userId));
     }
-    if (ctx.role === 'warehouse' && req.query.warehouseId) {
-      where.push('target_warehouse_id = ?');
-      params.push(Number(req.query.warehouseId));
+    if (ctx.role === 'warehouse') {
+      const wid = Number(req.query.warehouseId || ctx.warehouseId || 0);
+      if (wid) { where.push('target_warehouse_id = ?'); params.push(wid); }
     }
     const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
     const offset = (page - 1) * pageSize;
@@ -789,12 +1048,17 @@ app.get('/v1/warehouse-receipts', async (req, res) => {
     const pageSize = Number(req.query.pageSize || 10);
     const offset = (page - 1) * pageSize;
     // @ts-ignore
-    const ctx = req.ctx || { role:'', userId:0 };
-    const where: string[] = [];
-    const params: any[] = [];
+    const ctx = req.ctx || { role:'', userId:0, warehouseId:0 };
+    const where = [];
+    /** @type {any[]} */
+    const params = [];
     if (ctx.role === 'inventory' && ctx.userId) {
       where.push('created_by_user_id = ?');
       params.push(Number(ctx.userId));
+    }
+    if (ctx.role === 'warehouse') {
+      const wid = Number(req.query.warehouseId || ctx.warehouseId || 0);
+      if (wid) { where.push('warehouse_id = ?'); params.push(wid); }
     }
     const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
     const rows = await query(
@@ -1059,8 +1323,9 @@ app.get('/v1/inbound/orders', async (req, res) => {
     const offset = (page - 1) * pageSize;
     // @ts-ignore
     const ctx = req.ctx || { role:'', userId:0 };
-    const where: string[] = [];
-    const params: any[] = [];
+    const where = [];
+    /** @type {any[]} */
+    const params = [];
     if (ctx.role === 'inventory' && ctx.userId) {
       where.push('applicant_id = ?');
       params.push(Number(ctx.userId));
@@ -1484,6 +1749,66 @@ app.get('/oo/saved/:name', (req, res) => {
     if (!fs.existsSync(p)) return res.status(404).end();
     return res.sendFile(p);
   }catch(e){ return res.status(500).end(); }
+});
+
+// ===== 平台主数据（只读、operation 权限） =====
+function assertOperationRole(req, res){
+  // @ts-ignore
+  const ctx = req.ctx || { role:'', userId:0 };
+  if (String(ctx.role||'') !== 'operation') {
+    res.status(403).json({ code:403, message:'forbidden' });
+    return false;
+  }
+  return true;
+}
+
+// 存货人列表
+app.get('/v1/admin/inventories', (req, res) => {
+  if (!assertOperationRole(req, res)) return;
+  const list = [
+    { id: 1, name: '华夏粮油集团有限公司', org_code: 'INV-0001', contact_name: '王敏', contact_phone: '13800000001', status: 'active', created_at: '2025-01-01 10:00:00' },
+    { id: 2, name: '广源贸易有限公司', org_code: 'INV-0002', contact_name: '李强', contact_phone: '13800000002', status: 'active', created_at: '2025-01-03 09:20:00' }
+  ];
+  return res.json({ code:0, data:{ list, total: list.length } });
+});
+
+// 仓储机构列表
+app.get('/v1/admin/warehouses', (req, res) => {
+  if (!assertOperationRole(req, res)) return;
+  const list = [
+    { id: 1, name: '天津港1号仓', address: '天津市滨海新区港口路88号', manager_name:'赵伟', manager_phone:'13900000011', rooms_count: 12, status:'active', created_at:'2025-01-05 08:10:00' },
+    { id: 2, name: '上海化工仓B区', address: '上海市奉贤区化工路1号', manager_name:'周杰', manager_phone:'13900000012', rooms_count: 8, status:'active', created_at:'2025-01-06 14:35:00' }
+  ];
+  return res.json({ code:0, data:{ list, total: list.length } });
+});
+
+// 金融机构列表
+app.get('/v1/admin/financial-orgs', (req, res) => {
+  if (!assertOperationRole(req, res)) return;
+  const list = [
+    { id: 1, name: '招商银行天津分行', license_no:'FIN-2025-001', contact_name:'刘珊', contact_phone:'13700000021', status:'cooperating', created_at:'2025-01-08 11:00:00' },
+    { id: 2, name: '中信保理', license_no:'FIN-2025-002', contact_name:'韩冰', contact_phone:'13700000022', status:'cooperating', created_at:'2025-01-10 16:00:00' }
+  ];
+  return res.json({ code:0, data:{ list, total: list.length } });
+});
+
+// 担保机构列表
+app.get('/v1/admin/guarantee-orgs', (req, res) => {
+  if (!assertOperationRole(req, res)) return;
+  const list = [
+    { id: 1, name:'天津市中小企业担保中心', license_no:'GUA-2025-001', contact_name:'许宁', contact_phone:'13600000031', status:'cooperating', created_at:'2025-01-12 10:20:00' }
+  ];
+  return res.json({ code:0, data:{ list, total: list.length } });
+});
+
+// 平台运营人员列表
+app.get('/v1/admin/operators', (req, res) => {
+  if (!assertOperationRole(req, res)) return;
+  const list = [
+    { id: 1, username:'ops_admin', name:'平台管理员', role:'operation', phone:'13500000001', email:'ops@platform.local', status:'active', created_at:'2025-01-01 09:00:00' },
+    { id: 2, username:'ops_kf01', name:'客服一部', role:'operation', phone:'13500000002', email:'kf01@platform.local', status:'active', created_at:'2025-01-02 10:00:00' }
+  ];
+  return res.json({ code:0, data:{ list, total: list.length } });
 });
 
 // 内嵌页：直接在后端生成一个可编辑、全工具栏的 OnlyOffice 页面，避免前端 CSP/代理问题
