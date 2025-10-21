@@ -1,5 +1,6 @@
 <template>
-  <div class="login-layout">
+  <div class="login-layout" :class="{ 'panel-open': showPanel }">
+    <div v-if="showPanel" class="panel-mask" @click="closePanel"></div>
     <!-- 左下角：极简登录面板（可隐藏/展开） -->
     <section class="panel" :class="{visible: showPanel}">
         <div class="panel-card">
@@ -16,27 +17,29 @@
           
           
         <form @submit.prevent="onLogin" class="form">
-          <label>账号</label>
-          <input id="username" class="field" v-model="username" type="text" required placeholder="手机/邮箱/用户名" />
-          <label>密码</label>
-          <input id="password" class="field" v-model="password" type="password" required placeholder="请输入密码" />
+          <input id="username" ref="usernameRef" class="field" v-model="username" type="text" required placeholder="请输入登录名" @blur="validateUser" :aria-invalid="!!errUser" />
+          <div class="pwd-wrap">
+            <input id="password" class="field" v-model="password" :type="showPwd?'text':'password'" required placeholder="请输入登录密码" @blur="validatePass" :aria-invalid="!!errPass" />
+            <button type="button" class="eye" @click="showPwd=!showPwd" :aria-label="showPwd?'隐藏密码':'显示密码'">{{ showPwd?'隐藏':'显示' }}</button>
+          </div>
           <div class="otp-row" role="group" aria-label="短信验证码">
-            <input class="otp-input" v-model="captcha" placeholder="短信验证码" />
-            <button type="button" class="otp-btn" :class="{disabled:smsWait>0}" :disabled="smsWait>0" @click="sendSms">
-              <span class="txt">{{ smsWait>0 ? `${smsWait}s` : '发送短信' }}</span>
+            <input class="otp-input" v-model="captcha" placeholder="请输入短信验证码" />
+            <button type="button" class="otp-btn" :class="{disabled:smsWait>0}" @click="sendSms">
+              <span class="txt">{{ smsWait>0 ? `${smsWait}s` : '获取验证码' }}</span>
             </button>
       </div>
           <div class="inline-check right">
             <a class="link" href="javascript:void(0)">忘记密码？</a>
       </div>
           <div class="actions">
-      <button type="submit">登录</button>
+            <button type="submit" :disabled="isLogging" :aria-busy="isLogging">{{ isLogging? '登录中…':'登录' }}</button>
           </div>
           <div class="links-row">
             <a class="link" href="javascript:void(0)" @click="goRegister()">没有账号？创建账户 →</a>
           </div>
     </form>
         <div v-if="message" class="msg">{{ message }}</div>
+        <div v-if="smsInfo" class="msg" style="color:#2563eb;">{{ smsInfo }}</div>
       </div>
     </section>
     
@@ -79,19 +82,30 @@
 
 <script setup lang="ts">
 
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { login as apiLogin, me as apiMe } from '@/api/auth';
+import { login as apiLogin, me as apiMe, sendLoginOtp } from '@/api/auth';
 
 const username = ref('');
+const usernameRef = ref<HTMLInputElement|null>(null as any);
 const password = ref('');
 const captcha = ref('');
 const smsWait = ref(0);
+const smsInfo = ref('');
 let smsTimer: any = null;
-function sendSms(){
+async function sendSms(){
   if(smsWait.value>0) return;
+  // 发送登录验证码（基于账号）
+  const u = String(username.value||'').trim(); if(!u){ errUser.value='请输入登录名'; return; }
   smsWait.value = 60;
   smsTimer && clearInterval(smsTimer);
+  try{
+    const r:any = await sendLoginOtp(u);
+    const data:any = r && (r.data || (r.code===0 && r)) ? (r.data || {}) : {};
+    const sent = data.sent_to || '';
+    const dbg = data.debug_code || '';
+    smsInfo.value = dbg ? `验证码已发送至 ${sent}（演示验证码：${dbg}）` : (sent? `验证码已发送至 ${sent}` : '验证码已发送');
+  }catch(e){ smsInfo.value='验证码发送失败，请稍后重试'; }
   smsTimer = setInterval(()=>{
     smsWait.value -= 1;
     if(smsWait.value<=0){ clearInterval(smsTimer); smsTimer=null; smsWait.value=0; }
@@ -103,12 +117,24 @@ const router = useRouter();
 const role = ref('');
 const logoSrc = (typeof window !== 'undefined' && window.location) ? undefined : undefined;
 const showPanel = ref(false);
+const isLogging = ref(false);
+const showPwd = ref(false);
+const errUser = ref('');
+const errPass = ref('');
+const errOtp = ref('');
 
 async function onLogin() {
-  if (!username.value || !password.value) { message.value='请输入用户名和密码'; return; }
+  // 表单校验：仅在输入框下方提示，不再弹全局提示
+  errUser.value = username.value.trim()? '': '请输入登录名';
+  errPass.value = password.value.trim()? '': '请输入登录密码';
+  // 手机号登录时需要验证码
+  const isPhone = /^1\d{10}$/.test(String(username.value||''));
+  errOtp.value = isPhone && !String(captcha.value||'').trim()? '请输入短信验证码' : '';
+  if (errUser.value || errPass.value || errOtp.value) { return; }
   message.value = '';
   try {
-    const resp = await apiLogin({ username: username.value, password: password.value });
+    isLogging.value = true;
+    const resp = await apiLogin({ username: username.value, password: password.value, otp: String(captcha.value||'') });
     const token = (resp as any)?.data?.token || '';
     if (!token) { message.value = '登录失败'; return; }
     try { localStorage.setItem('auth_token', token); } catch {}
@@ -122,7 +148,7 @@ async function onLogin() {
     router.push(homeByRole(mapRoleKeyToRoute(roleKey)));
   } catch(e:any) {
     message.value = '登录失败，请重试';
-  }
+  } finally { isLogging.value=false; }
 }
 
 function rolePreviewHome(roleKey: string){
@@ -252,6 +278,17 @@ function closeWechat(){
 
 function goRole(){ router.push('/role-select'); }
 
+function closePanel(){ showPanel.value=false; }
+function onKey(e: KeyboardEvent){
+  if(e.key==='Escape'){ closePanel(); }
+  if(e.key==='Enter' && showPanel.value){ onLogin(); }
+}
+function focusUser(){ setTimeout(()=> usernameRef.value?.focus(), 0); }
+function validateUser(){ errUser.value = username.value.trim()? '': '请输入账号'; }
+function validatePass(){ errPass.value = password.value.trim()? '': '请输入密码'; }
+onMounted(()=>{ window.addEventListener('keydown', onKey); });
+onBeforeUnmount(()=>{ window.removeEventListener('keydown', onKey); });
+
 // 右侧立方体轻交互
 const rotX = ref(-28); const rotY = ref(32);
 let sx=0, sy=0; const dragging = ref(false);
@@ -287,7 +324,8 @@ function goTool(key: string){
 .panel.visible{ transform: translateY(0); opacity:1; pointer-events:auto; }
 .panel .close-btn{ position:absolute; right:10px; top:10px; width:24px; height:24px; border:none; background: transparent; color:#6b7280; font-size:20px; line-height:24px; cursor:pointer; }
 .panel .close-btn:hover{ color:#111827; }
-.panel .panel-card{ position:relative; width:100%; padding:16px 14px; border-radius:12px; background:#ffffff; border:1px solid #e5e7eb; box-shadow:0 10px 24px rgba(2,6,23,.10); }
+.panel .panel-card{ position:relative; width:100%; padding:16px 14px; border-radius:14px; background:rgba(255,255,255,.68); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); border:1px solid rgba(255,255,255,.6); box-shadow:0 18px 44px rgba(2,6,23,.18); }
+.panel .panel-card::before{ content:''; position:absolute; left:10px; right:10px; top:10px; height:2px; border-radius:2px; background: linear-gradient(90deg, transparent, rgba(37,99,235,.65), transparent); filter: blur(.2px); }
 .brand-row{ display:flex; align-items:center; justify-content:flex-start; gap:10px; margin-bottom:12px; }
 .brand-row .tiles{ display:inline-grid; grid-template-columns:10px 10px; grid-template-rows:10px 10px; gap:2px; }
 .brand-row .tiles i{ display:block; width:10px; height:10px; border-radius:2px; }
@@ -303,15 +341,21 @@ function goTool(key: string){
 .panel-card h2{ margin:0 0 16px; color:#e6eeff; }
 .form{ display:flex; flex-direction:column; gap:14px; margin-top:6px; }
 .form label{ color:#374151; font-size:13px; }
-.form input, .form select{ height:32px; padding:0 8px; border:1px solid #e5e7eb; border-radius:6px; background:#ffffff; box-shadow:none; color:#111827; font-size:13px; }
+.form input, .form select{ height:34px; padding:0 10px; border:1px solid rgba(213,225,255,.85); border-radius:12px; background:rgba(255,255,255,.82); box-shadow: inset 0 2px 4px rgba(2,6,23,.04), 0 6px 14px rgba(2,6,23,.06); color:#0f172a; font-size:13px; transition: box-shadow .15s ease, border-color .15s ease; }
 .form input::placeholder{ color:#9ca3af; }
-.form input:focus, .form select:focus{ outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); background:#ffffff; color:#111827; }
+.form input:focus, .form select:focus{ outline:none; border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.22), 0 10px 24px rgba(37,99,235,.12); background:#ffffff; color:#0f172a; }
 .inline{ display:flex; gap:10px; align-items:center; }
 .inline .ghost.small{ height:44px; padding:0 12px; border-radius:12px; border:1px solid rgba(2,6,23,.06); background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(246,249,255,.9)); box-shadow:0 6px 16px rgba(2,6,23,.06); color:#0f172a; font-weight:600; }
 .inline .ghost.small:disabled{ opacity:.6; cursor:not-allowed; }
+.pwd-wrap{ position:relative; display:flex; align-items:center; }
+.pwd-wrap .field{ padding-right:56px; }
+.pwd-wrap .eye{ position:absolute; right:6px; height:22px; line-height:22px; padding:0 10px; border:1px solid #e5e7eb; border-radius:999px; background:#ffffff; color:#374151; font-size:12px; cursor:pointer; }
+.pwd-wrap .eye:hover{ border-color:#2563eb; color:#1d4ed8; }
 .otp-row{ display:flex; gap:6px; align-items:center; }
-.otp-input{ flex:0 0 90px; width:90px; height:32px; padding:0 6px; border:1px solid #e5e7eb; border-radius:6px; background:#ffffff; color:#111827; font-size:13px; }
-.otp-btn{ position:relative; height:32px; padding:0 10px; border:1px solid #1d4ed8; border-radius:6px; background:#1d4ed8; color:#fff; font-weight:700; letter-spacing:.01em; cursor:pointer; box-shadow:0 4px 10px rgba(29,78,216,.16); overflow:hidden; white-space:nowrap; font-size:13px; }
+.otp-input{ flex:0 0 120px; width:120px; height:34px; padding:0 10px; border:1px solid rgba(213,225,255,.85); border-radius:12px; background:rgba(255,255,255,.82); color:#0f172a; font-size:13px; box-shadow: inset 0 2px 4px rgba(2,6,23,.04); }
+.otp-btn{ position:relative; height:34px; padding:0 12px; border:1px solid #1d4ed8; border-radius:12px; background:#1d4ed8; color:#fff; font-weight:700; letter-spacing:.01em; cursor:pointer; box-shadow:0 8px 18px rgba(29,78,216,.20); overflow:hidden; white-space:nowrap; font-size:13px; backdrop-filter: blur(4px); }
+.otp-btn::after{ content:''; position:absolute; top:0; left:-40%; width:40%; height:100%; background: linear-gradient(90deg, rgba(255,255,255,.0), rgba(255,255,255,.5), rgba(255,255,255,0)); transform:skewX(-20deg); animation: shine-move 2.4s infinite; }
+@keyframes shine-move{ 0%{ left:-40%; } 100%{ left:140%; } }
 .otp-btn.fancy .shine{ position:absolute; left:8px; top:50%; width:14px; height:14px; transform: translateY(-50%); border-radius:50%; background: radial-gradient(circle at 30% 30%, #fff, rgba(255,255,255,.6) 40%, rgba(255,255,255,0) 60%); box-shadow:0 0 16px rgba(255,255,255,.8); }
 .otp-btn .spark{ position:absolute; inset:0; background:radial-gradient(12px 12px at -10% 50%, rgba(255,255,255,.0), rgba(255,255,255,.0) 30%, rgba(255,255,255,.9) 31%, rgba(255,255,255,.0) 32%) repeat-x; background-size:24px 100%; animation: spark-move 1.6s linear infinite; mix-blend-mode: screen; opacity:.6; }
 @keyframes spark-move{ 0%{ background-position-x:0 } 100%{ background-position-x:240px } }
@@ -323,7 +367,7 @@ function goTool(key: string){
 .inline-check .link{ color:#2563eb; text-decoration:none; }
 .inline-check .link:hover{ text-decoration:underline; }
 .actions{ display:flex; gap:10px; margin-top:6px; }
-.actions button{ flex:1; height:40px; border:1px solid #2563eb; border-radius:10px; background:#2563eb; color:#fff; cursor:pointer; box-shadow:0 8px 18px rgba(37,99,235,.20); font-weight:700; letter-spacing:.02em; }
+.actions button{ flex:1; height:40px; border:1px solid #2563eb; border-radius:12px; background:linear-gradient(180deg,#2563eb,#1d4ed8); color:#fff; cursor:pointer; box-shadow:0 12px 28px rgba(37,99,235,.25); font-weight:700; letter-spacing:.02em; }
 .actions button:hover{ transform: translateY(-1px); box-shadow:0 16px 32px rgba(37,99,235,.32); }
 .actions .ghost{ background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04)); color:#e6eeff; border:1px solid rgba(122,168,255,.22); box-shadow:0 8px 18px rgba(2,6,23,.16); }
 .msg{ margin-top:8px; color:#16a34a; }
